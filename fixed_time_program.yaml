@@ -1,0 +1,9 @@
+length: 10
+offset: 0
+groups: ["a1","a2","b1","b2"]
+states:
+  0:    "00AA"
+  5:    "11AA"
+skips: { 0: 4 }
+waits: { 4: 4 }
+switch: []
