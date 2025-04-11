@@ -65,8 +65,82 @@ defmodule TLC do
   @doc """
   Updates the program state for the next cycle.
   """
-  def update_program(%TrafficProgram{} = program) do
-    update_states(program)
+  def update_program(program) do
+    # Increment base cycle time
+    base_cycle_time = rem(program.base_cycle_time + 1, program.length)
+
+    # Calculate new cycle time based on current offset
+    cycle_time = rem(base_cycle_time + program.offset, program.length)
+
+    # Update base and current cycle time
+    program = %{program |
+      base_cycle_time: base_cycle_time,
+      current_cycle_time: cycle_time
+    }
+
+    # Apply skip points immediately if current cycle time matches a skip point
+    program = apply_skip_points(program)
+
+    # Recalculate cycle time after applying skip points
+    cycle_time = rem(program.base_cycle_time + program.offset, program.length)
+    program = %{program | current_cycle_time: cycle_time}
+
+    # Adjust offset towards target if needed
+    program = adjust_offset_towards_target(program)
+
+    # Apply wait points if needed
+    apply_wait_points(program)
+  end
+
+  @doc """
+  Applies skip points if the current cycle time matches a skip point.
+  Skip points are only applied when the offset is below the target offset.
+  Made public for testing purposes.
+  """
+  def apply_skip_points(program) do
+    cycle_time = program.current_cycle_time
+    skip_amount = program.skips["#{cycle_time}"]
+
+    # Only apply skip points if offset is below target
+    if skip_amount && program.offset < program.target_offset do
+      # Apply the skip immediately
+      %{program | offset: program.offset + skip_amount}
+    else
+      program
+    end
+  end
+
+  @doc """
+  Applies wait points if the current cycle time matches a wait point and offset needs to be reduced.
+  """
+  def apply_wait_points(program) do
+    cycle_time = program.current_cycle_time
+    wait_amount = program.waits["#{cycle_time}"]
+
+    # Check if we need to reduce offset (target < current)
+    if wait_amount && program.offset > program.target_offset do
+      # Calculate how much we need to decrease the offset
+      decrease_needed = program.offset - program.target_offset
+      # If the required decrease is smaller than the wait duration,
+      # just decrease by the required amount, otherwise decrease by the full wait amount
+      decrease_amount = min(decrease_needed, wait_amount)
+      # Decrease the offset by the determined amount
+      %{program | offset: program.offset - decrease_amount}
+    else
+      program
+    end
+  end
+
+  @doc """
+  Adjusts the offset towards the target offset.
+  """
+  def adjust_offset_towards_target(program) do
+    # If target is already reached, no adjustment needed
+    if program.offset == program.target_offset do
+      program
+    else
+      program
+    end
   end
 
   defp update_states(%TrafficProgram{length: length, base_cycle_time: base_time, offset: offset, target_offset: target_offset, skips: skips, waits: waits} = program) do

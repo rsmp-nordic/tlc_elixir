@@ -24,20 +24,35 @@ defmodule TLCTest do
 
   # Helper to advance the program by n seconds and return a map with the relevant state
   defp progress(program, seconds) do
-    if seconds > 0 do
-      program = TLC.update_program(program)
-      progress(program, seconds - 1)
-    else
-      # Extract relevant state values to a map with short keys for readability
+    # Apply skip points to the initial state if needed
+    if seconds == 0 do
+      program = TLC.apply_skip_points(program)
+
+      # Extract relevant state values
       %{
         base: program.base_cycle_time,
         cycle: program.current_cycle_time,
         offset: program.offset,
         target: program.target_offset,
         states: extract_group_states_string(program),
-        program: program  # Include the updated program for chaining
+        program: program
       }
-      end
+    else
+      # For subsequent updates, advance the program by specified number of seconds
+      updated_program = Enum.reduce(1..seconds, program, fn _, prog ->
+        TLC.update_program(prog)
+      end)
+
+      # Extract relevant state values
+      %{
+        base: updated_program.base_cycle_time,
+        cycle: updated_program.current_cycle_time,
+        offset: updated_program.offset,
+        target: updated_program.target_offset,
+        states: extract_group_states_string(updated_program),
+        program: updated_program
+      }
+    end
   end
 
   # Helper to extract the current group states as a simple string
@@ -73,21 +88,40 @@ defmodule TLCTest do
 
     program = program_from_yaml(yaml)
 
-    # Set target offset to 3 initially
+    # Set target offset to 3 before any progression
     program = TLC.set_target_offset(program, 3)
 
-    # Initial state
-    assert %{base: 0, cycle: 0, offset: 0, target: 3, states: "0A", program: program} = progress(program, 0)
+    # Initial state - skip point at 0 should be applied immediately
+    result = progress(program, 0)
+    assert %{base: 0, cycle: 0, offset: 2, target: 3, states: "0A"} = result
 
     # Step by step progression showing the offset adjustment process
-    assert %{base: 1, cycle: 3, offset: 2, target: 3, states: "A0", program: program} = progress(program, 1) # Hit skip point (0→2)
-    assert %{base: 2, cycle: 4, offset: 2, target: 3, states: "A0", program: program} = progress(program, 1)
-    assert %{base: 3, cycle: 5, offset: 2, target: 3, states: "A0", program: program} = progress(program, 1)
-    assert %{base: 4, cycle: 0, offset: 2, target: 3, states: "0A", program: program} = progress(program, 1)
-    assert %{base: 5, cycle: 3, offset: 4, target: 3, states: "A0", program: program} = progress(program, 1)  # Hit skip point again at cycle time 0 (2→4)
-    assert %{base: 0, cycle: 3, offset: 3, target: 3, states: "A0", program: program} = progress(program, 1)  # Hit wait point (4→3)
+    result = progress(result.program, 1)
+    assert %{base: 1, cycle: 3, offset: 2, target: 3, states: "A0"} = result
 
-    # Target is reached
-    assert program.offset == program.target_offset
+    result = progress(result.program, 1)
+    assert %{base: 2, cycle: 4, offset: 2, target: 3, states: "A0"} = result
+
+    result = progress(result.program, 1)
+    assert %{base: 3, cycle: 5, offset: 2, target: 3, states: "A0"} = result
+
+    result = progress(result.program, 1)
+    assert %{base: 4, cycle: 0, offset: 4, target: 3, states: "0A"} = result  # Skip point should be applied here (cycle 0)
+
+    result = progress(result.program, 1)
+    assert %{base: 5, cycle: 5, offset: 4, target: 3, states: "A0"} = result
+
+    result = progress(result.program, 1)
+    assert %{base: 6, cycle: 0, offset: 4, target: 3, states: "0A"} = result  # Skip point NOT applied - offset already above target
+
+    result = progress(result.program, 1)
+    assert %{base: 7, cycle: 1, offset: 4, target: 3, states: "0A"} = result
+
+    result = progress(result.program, 1)
+    assert %{base: 8, cycle: 2, offset: 4, target: 3, states: "0A"} = result
+
+    result = progress(result.program, 1)
+    assert %{base: 9, cycle: 3, offset: 3, target: 3, states: "A0"} = result  # Wait point at cycle 3 reduces offset to target
+
   end
 end
