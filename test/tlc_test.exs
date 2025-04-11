@@ -60,7 +60,7 @@ defmodule TLCTest do
     TLC.get_current_states_string(program)
   end
 
-  test "comprehensive offset adjustment with skip and wait points" do
+  test "offset shift with skip and wait points" do
     yaml = """
     length: 6
     offset: 0
@@ -83,6 +83,34 @@ defmodule TLCTest do
     result = progress(result.program, 1); assert %{base: 3, offset: 2, cycle: 5, target: 3, states: "BB"} = result
     result = progress(result.program, 1); assert %{base: 4, offset: 4, cycle: 2, target: 3, states: "AA"} = result  # Skip 2 -> 4
     result = progress(result.program, 1); assert %{base: 5, offset: 4, cycle: 3, target: 3, states: "BB"} = result  # Wait point reached
-    result = progress(result.program, 1); assert %{base: 6, offset: 3, cycle: 3, target: 3, states: "BB"} = result  # Wait 4 -> 3, target offset reached
+    result = progress(result.program, 1); assert %{base: 0, offset: 3, cycle: 3, target: 3, states: "BB"} = result  # Wait 4 -> 3, target offset reached
+
   end
+
+  test "base and cycle wrap around" do
+    yaml = """
+    length: 6
+    offset: 0
+    groups: ["a", "b"]
+    states:
+      0: "AA"
+      3: "BB"
+    skips:
+      "0": 2  # at cycle time 0, skip forward 2 seconds
+    waits:
+      "3": 2  # at cycle time 3, wait up to 2 seconds
+    """
+
+    program = program_from_yaml(yaml)
+
+    result = progress(program, 0);        assert %{base: 0, offset: 0, cycle: 0, target: 0, states: "AA"} = result
+    result = progress(result.program, 1); assert %{base: 1, offset: 0, cycle: 1, target: 0, states: "AA"} = result
+    result = progress(result.program, 1); assert %{base: 2, offset: 0, cycle: 2, target: 0, states: "AA"} = result
+    result = progress(result.program, 1); assert %{base: 3, offset: 0, cycle: 3, target: 0, states: "BB"} = result
+    result = progress(result.program, 1); assert %{base: 4, offset: 0, cycle: 4, target: 0, states: "BB"} = result
+    result = progress(result.program, 1); assert %{base: 5, offset: 0, cycle: 5, target: 0, states: "BB"} = result
+    result = progress(result.program, 1); assert %{base: 0, offset: 0, cycle: 0, target: 0, states: "AA"} = result
+    result = progress(result.program, 1); assert %{base: 1, offset: 0, cycle: 1, target: 0, states: "AA"} = result
+  end
+
 end

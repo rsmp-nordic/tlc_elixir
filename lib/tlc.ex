@@ -69,7 +69,7 @@ defmodule TLC do
     # Save the current cycle time to check for wait points
     previous_cycle_time = program.current_cycle_time
 
-    # Increment base cycle time (continuously, not wrapping)
+    # Increment base cycle time without wrapping
     base_cycle_time = program.base_cycle_time + 1
 
     # Apply wait points if we're advancing from a wait point cycle time
@@ -80,7 +80,7 @@ defmodule TLC do
 
     # Update base and current cycle time
     program = %{program |
-      base_cycle_time: base_cycle_time,
+      base_cycle_time: rem(base_cycle_time, program.length),
       current_cycle_time: cycle_time
     }
 
