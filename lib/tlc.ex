@@ -66,8 +66,14 @@ defmodule TLC do
   Updates the program state for the next cycle.
   """
   def update_program(program) do
-    # Increment base cycle time
-    base_cycle_time = rem(program.base_cycle_time + 1, program.length)
+    # Save the current cycle time to check for wait points
+    previous_cycle_time = program.current_cycle_time
+
+    # Increment base cycle time (continuously, not wrapping)
+    base_cycle_time = program.base_cycle_time + 1
+
+    # Apply wait points if we're advancing from a wait point cycle time
+    program = apply_wait_points(program, previous_cycle_time)
 
     # Calculate new cycle time based on current offset
     cycle_time = rem(base_cycle_time + program.offset, program.length)
@@ -83,18 +89,11 @@ defmodule TLC do
 
     # Recalculate cycle time after applying skip points
     cycle_time = rem(program.base_cycle_time + program.offset, program.length)
-    program = %{program | current_cycle_time: cycle_time}
-
-    # Adjust offset towards target if needed
-    program = adjust_offset_towards_target(program)
-
-    # Apply wait points if needed
-    apply_wait_points(program)
+    %{program | current_cycle_time: cycle_time}
   end
 
   @doc """
-  Applies skip points if the current cycle time matches a skip point.
-  Skip points are only applied when the offset is below the target offset.
+  Applies skip points if the current cycle time matches a skip point and offset is below target.
   Made public for testing purposes.
   """
   def apply_skip_points(program) do
@@ -111,13 +110,12 @@ defmodule TLC do
   end
 
   @doc """
-  Applies wait points if the current cycle time matches a wait point and offset needs to be reduced.
+  Applies wait points when advancing from a wait point cycle time.
   """
-  def apply_wait_points(program) do
-    cycle_time = program.current_cycle_time
-    wait_amount = program.waits["#{cycle_time}"]
+  def apply_wait_points(program, previous_cycle_time) do
+    wait_amount = program.waits["#{previous_cycle_time}"]
 
-    # Check if we need to reduce offset (target < current)
+    # Check if we need to reduce offset (current > target)
     if wait_amount && program.offset > program.target_offset do
       # Calculate how much we need to decrease the offset
       decrease_needed = program.offset - program.target_offset
@@ -143,102 +141,122 @@ defmodule TLC do
     end
   end
 
-  defp update_states(%TrafficProgram{length: length, base_cycle_time: base_time, offset: offset, target_offset: target_offset, skips: skips, waits: waits} = program) do
-    # Check if we need to adjust the offset
-    {next_base_time, new_offset} = adjust_offset(base_time, offset, target_offset, length, skips, waits)
+  # The following functions are no longer used but kept for reference
+  # They have been replaced by the new skip/wait point implementation
 
-    # Calculate the effective cycle time after offset adjustment
-    effective_cycle_time = rem(next_base_time + new_offset, length)
+  # defp update_states(%TrafficProgram{length: length, base_cycle_time: base_time, offset: offset, target_offset: target_offset, skips: skips, waits: waits} = program) do
+  #   # Check if we need to adjust the offset
+  #   {next_base_time, new_offset} = adjust_offset(base_time, offset, target_offset, length, skips, waits)
 
-    # Return the updated program state
-    %TrafficProgram{program | base_cycle_time: next_base_time, current_cycle_time: effective_cycle_time, offset: new_offset}
-  end
+  #   # Calculate the effective cycle time after offset adjustment
+  #   effective_cycle_time = rem(next_base_time + new_offset, length)
 
-  # Private function to adjust offset
-  # Adjusts the offset towards the target offset using skip and wait points.
-  defp adjust_offset(base_time, offset, target_offset, length, skips, waits) do
-    # Calculate next base cycle time (always advances by 1)
-    next_base_time = rem(base_time + 1, length)
+  #   # Return the updated program state
+  #   %TrafficProgram{program | base_cycle_time: next_base_time, current_cycle_time: effective_cycle_time, offset: new_offset}
+  # end
 
-    # Calculate current effective cycle time (for checking skip/wait points)
-    current_effective_time = rem(base_time + offset, length)
-    current_effective_time_key = to_string(current_effective_time)
+  # # Private function to adjust offset
+  # # Adjusts the offset towards the target offset using skip and wait points.
+  # defp adjust_offset(base_time, offset, target_offset, length, skips, waits) do
+  #   # Calculate next base cycle time (always advances by 1)
+  #   next_base_time = rem(base_time + 1, length)
 
-    # Return early if no adjustment needed
-    if offset == target_offset do
-      {next_base_time, offset}
-    else
-      # Calculate the difference between current and target offset
-      offset_diff = target_offset - offset
+  #   # Calculate current effective cycle time (for checking skip/wait points)
+  #   current_effective_time = rem(base_time + offset, length)
+  #   current_effective_time_key = to_string(current_effective_time)
 
-      # Determine if we need to adjust offset
-      new_offset = cond do
-        # When target > offset: INCREASE the offset at skip points
-        offset_diff > 0 ->
-          # Check if current effective cycle time is a skip point
-          case Map.get(skips, current_effective_time_key) do
-            nil ->
-              # No skip point, keep same offset
-              offset
-            skip_amount when is_integer(skip_amount) ->
-              # Per spec: Skip points always skip the full duration
-              # This increases the offset by the full skip amount
-              offset + skip_amount
-          end
+  #   # Return early if no adjustment needed
+  #   if offset == target_offset do
+  #     {next_base_time, offset}
+  #   else
+  #     # Calculate the difference between current and target offset
+  #     offset_diff = target_offset - offset
 
-        # When target < offset: DECREASE the offset at wait points
-        offset_diff < 0 ->
-          # Check if current effective cycle time is a wait point
-          case Map.get(waits, current_effective_time_key) do
-            nil ->
-              # No wait point, keep same offset
-              offset
-            wait_amount when is_integer(wait_amount) ->
-              # Per spec: Wait points can do partial waits
+  #     # Determine if we need to adjust offset
+  #     new_offset = cond do
+  #       # When target > offset: INCREASE the offset at skip points
+  #       offset_diff > 0 ->
+  #         # Check if current effective cycle time is a skip point
+  #         case Map.get(skips, current_effective_time_key) do
+  #           nil ->
+  #             # No skip point, keep same offset
+  #             offset
+  #           skip_amount when is_integer(skip_amount) ->
+  #             # Per spec: Skip points always skip the full duration
+  #             # This increases the offset by the full skip amount
+  #             offset + skip_amount
+  #         end
 
-              # Calculate how much we need to decrease the offset
-              decrease_needed = abs(offset_diff)
+  #       # When target < offset: DECREASE the offset at wait points
+  #       offset_diff < 0 ->
+  #         # Check if current effective cycle time is a wait point
+  #         case Map.get(waits, current_effective_time_key) do
+  #           nil ->
+  #             # No wait point, keep same offset
+  #             offset
+  #           wait_amount when is_integer(wait_amount) ->
+  #             # Per spec: Wait points can do partial waits
 
-              # If the required decrease is smaller than the wait duration,
-              # just decrease by the required amount, otherwise decrease
-              # by the full wait amount
-              decrease_amount = min(decrease_needed, wait_amount)
+  #             # Calculate how much we need to decrease the offset
+  #             decrease_needed = abs(offset_diff)
 
-              # Decrease the offset by the determined amount
-              offset - decrease_amount
-          end
+  #             # If the required decrease is smaller than the wait duration,
+  #             # just decrease by the required amount, otherwise decrease
+  #             # by the full wait amount
+  #             decrease_amount = min(decrease_needed, wait_amount)
 
-        # Offsets are equal, no adjustment needed
-        true ->
-          offset
-      end
+  #             # Decrease the offset by the determined amount
+  #             offset - decrease_amount
+  #         end
 
-      # Return the new base time and adjusted offset
-      {next_base_time, new_offset}
-    end
-  end
+  #       # Offsets are equal, no adjustment needed
+  #       true ->
+  #         offset
+  #     end
+
+  #     # Return the new base time and adjusted offset
+  #     {next_base_time, new_offset}
+  #   end
+  # end
 
   # Determine the state for a signal group at the given cycle time.
-  def find_state_for_group(%TrafficProgram{states: states, groups: groups} , cycle_time, group) do
+  def find_state_for_group(%TrafficProgram{states: states, groups: groups}, cycle_time, group) do
     # Find all offsets in states that are less than or equal to the current cycle_time.
     valid_offsets =
       states
       |> Map.keys()
       |> Enum.filter(fn offset -> offset <= cycle_time end)
 
-    # Choose the maximum offset (i.e. the last defined state before or at cycle_time).
-    state_key = case valid_offsets do
-      [] -> nil
-      _ -> Enum.max(valid_offsets)
+    # No defined states before or at the current cycle time
+    if valid_offsets == [] do
+      # If no valid states defined before this time, look for the next defined state
+      next_offsets =
+        states
+        |> Map.keys()
+        |> Enum.filter(fn offset -> offset > cycle_time end)
+        |> Enum.sort()
+
+      # Use the next state, or default to "-" if no states defined
+      state_key = case next_offsets do
+        [] -> 0  # Default to first cycle time if no states defined
+        [next | _] -> next  # Use the first defined state after current time
+      end
+
+      state_str = Map.get(states, state_key, "")
+
+      group_index = Enum.find_index(groups, &(&1 == group)) || 0
+      String.at(state_str, group_index) || "-"
+    else
+      # Choose the maximum offset (i.e. the last defined state before or at cycle_time).
+      state_key = Enum.max(valid_offsets)
+      state_str = Map.get(states, state_key, "")
+
+      # Determine the index of the group in the groups list.
+      group_index = Enum.find_index(groups, &(&1 == group)) || 0
+
+      # Return the character at the group's index (or "-" if none available).
+      String.at(state_str, group_index) || "-"
     end
-
-    state_str = if state_key, do: states[state_key], else: ""
-
-    # Determine the index of the group in the groups list.
-    group_index = Enum.find_index(groups, &(&1 == group)) || 0
-
-    # Return the character at the group's index (or "-" if none available).
-    String.at(state_str, group_index) || "-"
   end
 
   @doc """
@@ -250,5 +268,22 @@ defmodule TLC do
   def set_target_offset(%TrafficProgram{} = program, target_offset) do
     normalized_target = rem(target_offset, program.length)
     %TrafficProgram{program | target_offset: normalized_target}
+  end
+
+  # Get the current states based on the cycle time using precalculated states
+  def get_current_states(%TrafficProgram{current_cycle_time: cycle_time, precalculated_states: states}) do
+    # Use the precalculated states for the current cycle time
+    Map.get(states, cycle_time, %{})
+  end
+
+  # Convert current states to a string representation
+  def get_current_states_string(%TrafficProgram{} = program) do
+    # Get the current states for all groups
+    states = get_current_states(program)
+
+    # Convert the states map to a string in the order of the groups
+    program.groups
+    |> Enum.map(fn group -> Map.get(states, group, "-") end)
+    |> Enum.join("")
   end
 end
