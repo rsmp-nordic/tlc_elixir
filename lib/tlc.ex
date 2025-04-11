@@ -19,9 +19,7 @@ defmodule TLC do
               waits: %{},
               switch: [],
               base_cycle_time: 0,  # This only advances by 1 each time step
-              current_cycle_time: 0, # Effective cycle time (base + offset)
-              # Pre-calculated states for each cycle time and group
-              precalculated_states: %{}
+              current_cycle_time: 0 # Effective cycle time (base + offset)
   end
 
   @doc """
@@ -29,7 +27,7 @@ defmodule TLC do
   """
   def load_program(file_path) do
     {:ok, yaml} = YamlElixir.read_from_file(file_path)
-    program = %TrafficProgram{
+    %TrafficProgram{
       length: yaml["length"],
       offset: yaml["offset"] || 0,
       target_offset: yaml["offset"] || 0,
@@ -41,23 +39,6 @@ defmodule TLC do
       base_cycle_time: 0,
       current_cycle_time: 0
     }
-
-    # Pre-calculate all states for the entire cycle
-    precalculated_states = precalculate_states(program)
-    %{program | precalculated_states: precalculated_states}
-  end
-
-  @doc """
-  Pre-calculates states for all cycle times and groups for efficient simulation.
-  Made public for testing purposes.
-  """
-  def precalculate_states(%TrafficProgram{length: length, states: states}) do
-    0..(length - 1)
-    |> Enum.reduce(%{}, fn cycle_time, acc ->
-      # Store the complete state string for this cycle time
-      state_string = find_state_for_cycle_time(states, cycle_time)
-      Map.put(acc, cycle_time, state_string)
-    end)
   end
 
   @doc """
@@ -88,11 +69,15 @@ defmodule TLC do
   Applies skip points if the current cycle time matches a skip point and offset is below target.
   Made public for testing purposes.
   """
-  def apply_skip_points(%TrafficProgram{current_cycle_time: cycle_time, skips: skips, offset: offset, target_offset: target_offset} = program) do
+  def apply_skip_points(%TrafficProgram{current_cycle_time: cycle_time, skips: skips, offset: offset, target_offset: target_offset, length: length} = program) do
+    # Only apply skip if offset < target_offset (the original condition)
     if offset < target_offset do
       case Map.get(skips, "#{cycle_time}") do
         nil -> program
-        skip_amount -> %{program | offset: offset + skip_amount}
+        skip_amount ->
+          # Apply skip and handle wrap-around if the new offset exceeds the cycle length
+          new_offset = rem(offset + skip_amount, length)
+          %{program | offset: new_offset}
       end
     else
       program
@@ -115,17 +100,6 @@ defmodule TLC do
     end
   end
 
-  defp find_state_for_cycle_time(states, cycle_time) do
-    # Get all defined times in descending order
-    times = states |> Map.keys() |> Enum.sort(:desc)
-
-    # Find largest time <= cycle_time or use highest time if none found
-    time_to_use = Enum.find(times, fn time -> time <= cycle_time end) ||  List.first(times)
-
-    # Get the state string
-    Map.get(states, time_to_use)
-  end
-
   @doc """
   Sets the target offset for the traffic program. This will cause the program to
   gradually adjust to the new offset using skip and wait points.
@@ -137,8 +111,18 @@ defmodule TLC do
     %TrafficProgram{program | target_offset: normalized_target}
   end
 
-  def get_current_states_string(%TrafficProgram{current_cycle_time: cycle_time, precalculated_states: states}) do
-    # Just return the precalculated state string
-    Map.get(states, cycle_time, "")
+  # Make find_state_for_cycle_time public since it will be used directly
+  @doc """
+  Determines the state string for a given cycle time.
+  """
+  def find_state_for_cycle_time(states, cycle_time) do
+    # Get all defined times in descending order
+    times = states |> Map.keys() |> Enum.sort(:desc)
+
+    # Find largest time <= cycle_time or use highest time if none found
+    time_to_use = Enum.find(times, fn time -> time <= cycle_time end) ||  List.first(times)
+
+    # Get the state string
+    Map.get(states, time_to_use)
   end
 end
