@@ -51,14 +51,12 @@ defmodule TLC do
   Pre-calculates states for all cycle times and groups for efficient simulation.
   Made public for testing purposes.
   """
-  def precalculate_states(%TrafficProgram{length: length, groups: groups} = program) do
+  def precalculate_states(%TrafficProgram{length: length, states: states}) do
     0..(length - 1)
     |> Enum.reduce(%{}, fn cycle_time, acc ->
-      group_states = Enum.reduce(groups, %{}, fn group, group_acc ->
-        state = find_state_for_group(program, cycle_time, group)
-        Map.put(group_acc, group, state)
-      end)
-      Map.put(acc, cycle_time, group_states)
+      # Store the complete state string for this cycle time
+      state_string = find_state_for_cycle_time(states, cycle_time)
+      Map.put(acc, cycle_time, state_string)
     end)
   end
 
@@ -117,57 +115,15 @@ defmodule TLC do
     end
   end
 
-  @doc """
-  Adjusts the offset towards the target offset.
-  """
-  def adjust_offset_towards_target(program) do
-    # If target is already reached, no adjustment needed
-    if program.offset == program.target_offset do
-      program
-    else
-      program
-    end
-  end
+  defp find_state_for_cycle_time(states, cycle_time) do
+    # Get all defined times in descending order
+    times = states |> Map.keys() |> Enum.sort(:desc)
 
+    # Find largest time <= cycle_time or use highest time if none found
+    time_to_use = Enum.find(times, fn time -> time <= cycle_time end) ||  List.first(times)
 
-  # Determine the state for a signal group at the given cycle time.
-  def find_state_for_group(%TrafficProgram{states: states, groups: groups}, cycle_time, group) do
-    # Find all offsets in states that are less than or equal to the current cycle_time.
-    valid_offsets =
-      states
-      |> Map.keys()
-      |> Enum.filter(fn offset -> offset <= cycle_time end)
-
-    # No defined states before or at the current cycle time
-    if valid_offsets == [] do
-      # If no valid states defined before this time, look for the next defined state
-      next_offsets =
-        states
-        |> Map.keys()
-        |> Enum.filter(fn offset -> offset > cycle_time end)
-        |> Enum.sort()
-
-      # Use the next state, or default to "-" if no states defined
-      state_key = case next_offsets do
-        [] -> 0  # Default to first cycle time if no states defined
-        [next | _] -> next  # Use the first defined state after current time
-      end
-
-      state_str = Map.get(states, state_key, "")
-
-      group_index = Enum.find_index(groups, &(&1 == group)) || 0
-      String.at(state_str, group_index) || "-"
-    else
-      # Choose the maximum offset (i.e. the last defined state before or at cycle_time).
-      state_key = Enum.max(valid_offsets)
-      state_str = Map.get(states, state_key, "")
-
-      # Determine the index of the group in the groups list.
-      group_index = Enum.find_index(groups, &(&1 == group)) || 0
-
-      # Return the character at the group's index (or "-" if none available).
-      String.at(state_str, group_index) || "-"
-    end
+    # Get the state string
+    Map.get(states, time_to_use)
   end
 
   @doc """
@@ -181,18 +137,8 @@ defmodule TLC do
     %TrafficProgram{program | target_offset: normalized_target}
   end
 
-  # Get the current states based on the cycle time using precalculated states
-  def get_current_states(%TrafficProgram{current_cycle_time: cycle_time, precalculated_states: states}) do
-    Map.get(states, cycle_time, %{})
-  end
-
-  def get_current_states_string(%TrafficProgram{groups: groups} = program) do
-    # Convert the current states to a string representation based on the group order
-    program
-    |> get_current_states()
-    |> Enum.map(fn {group, state} ->
-      if group in groups, do: state, else: "-"
-    end)
-    |> Enum.join("")
+  def get_current_states_string(%TrafficProgram{current_cycle_time: cycle_time, precalculated_states: states}) do
+    # Just return the precalculated state string
+    Map.get(states, cycle_time, "")
   end
 end
