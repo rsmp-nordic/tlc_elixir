@@ -41,7 +41,7 @@ defmodule TLC.Web do
   """
   def update_simulation_state do
     program = get_program()
-    updated_program = TLC.update_program(program)
+    updated_program = TLC.tick(program)
     update_program(updated_program)
     updated_program
   end

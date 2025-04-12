@@ -11,15 +11,17 @@ defmodule TLC do
     @moduledoc "Struct representing the fixed-time traffic program."
     defstruct length: 0,
               offset: 0,
-              target_offset: 0,
               groups: [],
-              # Map of cycle times to state strings.
               states: %{},
               skips: %{},
               waits: %{},
               switch: [],
-              base_cycle_time: 0,  # This only advances by 1 each time step
-              current_cycle_time: 0 # Effective cycle time (base + offset)
+              base_time: -1,  # This only advances by 1 each time step
+              cycle_time: -1, # Effective cycle time (base + offset)
+              target_offset: 0,
+              target_distance: 0,
+              waited: 0,
+              current_states: ""
   end
 
   @doc """
@@ -35,69 +37,80 @@ defmodule TLC do
       states: yaml["states"],
       skips: yaml["skips"] || %{},
       waits: yaml["waits"] || %{},
-      switch: yaml["switch"] || [],
-      base_cycle_time: 0,
-      current_cycle_time: 0
+      switch: yaml["switch"] || []
     }
   end
+
+  # Elixir has no modulo function, so define one.
+  # rem() returns negative values if the input is negative, which is not what we want.
+  def mod(x,y), do: rem( rem(x,y)+y, y)
+
 
   @doc """
   Updates the program state for the next cycle.
   """
-  def update_program(program) do
-    # Save the current cycle time to check for wait points
-    previous_cycle_time = program.current_cycle_time
-
-    # Increment base cycle time and wrap around when reaching the program length
-    base_cycle_time = rem(program.base_cycle_time + 1, program.length)
-
-    # Apply wait points if we're advancing from a wait point cycle time
-    program = apply_wait_points(program, previous_cycle_time)
-
-    # Calculate new cycle time based on current offset
-    cycle_time = rem(base_cycle_time + program.offset, program.length)
-
-    # Apply skip points immediately if current cycle time matches a skip point
-    program = apply_skip_points(%{program | base_cycle_time: base_cycle_time, current_cycle_time: cycle_time})
-
-    # Recalculate cycle time after applying skip points
-    cycle_time = rem(program.base_cycle_time + program.offset, program.length)
-    %{program | current_cycle_time: cycle_time}
+  def tick(program) do
+    program
+    |> advance_base_time
+    |> find_target_distance
+    |> apply_waits
+    |> compute_cycle_time
+    |> apply_skips
+    |> update_states
   end
 
-  @doc """
-  Applies skip points if the current cycle time matches a skip point and offset is below target.
-  Made public for testing purposes.
-  """
-  def apply_skip_points(%TrafficProgram{current_cycle_time: cycle_time, skips: skips, offset: offset, target_offset: target_offset, length: length} = program) do
-    # Only apply skip if offset < target_offset (the original condition)
-    if offset < target_offset do
-      case Map.get(skips, "#{cycle_time}") do
-        nil -> program
-        skip_amount ->
-          # Apply skip and handle wrap-around if the new offset exceeds the cycle length
-          new_offset = rem(offset + skip_amount, length)
-          %{program | offset: new_offset}
-      end
+  def advance_base_time(program) do
+    %{program | base_time: mod(program.base_time + 1, program.length) }
+  end
+
+
+  def find_target_distance(program) do
+    diff = mod( program.target_offset - program.offset,  program.length)
+    if diff < program.length/2 && Enum.any?(program.skips) do   # moving forward only possible if skips are defined
+      %{program | target_distance: diff }
     else
-      program
+      %{program | target_distance: -mod( program.offset - program.target_offset,  program.length) }
     end
   end
 
-  @doc """
-  Applies wait points when advancing from a wait point cycle time.
-  """
-  def apply_wait_points(%TrafficProgram{offset: offset, target_offset: target_offset, waits: waits} = program, previous_cycle_time) do
-    if offset > target_offset do
-      case Map.get(waits, "#{previous_cycle_time}") do
-        nil -> program
-        wait_amount ->
-          decrease_amount = min(offset - target_offset, wait_amount)
-          %{program | offset: offset - decrease_amount}
-      end
-    else
-      program
+  def apply_waits(program) when program.target_distance < 0 do
+    case Map.get(program.waits, program.cycle_time) do
+      nil -> %{program | waited: 0}
+      duration ->
+        #target_to_distance = TLC.mod(program.offset - program.target_offset, program.length)
+        #possible = min(duration, target_to_distance)
+        
+        if program.waited < duration do
+          # wait by moving offset back 1
+          %{program |
+            offset: mod(program.offset - 1, program.length),
+            waited: program.waited + 1
+          }
+          |> find_target_distance
+        else
+          # wait maxed so continue
+          %{program | waited: 0 }
+        end
     end
+  end
+  def apply_waits(program), do: %{ program | waited: 0 }
+
+
+  def apply_skips(program) when program.target_distance > 0 do
+    case Map.get(program.skips, program.cycle_time) do
+      nil -> program
+      duration ->
+        # Apply skip and handle wrap-around if the new offset exceeds the cycle length
+        %{program | offset: mod(program.offset + duration, program.length)}
+        |> compute_cycle_time
+        |> find_target_distance
+    end
+  end
+  def apply_skips(program), do: program
+
+
+  def compute_cycle_time(program) do
+    %{program | cycle_time: mod(program.base_time + program.offset, program.length) }
   end
 
   @doc """
@@ -106,23 +119,24 @@ defmodule TLC do
 
   Returns the updated program.
   """
-  def set_target_offset(%TrafficProgram{} = program, target_offset) do
-    normalized_target = rem(target_offset, program.length)
-    %TrafficProgram{program | target_offset: normalized_target}
+  def set_target_offset(program, target_offset) do
+    %{program | target_offset: mod(target_offset, program.length)}
+    |> find_target_distance
   end
 
   # Make find_state_for_cycle_time public since it will be used directly
   @doc """
   Determines the state string for a given cycle time.
   """
-  def find_state_for_cycle_time(states, cycle_time) do
+  def update_states(program) do
     # Get all defined times in descending order
-    times = states |> Map.keys() |> Enum.sort(:desc)
+    times = program.states |> Map.keys() |> Enum.sort(:desc)
 
-    # Find largest time <= cycle_time or use highest time if none found
-    time_to_use = Enum.find(times, fn time -> time <= cycle_time end) ||  List.first(times)
+    # Find time
+    time = Enum.find(times, fn time -> time <= program.cycle_time end) ||  List.first(times)
 
     # Get the state string
-    Map.get(states, time_to_use)
+    states = Map.get(program.states, time)
+    %{program | current_states: states}
   end
 end
