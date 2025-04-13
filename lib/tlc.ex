@@ -16,8 +16,8 @@ defmodule TLC do
               skips: %{},
               waits: %{},
               switch: [],
-              base_time: -1,  # This only advances by 1 each time step
-              cycle_time: -1, # Effective cycle time (base + offset)
+              base_time: -1, # -1 is ready state, before first actual step
+              cycle_time: -1,
               target_offset: 0,
               target_distance: 0,
               waited: 0,

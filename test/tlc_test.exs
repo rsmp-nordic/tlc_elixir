@@ -113,7 +113,47 @@ defmodule TLCTest do
     program = TLC.tick(program); assert %{base: 3, cycle: 1, offset: 2, target: 1, dist: -1, states: "AA"} = to_map(program)
     program = TLC.tick(program); assert %{base: 0, cycle: 2, offset: 2, target: 1, dist: -1, states: "BB"} = to_map(program) # wait point
     program = TLC.tick(program); assert %{base: 1, cycle: 2, offset: 1, target: 1, dist: 0, states: "BB"} = to_map(program)
+  end
 
+  test "simultaneous skip and wait points - wait applies when target distance is negative" do
+    program = %TLC.TrafficProgram{
+      length: 6,
+      offset: 0,
+      groups: ["a", "b"],
+      states: %{0 => "AA", 3 => "BB"},
+      skips: %{3 => 2},  # at cycle time 3, skip forward 2 seconds
+      waits: %{3 => 2}   # at cycle time 3, wait up to 2 seconds
+    }
 
+    # Target distance is negative (wait should apply)
+    program = TLC.set_target_offset(program, 5) # Target 5 from offset 0 -> shortest path is -1
+    
+    program = TLC.tick(program); assert %{base: 0, cycle: 0, offset: 0, target: 5, dist: -1, states: "AA"} = to_map(program)
+    program = TLC.tick(program); assert %{base: 1, cycle: 1, offset: 0, target: 5, dist: -1, states: "AA"} = to_map(program)
+    program = TLC.tick(program); assert %{base: 2, cycle: 2, offset: 0, target: 5, dist: -1, states: "AA"} = to_map(program)
+    program = TLC.tick(program); assert %{base: 3, cycle: 3, offset: 0, target: 5, dist: -1, states: "BB"} = to_map(program)
+    # Next tick should apply wait at cycle 3, not skip, because dist is negative
+    program = TLC.tick(program); assert %{base: 4, cycle: 3, offset: 5, target: 5, dist: 0, states: "BB"} = to_map(program)
+  end
+
+  test "simultaneous skip and wait points - skip applies when target distance is positive" do
+    program = %TLC.TrafficProgram{
+      length: 6,
+      offset: 0,
+      groups: ["a", "b"],
+      states: %{0 => "AA", 3 => "BB"},
+      skips: %{3 => 2},  # at cycle time 3, skip forward 2 seconds
+      waits: %{3 => 2}   # at cycle time 3, wait up to 2 seconds
+    }
+    
+    # Target distance is positive (skip should apply)
+    program = TLC.set_target_offset(program, 1) # Target 1 from offset 0 -> shortest path is 1
+    
+    program = TLC.tick(program); assert %{base: 0, cycle: 0, offset: 0, target: 1, dist: 1, states: "AA"} = to_map(program)
+    program = TLC.tick(program); assert %{base: 1, cycle: 1, offset: 0, target: 1, dist: 1, states: "AA"} = to_map(program)
+    program = TLC.tick(program); assert %{base: 2, cycle: 2, offset: 0, target: 1, dist: 1, states: "AA"} = to_map(program)
+    # When we reach cycle time 3, skip is applied immediately in the same tick
+    program = TLC.tick(program); assert %{base: 3, cycle: 5, offset: 2, target: 1, dist: -1, states: "BB"} = to_map(program)
+    program = TLC.tick(program); assert %{base: 4, cycle: 0, offset: 2, target: 1, dist: -1, states: "AA"} = to_map(program)
   end
 end
