@@ -133,7 +133,7 @@ defmodule TLC do
     times = program.states |> Map.keys() |> Enum.sort(:desc)
 
     # Find time
-    time = Enum.find(times, fn time -> time <= program.cycle_time end) ||  List.first(times)
+    time = Enum.find(times, fn time -> time <= program.cycle_time end) || List.first(times)
 
     # Get the state string
     states = Map.get(program.states, time)
