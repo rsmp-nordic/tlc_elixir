@@ -1,153 +1,228 @@
-<h1>TLC Program Live</h1>
+<div class="p-6 max-w-full bg-gray-50">
+  <h1 class="text-3xl font-bold mb-6 text-gray-800">TLC Program Live</h1>
 
-<div>
-  <form phx-submit="set_target_offset">
-    <label>Target Offset:
-      <input name="target_offset" type="number" value={@target_offset} />
-    </label>
-    <button type="submit">Set</button>
-  </form>
-</div>
+  <div class="mb-6 bg-white p-4 rounded shadow">
+    <form phx-submit="set_target_offset" class="flex items-center gap-4">
+      <label class="flex items-center gap-2">
+        <span class="font-medium">Target Offset:</span>
+        <input name="target_offset" type="number" value={@target_offset} 
+               class="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </label>
+      <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+        Set
+      </button>
+    </form>
+  </div>
 
-<div class="grid-container">
-  <div>
-    <h2>Program Definition</h2>
-    <table border="1">
-      <tr><th>Length:</th><td><%= @program.length %></td></tr>
-      <tr>
-        <th>Groups:</th>
-        <td>
-          <ul style="margin: 0; padding-left: 20px;">
-            <%= for group <- @program.groups do %>
-              <li><%= group %></li>
-            <% end %>
-          </ul>
-        </td>
-      </tr>
-      <tr>
-        <th>States:</th>
-        <td>
-          <table border="1">
-            <tr>
-              <th>Time</th>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div class="bg-white p-4 rounded shadow">
+      <h2 class="text-xl font-semibold mb-4 text-gray-700">Program Definition</h2>
+      <table class="w-full border-collapse">
+        <tr class="border-b">
+          <th class="text-left py-2 px-4 bg-gray-50">Length:</th>
+          <td class="py-2 px-4"><%= @program.length %></td>
+        </tr>
+        <tr class="border-b">
+          <th class="text-left py-2 px-4 bg-gray-50">Groups:</th>
+          <td class="py-2 px-4">
+            <ul class="list-disc list-inside">
               <%= for group <- @program.groups do %>
-                <th><%= group %></th>
+                <li><%= group %></li>
               <% end %>
-            </tr>
-            <%= for {time, state} <- Enum.sort_by(@program.states, fn {k, _} -> 
-                  cond do
-                    is_binary(k) -> String.to_integer(k)
-                    is_integer(k) -> k
-                    true -> 0
-                  end
-                end) do %>
-              <tr>
-                <td><%= time %></td>
-                <%= for i <- 0..(length(@program.groups)-1) do %>
-                  <td><%= String.at(state, i) %></td>
+            </ul>
+          </td>
+        </tr>
+        <tr class="border-b">
+          <th class="text-left py-2 px-4 bg-gray-50">States:</th>
+          <td class="py-2 px-4">
+            <table class="w-full border-collapse border">
+              <tr class="bg-gray-100">
+                <th class="border p-2">Time</th>
+                <%= for group <- @program.groups do %>
+                  <th class="border p-2"><%= group %></th>
                 <% end %>
               </tr>
-            <% end %>
-          </table>
-        </td>
-      </tr>
-      <tr>
-        <th>Skips:</th>
-        <td>
-          <ul style="margin: 0; padding-left: 20px;">
-            <%= for {cycle, duration} <- @program.skips do %>
-              <li>Cycle <%= cycle %>: skip <%= duration %></li>
-            <% end %>
-          </ul>
-        </td>
-      </tr>
-      <tr>
-        <th>Waits:</th>
-        <td>
-          <ul style="margin: 0; padding-left: 20px;">
-            <%= for {cycle, duration} <- @program.waits do %>
-              <li>Cycle <%= cycle %>: wait up to <%= duration %></li>
-            <% end %>
-          </ul>
-        </td>
-      </tr>
-    </table>
-  </div>
-
-  <div>
-    <h2>Current State</h2>
-    <table border="1">
-      <tr><th>base_time:</th><td><%= @program.base_time %></td></tr>
-      <tr><th>cycle_time:</th><td><%= @program.cycle_time %></td></tr>
-      <tr><th>offset:</th><td><%= @program.offset %></td></tr>
-      <tr><th>target_offset:</th><td><%= @program.target_offset %></td></tr>
-      <tr><th>target_distance:</th><td><%= @program.target_distance %></td></tr>
-      <tr><th>waited:</th><td><%= @program.waited %></td></tr>
-      <tr>
-        <th>current states:</th>
-        <td>
-          <table border="1">
-            <tr>
-              <%= for group <- @program.groups do %>
-                <th><%= group %></th>
+              <%= for {time, state} <- Enum.sort_by(@program.states, fn {k, _} -> 
+                    cond do
+                      is_binary(k) -> String.to_integer(k)
+                      is_integer(k) -> k
+                      true -> 0
+                    end
+                  end) do %>
+                <tr>
+                  <td class="border p-2"><%= time %></td>
+                  <%= for i <- 0..(length(@program.groups)-1) do %>
+                    <% signal = String.at(state, i) %>
+                    <td class={"border p-2 text-center #{cell_bg_class(signal)}"}>
+                      <span class={get_signal_class(signal)}><%= signal %></span>
+                    </td>
+                  <% end %>
+                </tr>
               <% end %>
-            </tr>
-            <tr>
-              <%= for i <- 0..(length(@program.groups)-1) do %>
-                <td><%= String.at(@program.current_states, i) %></td>
+            </table>
+          </td>
+        </tr>
+        <tr class="border-b">
+          <th class="text-left py-2 px-4 bg-gray-50">Skips:</th>
+          <td class="py-2 px-4">
+            <ul class="list-disc list-inside">
+              <%= for {cycle, duration} <- @program.skips do %>
+                <li>Cycle <%= cycle %>: skip <%= duration %></li>
               <% end %>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </div>
-</div>
-
-<h2>Cycle Table</h2>
-<div class="cycle-table-container">
-  <table border="1">
-    <thead>
-      <tr>
-        <th></th>
-        <%= for cycle <- 0..(@program.length - 1) do %>
-          <th style={if @program.cycle_time == cycle, do: "background: #ffd;", else: ""}>
-            <%= cycle %>
-          </th>
-        <% end %>
-      </tr>
-    </thead>
-    <tbody>
-      <%= for {group, i} <- Enum.with_index(@program.groups) do %>
+            </ul>
+          </td>
+        </tr>
         <tr>
-          <th><%= group %></th>
+          <th class="text-left py-2 px-4 bg-gray-50">Waits:</th>
+          <td class="py-2 px-4">
+            <ul class="list-disc list-inside">
+              <%= for {cycle, duration} <- @program.waits do %>
+                <li>Cycle <%= cycle %>: wait up to <%= duration %></li>
+              <% end %>
+            </ul>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="bg-white p-4 rounded shadow">
+      <h2 class="text-xl font-semibold mb-4 text-gray-700">Current State</h2>
+      <table class="w-full border-collapse">
+        <tr class="border-b">
+          <th class="text-left py-2 px-4 bg-gray-50">base_time:</th>
+          <td class="py-2 px-4"><%= @program.base_time %></td>
+        </tr>
+        <tr class="border-b">
+          <th class="text-left py-2 px-4 bg-gray-50">cycle_time:</th>
+          <td class="py-2 px-4"><%= @program.cycle_time %></td>
+        </tr>
+        <tr class="border-b">
+          <th class="text-left py-2 px-4 bg-gray-50">offset:</th>
+          <td class="py-2 px-4"><%= @program.offset %></td>
+        </tr>
+        <tr class="border-b">
+          <th class="text-left py-2 px-4 bg-gray-50">target_offset:</th>
+          <td class="py-2 px-4"><%= @program.target_offset %></td>
+        </tr>
+        <tr class="border-b">
+          <th class="text-left py-2 px-4 bg-gray-50">target_distance:</th>
+          <td class="py-2 px-4"><%= @program.target_distance %></td>
+        </tr>
+        <tr class="border-b">
+          <th class="text-left py-2 px-4 bg-gray-50">waited:</th>
+          <td class="py-2 px-4"><%= @program.waited %></td>
+        </tr>
+        <tr>
+          <th class="text-left py-2 px-4 bg-gray-50">current states:</th>
+          <td class="py-2 px-4">
+            <table class="w-full border-collapse border">
+              <tr class="bg-gray-100">
+                <%= for group <- @program.groups do %>
+                  <th class="border p-2"><%= group %></th>
+                <% end %>
+              </tr>
+              <tr>
+                <%= for i <- 0..(length(@program.groups)-1) do %>
+                  <% signal = String.at(@program.current_states, i) %>
+                  <td class={"border p-2 text-center #{cell_bg_class(signal)} font-bold"}>
+                    <span class={get_signal_class(signal)}><%= signal %></span>
+                  </td>
+                <% end %>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="bg-white p-4 rounded shadow overflow-x-auto">
+    <h2 class="text-xl font-semibold mb-4 text-gray-700">Cycle Table</h2>
+    <table class="border-collapse border min-w-full">
+      <thead>
+        <tr class="bg-gray-100">
+          <th class="border p-2"></th>
           <%= for cycle <- 0..(@program.length - 1) do %>
-            <% state = TLC.resolve_state(@program, cycle) %>
-            <td style={if @program.cycle_time == cycle, do: "background: #ffd;", else: ""}>
-              <%= String.at(state, i) %>
+            <th class={"border p-2 px-4 #{if @program.cycle_time == cycle, do: "bg-yellow-100", else: ""}"}>
+              <%= cycle %>
+            </th>
+          <% end %>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Skip points row -->
+        <tr>
+          <th class="border p-2 px-4 bg-gray-50 text-left">Skips</th>
+          <% 
+            # Process skips to create spans
+            skip_cells = []
+            cycle = 0
+            skip_cells = Enum.reduce(0..(@program.length - 1), [], fn i, acc ->
+              if Map.has_key?(@program.skips, i) do
+                duration = Map.get(@program.skips, i)
+                span = min(duration + 1, @program.length - i)
+                [{i, span, duration} | acc]
+              else
+                acc
+              end
+            end)
+            skip_cells = Enum.sort(skip_cells, fn {pos1, _, _}, {pos2, _, _} -> pos1 < pos2 end)
+            
+            # Calculate which cells are covered by skips
+            covered_cells = Enum.reduce(skip_cells, MapSet.new(), fn {pos, span, _}, acc ->
+              Enum.reduce((pos)..(pos + span - 1), acc, fn i, inner_acc -> 
+                MapSet.put(inner_acc, i)
+              end)
+            end)
+          %>
+          
+          <%= for {skip_pos, span, duration} <- skip_cells do %>
+            <td class="border p-1 text-center" colspan={span}>
+              <div class="bg-blue-200 border border-blue-400 rounded h-6 flex items-center justify-center text-blue-800 font-medium">
+                Skip <%= duration %>
+              </div>
+            </td>
+          <% end %>
+          
+          <%= for i <- 0..(@program.length - 1) do %>
+            <%= if !MapSet.member?(covered_cells, i) do %>
+              <td class="border p-1"></td>
+            <% end %>
+          <% end %>
+        </tr>
+        
+        <!-- Wait points row -->
+        <tr>
+          <th class="border p-2 px-4 bg-gray-50 text-left">Waits</th>
+          <%= for cycle <- 0..(@program.length - 1) do %>
+            <% 
+              wait_duration = Map.get(@program.waits, cycle, 0)
+              has_wait = wait_duration > 0
+            %>
+            <td class={"border p-1 text-center #{if has_wait, do: "bg-orange-200", else: ""}"}>
+              <%= if has_wait do %>
+                <div class="text-xs text-orange-700 font-medium">
+                  Wait <%= wait_duration %>
+                </div>
+              <% end %>
             </td>
           <% end %>
         </tr>
-      <% end %>
-    </tbody>
-  </table>
+        
+        <!-- Group signals -->
+        <%= for {group, i} <- Enum.with_index(@program.groups) do %>
+          <tr>
+            <th class="border p-2 px-4 bg-gray-50 text-left"><%= group %></th>
+            <%= for cycle <- 0..(@program.length - 1) do %>
+              <% state = TLC.resolve_state(@program, cycle) %>
+              <% signal = String.at(state, i) %>
+              <td class={"border p-2 text-center #{cell_bg_class(signal)} #{if @program.cycle_time == cycle, do: "outline outline-2 outline-blue-500", else: ""}"}>
+                <span class={get_signal_class(signal)}><%= signal %></span>
+              </td>
+            <% end %>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
 </div>
-
-<style>
-  .grid-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    margin: 20px 0;
-  }
-  table {
-    border-collapse: collapse;
-  }
-  th, td {
-    padding: 6px 10px;
-  }
-  .cycle-table-container {
-    overflow-x: auto;
-    margin-bottom: 20px;
-  }
-</style>

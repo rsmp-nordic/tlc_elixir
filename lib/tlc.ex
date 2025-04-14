@@ -138,8 +138,8 @@ defmodule TLC do
     %TLC.TrafficProgram{
       length: 8,
       offset: 0,
-      groups: ["a", "b"],
-      states: %{ 0 => "AA", 4 => "BB"},
+      groups: ["main", "side"],
+      states: %{ 0 => "GR", 3 => "YR", 4 => "RG", 7 => "RY"},
       skips: %{0 => 2},
       waits: %{5 => 2}
     }
