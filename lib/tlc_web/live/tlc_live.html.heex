@@ -1,0 +1,55 @@
+<h1>TLC Program Live</h1>
+
+<div>
+  <form phx-submit="set_target_offset">
+    <label>Target Offset:
+      <input name="target_offset" type="number" value={@target_offset} />
+    </label>
+    <button type="submit">Set</button>
+  </form>
+</div>
+
+<h2>Program Variables</h2>
+<ul>
+  <li>base_time: <%= @program.base_time %></li>
+  <li>cycle_time: <%= @program.cycle_time %></li>
+  <li>offset: <%= @program.offset %></li>
+  <li>target_offset: <%= @program.target_offset %></li>
+  <li>target_distance: <%= @program.target_distance %></li>
+  <li>waited: <%= @program.waited %></li>
+  <li>current_states: <%= @program.current_states %></li>
+</ul>
+
+<h2>Groups</h2>
+<ul>
+<%= for group <- @program.groups do %>
+  <li><%= group %></li>
+<% end %>
+</ul>
+
+<h2>Cycle Table</h2>
+<table border="1">
+  <thead>
+    <tr>
+      <th>Cycle</th>
+      <%= for group <- @program.groups do %>
+        <th><%= group %></th>
+      <% end %>
+      <th>State</th>
+    </tr>
+  </thead>
+  <tbody>
+    <%= for cycle <- 0..(@program.length - 1) do %>
+      <tr style={if @program.cycle_time == cycle, do: "background: #ffd;", else: ""}>
+        <td><%= cycle %></td>
+        <%= for i <- 0..(length(@program.groups)-1) do %>
+          <td>
+            <%= state = TLC.resolve_state(@program, cycle) %>
+            <%= String.at(state, i) %>
+          </td>
+        <% end %>
+        <td><%= TLC.resolve_state(@program, cycle) %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

@@ -24,23 +24,6 @@ defmodule TLC do
               current_states: ""
   end
 
-  @doc """
-  Loads the traffic program from the specified YAML file.
-  """
-  def load_program(file_path) do
-    {:ok, yaml} = YamlElixir.read_from_file(file_path)
-    %TrafficProgram{
-      length: yaml["length"],
-      offset: yaml["offset"] || 0,
-      target_offset: yaml["offset"] || 0,
-      groups: yaml["groups"],
-      states: yaml["states"],
-      skips: yaml["skips"] || %{},
-      waits: yaml["waits"] || %{},
-      switch: yaml["switch"] || []
-    }
-  end
-
   # Elixir has no modulo function, so define one.
   # rem() returns negative values if the input is negative, which is not what we want.
   def mod(x,y), do: rem( rem(x,y)+y, y)
@@ -79,7 +62,7 @@ defmodule TLC do
       duration ->
         #target_to_distance = TLC.mod(program.offset - program.target_offset, program.length)
         #possible = min(duration, target_to_distance)
-        
+
         if program.waited < duration do
           # wait by moving offset back 1
           %{program |
@@ -138,5 +121,27 @@ defmodule TLC do
     # Get the state string
     states = Map.get(program.states, time)
     %{program | current_states: states}
+  end
+
+  def resolve_state(program, cycle_time) do
+    # Get all defined times in descending order
+    times = program.states |> Map.keys() |> Enum.sort(:desc)
+
+    # Find time
+    time = Enum.find(times, fn time -> time <= cycle_time end) || List.first(times)
+
+    # Get the state string
+    Map.get(program.states, time)
+  end
+
+  def example_program() do
+    %TLC.TrafficProgram{
+      length: 8,
+      offset: 0,
+      groups: ["a", "b"],
+      states: %{ 0 => "AA", 4 => "BB"},
+      skips: %{0 => 2},
+      waits: %{5 => 2}
+    }
   end
 end
