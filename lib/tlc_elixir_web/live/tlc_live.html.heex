@@ -179,7 +179,7 @@
             end)
           %>
           
-          <%= for {skip_pos, span, duration} <- skip_cells do %>
+          <%= for {_skip_pos, span, duration} <- skip_cells do %>
             <td class="border p-1 text-center" colspan={span}>
               <div class="bg-gray-200 border border-gray-400 rounded h-6 flex items-center justify-center text-gray-800 font-medium">
                 <%= duration %>
@@ -210,7 +210,7 @@
             wait_cells = Enum.sort(wait_cells, fn {pos1, _}, {pos2, _} -> pos1 < pos2 end)
             
             # Calculate which cells have waits
-            wait_positions = Enum.map(wait_cells, fn {pos, _} -> pos end) |> MapSet.new()
+            _wait_positions = Enum.map(wait_cells, fn {pos, _} -> pos end) |> MapSet.new()
           %>
           
           <%= for i <- 0..(@program.length - 1) do %>
