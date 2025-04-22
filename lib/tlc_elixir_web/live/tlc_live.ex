@@ -5,7 +5,10 @@ defmodule TlcElixirWeb.TLCLive do
   def mount(_params, _session, socket) do
     program = TLC.example_program() # Now using the public TLC.example_program/0 function
     :timer.send_interval(1000, self(), :tick)
-    {:ok, assign(socket, program: program, target_offset: program.target_offset)}
+    {:ok, assign(socket,
+      program: program,
+      target_offset: program.target_offset
+    )}
   end
 
   @impl true
@@ -43,4 +46,39 @@ defmodule TlcElixirWeb.TLCLive do
   defp get_signal_class("E"), do: "text-blue-600 font-bold"
   defp get_signal_class("F"), do: "text-pink-600 font-bold"
   defp get_signal_class(_), do: "text-gray-500"
+
+  # Helper function to format program as Elixir map
+  defp format_program_as_elixir(program) do
+    # Extract relevant configuration fields for display
+    config_fields = Map.take(Map.from_struct(program), [:length, :groups, :states, :skips, :waits])
+
+    # Format each key/value pair in a readable way
+    formatted_pairs = config_fields
+    |> Enum.map(fn {key, value} -> format_map_entry(key, value, 2) end)
+    |> Enum.join(",\n")
+
+    "%{\n#{formatted_pairs}\n}"
+  end
+
+  # Format a map entry with proper indentation
+  defp format_map_entry(key, value, indent) do
+    indent_str = String.duplicate(" ", indent)
+    value_str = case value do
+      v when is_map(v) and map_size(v) > 0 ->
+        entries = v
+        |> Enum.map(fn {k, v} -> format_map_entry(k, v, indent + 2) end)
+        |> Enum.join(",\n")
+        "%{\n#{entries}\n#{indent_str}}"
+
+      v when is_list(v) ->
+        items = v
+        |> Enum.map(fn item -> inspect(item) end)
+        |> Enum.join(", ")
+        "[#{items}]"
+
+      _ -> inspect(value)
+    end
+
+    "#{indent_str}#{key}: #{value_str}"
+  end
 end
