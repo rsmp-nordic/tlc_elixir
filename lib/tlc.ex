@@ -29,6 +29,78 @@ defmodule TLC do
   def mod(x,y), do: rem( rem(x,y)+y, y)
 
 
+  def validate_program(%TrafficProgram{} = program) do
+    with :ok <- validate_length(program.length),
+         :ok <- validate_offset(program.offset, program.length),
+         :ok <- validate_target_offset(program.target_offset, program.length),
+         :ok <- validate_groups(program.groups),
+         :ok <- validate_states(program.states, program.length, program.groups),
+         :ok <- validate_map_times_and_durations(program.skips, program.length, "Skips"),
+         :ok <- validate_map_times_and_durations(program.waits, program.length, "Waits") do
+      {:ok, program}
+    # Catch clause for the with statement
+    else
+      {:error, reason} -> {:error, reason}
+      error -> {:error, "Unknown validation error: #{inspect(error)}"} # Catch unexpected non-error returns
+    end
+  end
+
+  def validate_program(_other), do: {:error, "Input must be a %TLC.TrafficProgram{} struct"}
+
+  # --- Private Validation Helpers ---
+
+  defp validate_length(length) when is_integer(length) and length > 0, do: :ok
+  defp validate_length(_), do: {:error, "Program length must be a positive integer"}
+
+  defp validate_offset(offset, length) when is_integer(offset) and offset >= 0 and offset < length, do: :ok
+  defp validate_offset(_, _), do: {:error, "Offset must be an integer between 0 and length - 1"}
+
+  defp validate_target_offset(target_offset, length) when is_integer(target_offset) and target_offset >= 0 and target_offset < length, do: :ok
+  defp validate_target_offset(_, _), do: {:error, "Target offset must be an integer between 0 and length - 1"}
+
+  defp validate_groups(groups) do
+    cond do
+      not is_list(groups) or length(groups) == 0 ->
+        {:error, "Program must have at least one signal group defined as a list"}
+      not Enum.all?(groups, &is_binary/1) ->
+         {:error, "Group names must be strings"}
+      true ->
+        :ok
+    end
+  end
+  defp validate_groups(groups) when is_list(groups) and length(groups) > 0, do: {:error, "Group names must be strings"}
+  defp validate_groups(_), do: {:error, "Program must have at least one signal group defined as a list of strings"}
+
+  defp validate_states(states, length, groups) do
+    group_count = length(groups)
+    cond do
+      not is_map(states) ->
+        {:error, "States must be a map"}
+      map_size(states) == 0 ->
+        {:error, "Program must have at least one state defined"}
+      Enum.any?(Map.keys(states), fn t -> not is_integer(t) or t < 0 or t >= length end) ->
+        {:error, "State time points must be integers between 0 and program length - 1"}
+      Enum.any?(Map.values(states), fn s -> not is_binary(s) or String.length(s) != group_count end) ->
+        {:error, "State strings must have the same length as the number of signal groups (#{group_count})"}
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_map_times_and_durations(map_data, length, map_name) do
+    cond do
+      not is_map(map_data) ->
+        {:error, "#{map_name} must be a map"}
+      Enum.any?(Map.keys(map_data), fn t -> not is_integer(t) or t < 0 or t >= length end) ->
+        {:error, "#{map_name} time points must be integers between 0 and program length - 1"}
+      Enum.any?(Map.values(map_data), fn d -> not is_integer(d) or d <= 0 end) ->
+        {:error, "#{map_name} durations must be positive integers"}
+      true ->
+        :ok
+    end
+  end
+
+
   @doc """
   Updates the program state for the next cycle.
   """
@@ -138,8 +210,8 @@ defmodule TLC do
     %TLC.TrafficProgram{
       length: 8,
       offset: 0,
-      groups: ["main", "side"],
-      states: %{ 0 => "GR", 3 => "YR", 4 => "RG", 7 => "RY"},
+      groups: ["a", "b"],
+      states: %{ 0 => "AA", 4 => "BB"},
       skips: %{0 => 2},
       waits: %{5 => 2}
     }
