@@ -1,63 +1,46 @@
 defmodule TlcElixirWeb.TLCLive do
-  use Phoenix.LiveView
-  alias TLC
+  use TlcElixirWeb, :live_view
 
-  @tick_interval 1000
-
+  @impl true
   def mount(_params, _session, socket) do
-    if connected?(socket), do: :timer.send_interval(@tick_interval, :tick)
-    program = TLC.example_program()
+    program = TLC.example_program() # Now using the public TLC.example_program/0 function
+    :timer.send_interval(1000, self(), :tick)
     {:ok, assign(socket, program: program, target_offset: program.target_offset)}
   end
 
+  @impl true
   def handle_info(:tick, socket) do
     program = TLC.tick(socket.assigns.program)
     {:noreply, assign(socket, program: program)}
   end
 
-  def handle_event("set_target_offset", %{"target_offset" => offset}, socket) do
-    offset = String.to_integer(offset)
+  @impl true
+  def handle_event("set_target_offset", %{"target_offset" => target_offset}, socket) do
+    offset = String.to_integer(target_offset)
     program = TLC.set_target_offset(socket.assigns.program, offset)
     {:noreply, assign(socket, program: program, target_offset: offset)}
   end
 
-  # Helper function for signal text color
-  def get_signal_class(signal) do
-    case signal do
-      "R" -> "font-bold text-red-800"
-      "Y" -> "font-bold text-yellow-800"
-      "G" -> "font-bold text-green-800"
-      _ -> "font-bold"
-    end
-  end
+  # Helper functions for cell styling
+  defp cell_bg_class("R"), do: "bg-red-300"
+  defp cell_bg_class("Y"), do: "bg-yellow-200"
+  defp cell_bg_class("G"), do: "bg-green-300"
+  defp cell_bg_class("A"), do: "bg-green-100"
+  defp cell_bg_class("B"), do: "bg-yellow-100"
+  defp cell_bg_class("C"), do: "bg-red-100"
+  defp cell_bg_class("D"), do: "bg-purple-100"
+  defp cell_bg_class("E"), do: "bg-blue-100"
+  defp cell_bg_class("F"), do: "bg-pink-100"
+  defp cell_bg_class(_), do: "bg-gray-50"
 
-  # Helper function for cell background colors
-  def cell_bg_class(signal) do
-    case signal do
-      "R" -> "bg-red-300"
-      "Y" -> "bg-yellow-200"
-      "G" -> "bg-green-300"
-      _ -> ""
-    end
-  end
-
-  # Helper function for signal background in the current state
-  def signal_bg_class(signal) do
-    case signal do
-      "R" -> "bg-red-300 rounded-full w-8 h-8 flex items-center justify-center mx-auto"
-      "Y" -> "bg-yellow-200 rounded-full w-8 h-8 flex items-center justify-center mx-auto"
-      "G" -> "bg-green-300 rounded-full w-8 h-8 flex items-center justify-center mx-auto"
-      _ -> "rounded-full w-8 h-8 flex items-center justify-center mx-auto"
-    end
-  end
-
-  # Helper function for signal boxes in the cycle table
-  def signal_box_class(signal) do
-    case signal do
-      "R" -> "bg-red-300 rounded-full w-6 h-6 flex items-center justify-center mx-auto"
-      "Y" -> "bg-yellow-200 rounded-full w-6 h-6 flex items-center justify-center mx-auto"
-      "G" -> "bg-green-300 rounded-full w-6 h-6 flex items-center justify-center mx-auto"
-      _ -> "rounded-full w-6 h-6 flex items-center justify-center mx-auto"
-    end
-  end
+  defp get_signal_class("R"), do: "font-bold text-red-800"
+  defp get_signal_class("Y"), do: "font-bold text-yellow-800"
+  defp get_signal_class("G"), do: "font-bold text-green-800"
+  defp get_signal_class("A"), do: "text-green-700 font-bold"
+  defp get_signal_class("B"), do: "text-yellow-600 font-bold"
+  defp get_signal_class("C"), do: "text-red-600 font-bold"
+  defp get_signal_class("D"), do: "text-purple-600 font-bold"
+  defp get_signal_class("E"), do: "text-blue-600 font-bold"
+  defp get_signal_class("F"), do: "text-pink-600 font-bold"
+  defp get_signal_class(_), do: "text-gray-500"
 end

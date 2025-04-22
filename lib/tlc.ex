@@ -28,6 +28,19 @@ defmodule TLC do
   # rem() returns negative values if the input is negative, which is not what we want.
   def mod(x,y), do: rem( rem(x,y)+y, y)
 
+  @doc """
+  Returns an example traffic program for testing and demonstration purposes.
+  """
+  def example_program do
+    %TrafficProgram{
+      length: 8,
+      offset: 0,
+      groups: ["a", "b"],
+      states: %{ 0 => "RY", 1 => "GR", 4 => "YR", 5 => "RG"},
+      skips: %{0 => 2},
+      waits: %{5 => 2}
+    }
+  end
 
   def validate_program(%TrafficProgram{} = program) do
     with :ok <- validate_length(program.length),
@@ -68,8 +81,6 @@ defmodule TLC do
         :ok
     end
   end
-  defp validate_groups(groups) when is_list(groups) and length(groups) > 0, do: {:error, "Group names must be strings"}
-  defp validate_groups(_), do: {:error, "Program must have at least one signal group defined as a list of strings"}
 
   defp validate_states(states, length, groups) do
     group_count = length(groups)
@@ -204,16 +215,5 @@ defmodule TLC do
 
     # Get the state string
     Map.get(program.states, time)
-  end
-
-  def example_program() do
-    %TLC.TrafficProgram{
-      length: 8,
-      offset: 0,
-      groups: ["a", "b"],
-      states: %{ 0 => "AA", 4 => "BB"},
-      skips: %{0 => 2},
-      waits: %{5 => 2}
-    }
   end
 end

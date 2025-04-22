@@ -1,6 +1,18 @@
 defmodule TLCTest do
   use ExUnit.Case
 
+
+  defp example_program() do
+    %TLC.TrafficProgram{
+      length: 8,
+      offset: 0,
+      groups: ["a", "b"],
+      states: %{ 0 => "RY", 1 => "GR", 4 => "YR", 5 => "RG"},
+      skips: %{0 => 2},
+      waits: %{5 => 2}
+    }
+  end
+
   # Helper to return a map with the relevant program state
   defp to_map(program) do
     %{
@@ -16,7 +28,7 @@ defmodule TLCTest do
 
   describe "validate_program/1" do
     test "returns :ok for a valid program" do
-      valid_program = TLC.example_program()
+      valid_program = example_program()
       assert {:ok, ^valid_program} = TLC.validate_program(valid_program)
     end
 
@@ -25,39 +37,39 @@ defmodule TLCTest do
     end
 
     test "returns error for invalid length" do
-      invalid_program = %TLC.TrafficProgram{TLC.example_program() | length: 0}
+      invalid_program = %TLC.TrafficProgram{example_program() | length: 0}
       assert {:error, "Program length must be a positive integer"} = TLC.validate_program(invalid_program)
 
-      invalid_program_neg = %TLC.TrafficProgram{TLC.example_program() | length: -5}
+      invalid_program_neg = %TLC.TrafficProgram{example_program() | length: -5}
       assert {:error, "Program length must be a positive integer"} = TLC.validate_program(invalid_program_neg)
     end
 
     test "returns error for invalid offset" do
-      invalid_program = %TLC.TrafficProgram{TLC.example_program() | offset: 8} # offset >= length
+      invalid_program = %TLC.TrafficProgram{example_program() | offset: 8} # offset >= length
       assert {:error, "Offset must be an integer between 0 and length - 1"} = TLC.validate_program(invalid_program)
 
-      invalid_program_neg = %TLC.TrafficProgram{TLC.example_program() | offset: -1}
+      invalid_program_neg = %TLC.TrafficProgram{example_program() | offset: -1}
       assert {:error, "Offset must be an integer between 0 and length - 1"} = TLC.validate_program(invalid_program_neg)
     end
     
     test "returns error for invalid target_offset" do
-      invalid_program = %TLC.TrafficProgram{TLC.example_program() | target_offset: 8} # target_offset >= length
+      invalid_program = %TLC.TrafficProgram{example_program() | target_offset: 8} # target_offset >= length
       assert {:error, "Target offset must be an integer between 0 and length - 1"} = TLC.validate_program(invalid_program)
 
-      invalid_program_neg = %TLC.TrafficProgram{TLC.example_program() | target_offset: -1}
+      invalid_program_neg = %TLC.TrafficProgram{example_program() | target_offset: -1}
       assert {:error, "Target offset must be an integer between 0 and length - 1"} = TLC.validate_program(invalid_program_neg)
     end
 
     test "returns error for invalid groups" do
-      invalid_program_empty = %TLC.TrafficProgram{TLC.example_program() | groups: []}
+      invalid_program_empty = %TLC.TrafficProgram{example_program() | groups: []}
       assert {:error, "Program must have at least one signal group defined as a list"} = TLC.validate_program(invalid_program_empty)
       
-      invalid_program_type = %TLC.TrafficProgram{TLC.example_program() | groups: ["a", 1]}
+      invalid_program_type = %TLC.TrafficProgram{example_program() | groups: ["a", 1]}
       assert {:error, "Group names must be strings"} = TLC.validate_program(invalid_program_type)
     end
 
     test "returns error for invalid states" do
-      program = TLC.example_program()
+      program = example_program()
       
       invalid_states_empty = %TLC.TrafficProgram{program | states: %{}}
       assert {:error, "Program must have at least one state defined"} = TLC.validate_program(invalid_states_empty)
@@ -73,7 +85,7 @@ defmodule TLCTest do
     end
     
     test "returns error for invalid skips" do
-      program = TLC.example_program()
+      program = example_program()
       
       invalid_skips_time = %TLC.TrafficProgram{program | skips: %{-1 => 2}}
       assert {:error, "Skips time points must be integers between 0 and program length - 1"} = TLC.validate_program(invalid_skips_time)
@@ -89,7 +101,7 @@ defmodule TLCTest do
     end
     
     test "returns error for invalid waits" do
-      program = TLC.example_program()
+      program = example_program()
       
       invalid_waits_time = %TLC.TrafficProgram{program | waits: %{-1 => 2}}
       assert {:error, "Waits time points must be integers between 0 and program length - 1"} = TLC.validate_program(invalid_waits_time)
