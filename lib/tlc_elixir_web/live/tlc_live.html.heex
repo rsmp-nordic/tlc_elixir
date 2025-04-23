@@ -78,112 +78,101 @@
   <!-- Cycle table section -->
   <div class="bg-white p-4 rounded shadow overflow-x-auto">
     <h2 class="text-xl font-semibold mb-4 text-gray-700">Cycle Table</h2>
-    <table class="border-collapse border min-w-full">
-      <thead>
-        <tr class="bg-gray-100">
-          <th class="border p-2"></th>
-          <%= for cycle <- 0..(@tlc.program.length - 1) do %>
-            <th class={"border p-2 px-4 #{if @tlc.cycle_time == cycle, do: "bg-gray-300 font-bold border-b-2 border-b-gray-500", else: ""}"}>
-              <%= cycle %>
-            </th>
-          <% end %>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- Offset indicator row -->
-        <tr>
-          <th class="border p-2 px-4 bg-gray-50 text-left">Offset</th>
-          <%= for cycle <- 0..(@tlc.program.length - 1) do %>
-            <% 
-              # Check if this cycle is between offset and target_offset
-              is_between = cond do
-                # If target is ahead (positive distance)
-                @tlc.target_distance > 0 -> 
-                  cycle > @tlc.offset && cycle <= @tlc.target_offset
-                # If target is behind (negative distance)
-                @tlc.target_distance < 0 -> 
-                  (cycle < @tlc.offset && cycle >= @tlc.target_offset)
-                # If at target (zero distance)
-                true -> false
-              end 
-            %>
-            <td class={"border p-1 text-center cursor-pointer #{cond do 
-              cycle == @tlc.offset && cycle == @tlc.target_offset -> "bg-blue-300" 
-              cycle == @tlc.offset -> "bg-blue-300"
-              cycle == @tlc.target_offset -> "bg-gray-300"
-              is_between -> "bg-gray-200"
-              true -> "hover:bg-gray-100"
-            end} #{if @tlc.cycle_time == cycle, do: "border-l-2 border-r-2 border-gray-400", else: ""}"} 
-              phx-click="set_target_offset" phx-value-target_offset={cycle}>
-              <div class="h-6 flex items-center justify-center">
-                <%= if cycle == @tlc.offset do %>
-                  <span class="font-medium text-gray-700">
-                    <%= if @tlc.target_distance != 0 do %>
-                      <%= if @tlc.target_distance > 0, do: "+", else: "" %><%= @tlc.target_distance %>
-                    <% else %>
-                      0
-                    <% end %>
-                  </span>
-                <% end %>
-              </div>
-            </td>
-          <% end %>
-        </tr>
-        
-        <!-- Skip points row -->
-        <tr>
-          <th class="border p-2 px-4 bg-gray-50 text-left">Skips</th>
-          <%= for i <- 0..(@tlc.program.length - 1) do %>
-            <% 
-              skip_duration = Map.get(@tlc.program.skips, i, 0)
-              has_skip = skip_duration > 0
-              
-              # This cell is the start of a skip
-              is_start_of_skip = has_skip
-              
-              # Check if this cell is within a skip span but not the start
-              is_within_skip = Enum.any?(@tlc.program.skips, fn {start, duration} -> 
-                i > start && i < start + duration
-              end)
-            %>
-            <td class={"border p-1 text-center #{if @tlc.cycle_time == i, do: "border-l-2 border-r-2 border-gray-400", else: ""} #{if is_start_of_skip || is_within_skip, do: "bg-gray-200", else: ""}"}>
-              <%= if is_start_of_skip do %>
-                <%= skip_duration %>
-              <% end %>
-            </td>
-          <% end %>
-        </tr>
-        
-        <!-- Wait points row -->
-        <tr>
-          <th class="border p-2 px-4 bg-gray-50 text-left">Waits</th>
-          <%= for i <- 0..(@tlc.program.length - 1) do %>
-            <% 
-              wait_duration = Map.get(@tlc.program.waits, i, 0)
-              has_wait = wait_duration > 0
-            %>
-            <td class={"border p-1 text-center #{if @tlc.cycle_time == i, do: "border-l-2 border-r-2 border-gray-400", else: ""} #{if has_wait, do: "bg-gray-200", else: ""}"}>
-              <%= if has_wait do %>
-                <%= wait_duration %>
-              <% end %>
-            </td>
-          <% end %>
-        </tr>
-        
-        <!-- Group signals -->
+    
+    <!-- Column-based layout -->
+    <div class="flex border-t border-l border-gray-200">
+      <!-- Labels column -->
+      <div class="w-24 flex flex-col">
+        <div class="p-2 h-12 flex items-center justify-left font-semibold bg-gray-50 border-r border-b border-gray-200"></div>
+        <div class="p-2 h-12 flex items-center text-left bg-gray-50 font-medium border-r border-b border-gray-200">Offset</div>
+        <div class="p-2 h-12 flex items-center text-left bg-gray-50 font-medium border-r border-b border-gray-200">Skips</div>
+        <div class="p-2 h-12 flex items-center text-left bg-gray-50 font-medium border-r border-b border-gray-200">Waits</div>
         <%= for {group, i} <- Enum.with_index(@tlc.program.groups) do %>
-          <tr>
-            <th class="border p-2 px-4 bg-gray-50 text-left"><%= group %></th>
-            <%= for cycle <- 0..(@tlc.program.length - 1) do %>
-              <% state = TLC.resolve_state(@tlc, cycle) %>
-              <% signal = String.at(state, i) %>
-              <td class={"border p-2 text-center #{cell_bg_class(signal)} #{if @tlc.cycle_time == cycle, do: "border-l-2 border-r-2 border-gray-400", else: ""}"}>
-                <!-- Removed the span containing the signal letter -->
-              </td>
-            <% end %>
-          </tr>
+          <div class={"p-2 h-12 flex items-center text-left bg-gray-50 font-medium border-r #{if i == length(@tlc.program.groups) - 1, do: "", else: "border-b"} border-gray-200"}>
+            <%= group %>
+          </div>
         <% end %>
-      </tbody>
-    </table>
+      </div>
+      
+      <!-- Data columns -->
+      <%= for {cycle, col_idx} <- Enum.with_index(0..(@tlc.program.length - 1)) do %>
+        <div class={"flex-1 flex flex-col relative #{if col_idx == @tlc.program.length - 1, do: "border-r", else: ""} border-gray-200 #{if @tlc.cycle_time == cycle, do: "outline outline-4 outline-offset-0 outline-gray-500 z-10 rounded", else: ""}"}>
+          <!-- Header cell -->
+          <div class="p-2 h-12 flex items-center justify-center font-semibold border-r border-b border-gray-200">
+            <%= cycle %>
+          </div>
+          
+          <!-- Offset cell -->
+          <% 
+            is_between = cond do
+              @tlc.target_distance > 0 -> 
+                cycle > @tlc.offset && cycle <= @tlc.target_offset
+              @tlc.target_distance < 0 -> 
+                (cycle < @tlc.offset && cycle >= @tlc.target_offset)
+              true -> false
+            end 
+          %>
+          <div class={"p-2 h-12 flex items-center justify-center cursor-pointer border-r border-b border-gray-200 #{cond do 
+            cycle == @tlc.offset && cycle == @tlc.target_offset -> "bg-blue-300" 
+            cycle == @tlc.offset -> "bg-blue-300"
+            cycle == @tlc.target_offset -> "bg-gray-300"
+            is_between -> "bg-gray-200"
+            true -> "hover:bg-gray-100"
+          end}"} 
+            phx-click="set_target_offset" phx-value-target_offset={cycle}>
+            <%= if cycle == @tlc.offset do %>
+              <span class="font-medium text-gray-700">
+                <%= if @tlc.target_distance != 0 do %>
+                  <%= if @tlc.target_distance > 0, do: "+", else: "" %><%= @tlc.target_distance %>
+                <% else %>
+                  0
+                <% end %>
+              </span>
+            <% else %>
+              <span class="opacity-0">0</span>
+            <% end %>
+          </div>
+          
+          <!-- Skip cell -->
+          <% 
+            skip_duration = Map.get(@tlc.program.skips, cycle, 0)
+            has_skip = skip_duration > 0
+            is_start_of_skip = has_skip
+            is_within_skip = Enum.any?(@tlc.program.skips, fn {start, duration} -> 
+              cycle > start && cycle < start + duration
+            end)
+          %>
+          <div class={"p-2 h-12 flex items-center justify-center border-r border-b border-gray-200 #{if is_start_of_skip || is_within_skip, do: "bg-gray-200", else: ""}"}>
+            <%= if is_start_of_skip do %>
+              <%= skip_duration %>
+            <% else %>
+              <span class="opacity-0">0</span>
+            <% end %>
+          </div>
+          
+          <!-- Wait cell -->
+          <% 
+            wait_duration = Map.get(@tlc.program.waits, cycle, 0)
+            has_wait = wait_duration > 0
+          %>
+          <div class={"p-2 h-12 flex items-center justify-center border-r border-b border-gray-200 #{if has_wait, do: "bg-gray-200", else: ""}"}>
+            <%= if has_wait do %>
+              <%= wait_duration %>
+            <% else %>
+              <span class="opacity-0">0</span>
+            <% end %>
+          </div>
+          
+          <!-- Group signal cells -->
+          <%= for {_, i} <- Enum.with_index(@tlc.program.groups) do %>
+            <% state = TLC.resolve_state(@tlc, cycle) %>
+            <% signal = String.at(state, i) %>
+            <div class={"p-2 h-12 flex items-center justify-center border-r #{if i == length(@tlc.program.groups) - 1, do: "", else: "border-b"} border-gray-200 #{cell_bg_class(signal)}"}>
+              <span><%= signal %></span>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
   </div>
 </div>
