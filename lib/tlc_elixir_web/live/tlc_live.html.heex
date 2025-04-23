@@ -106,9 +106,21 @@
           <% 
             is_between = cond do
               @tlc.target_distance > 0 -> 
-                cycle > @tlc.offset && cycle <= @tlc.target_offset
-              @tlc.target_distance < 0 -> 
-                (cycle < @tlc.offset && cycle >= @tlc.target_offset)
+                if @tlc.target_offset < @tlc.offset do
+                  # Wrap around case for positive distance
+                  cycle > @tlc.offset || cycle <= @tlc.target_offset
+                else
+                  # Normal case
+                  cycle > @tlc.offset && cycle <= @tlc.target_offset
+                end
+              @tlc.target_distance < 0 ->
+                if @tlc.target_offset > @tlc.offset do
+                  # Wrap around case for negative distance
+                  cycle < @tlc.offset || cycle >= @tlc.target_offset
+                else
+                  # Normal case
+                  cycle < @tlc.offset && cycle >= @tlc.target_offset
+                end
               true -> false
             end 
           %>
