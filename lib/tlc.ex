@@ -2,121 +2,37 @@ defmodule TLC do
   @moduledoc """
   A module to simulate a fixed-time traffic light program.
 
-  This module reads a YAML file defining the fixed-time program and handles the traffic light logic.
+  This module handles the traffic light logic and runtime tlc for a TLC.Program.
   """
 
-  alias __MODULE__.TrafficProgram
-
-  defmodule TrafficProgram do
-    @moduledoc "Struct representing the fixed-time traffic program."
-    defstruct length: 0,
-              offset: 0,
-              groups: [],
-              states: %{},
-              skips: %{},
-              waits: %{},
-              switch: [],
-              base_time: -1, # -1 is ready state, before first actual step
-              cycle_time: -1,
-              target_offset: 0,
-              target_distance: 0,
-              waited: 0,
-              current_states: ""
-  end
+  defstruct program: %TLC.Program{},
+            offset: 0,
+            base_time: -1,    # -1 is ready tlc, before first actual step
+            cycle_time: -1,
+            target_offset: 0,
+            target_distance: 0,
+            waited: 0,
+            current_states: ""
 
   # Elixir has no modulo function, so define one.
   # rem() returns negative values if the input is negative, which is not what we want.
   def mod(x,y), do: rem( rem(x,y)+y, y)
 
   @doc """
-  Returns an example traffic program for testing and demonstration purposes.
+  Creates a new traffic light controller from a TLC.Program.
   """
-  def example_program do
-    %TrafficProgram{
-      length: 8,
-      offset: 0,
-      groups: ["a", "b"],
-      states: %{ 0 => "RY", 1 => "GR", 4 => "YR", 5 => "RG"},
-      skips: %{0 => 2},
-      waits: %{5 => 2}
+  def new(program) do
+    %TLC{
+      program: program,
+      offset: program.offset
     }
   end
 
-  def validate_program(%TrafficProgram{} = program) do
-    with :ok <- validate_length(program.length),
-         :ok <- validate_offset(program.offset, program.length),
-         :ok <- validate_target_offset(program.target_offset, program.length),
-         :ok <- validate_groups(program.groups),
-         :ok <- validate_states(program.states, program.length, program.groups),
-         :ok <- validate_map_times_and_durations(program.skips, program.length, "Skips"),
-         :ok <- validate_map_times_and_durations(program.waits, program.length, "Waits") do
-      {:ok, program}
-    # Catch clause for the with statement
-    else
-      {:error, reason} -> {:error, reason}
-      error -> {:error, "Unknown validation error: #{inspect(error)}"} # Catch unexpected non-error returns
-    end
-  end
-
-  def validate_program(_other), do: {:error, "Input must be a %TLC.TrafficProgram{} struct"}
-
-  # --- Private Validation Helpers ---
-
-  defp validate_length(length) when is_integer(length) and length > 0, do: :ok
-  defp validate_length(_), do: {:error, "Program length must be a positive integer"}
-
-  defp validate_offset(offset, length) when is_integer(offset) and offset >= 0 and offset < length, do: :ok
-  defp validate_offset(_, _), do: {:error, "Offset must be an integer between 0 and length - 1"}
-
-  defp validate_target_offset(target_offset, length) when is_integer(target_offset) and target_offset >= 0 and target_offset < length, do: :ok
-  defp validate_target_offset(_, _), do: {:error, "Target offset must be an integer between 0 and length - 1"}
-
-  defp validate_groups(groups) do
-    cond do
-      not is_list(groups) or length(groups) == 0 ->
-        {:error, "Program must have at least one signal group defined as a list"}
-      not Enum.all?(groups, &is_binary/1) ->
-         {:error, "Group names must be strings"}
-      true ->
-        :ok
-    end
-  end
-
-  defp validate_states(states, length, groups) do
-    group_count = length(groups)
-    cond do
-      not is_map(states) ->
-        {:error, "States must be a map"}
-      map_size(states) == 0 ->
-        {:error, "Program must have at least one state defined"}
-      Enum.any?(Map.keys(states), fn t -> not is_integer(t) or t < 0 or t >= length end) ->
-        {:error, "State time points must be integers between 0 and program length - 1"}
-      Enum.any?(Map.values(states), fn s -> not is_binary(s) or String.length(s) != group_count end) ->
-        {:error, "State strings must have the same length as the number of signal groups (#{group_count})"}
-      true ->
-        :ok
-    end
-  end
-
-  defp validate_map_times_and_durations(map_data, length, map_name) do
-    cond do
-      not is_map(map_data) ->
-        {:error, "#{map_name} must be a map"}
-      Enum.any?(Map.keys(map_data), fn t -> not is_integer(t) or t < 0 or t >= length end) ->
-        {:error, "#{map_name} time points must be integers between 0 and program length - 1"}
-      Enum.any?(Map.values(map_data), fn d -> not is_integer(d) or d <= 0 end) ->
-        {:error, "#{map_name} durations must be positive integers"}
-      true ->
-        :ok
-    end
-  end
-
-
   @doc """
-  Updates the program state for the next cycle.
+  Updates the program tlc for the next cycle.
   """
-  def tick(program) do
-    program
+  def tick(tlc) do
+    tlc
     |> advance_base_time
     |> find_target_distance
     |> apply_waits
@@ -125,95 +41,97 @@ defmodule TLC do
     |> update_states
   end
 
-  def advance_base_time(program) do
-    %{program | base_time: mod(program.base_time + 1, program.length) }
+  @spec advance_base_time(%{:base_time => integer(), optional(any()) => any()}) :: %{
+          :base_time => integer(),
+          optional(any()) => any()
+        }
+  def advance_base_time(tlc) do
+    %{tlc | base_time: mod(tlc.base_time + 1, tlc.program.length) }
   end
 
-
-  def find_target_distance(program) do
-    diff = mod( program.target_offset - program.offset,  program.length)
-    if diff < program.length/2 && Enum.any?(program.skips) do   # moving forward only possible if skips are defined
-      %{program | target_distance: diff }
+  def find_target_distance(tlc) do
+    diff = mod(tlc.target_offset - tlc.offset, tlc.program.length)
+    if diff < tlc.program.length/2 && Enum.any?(tlc.program.skips) do   # moving forward only possible if skips are defined
+      %{tlc | target_distance: diff }
     else
-      %{program | target_distance: -mod( program.offset - program.target_offset,  program.length) }
+      %{tlc | target_distance: -mod(tlc.offset - tlc.target_offset, tlc.program.length) }
     end
   end
 
-  def apply_waits(program) when program.target_distance < 0 do
-    case Map.get(program.waits, program.cycle_time) do
-      nil -> %{program | waited: 0}
+  def apply_waits(tlc) when tlc.target_distance < 0 do
+    case Map.get(tlc.program.waits, tlc.cycle_time) do
+      nil -> %{tlc | waited: 0}
       duration ->
-        #target_to_distance = TLC.mod(program.offset - program.target_offset, program.length)
-        #possible = min(duration, target_to_distance)
-
-        if program.waited < duration do
+        if tlc.waited < duration do
           # wait by moving offset back 1
-          %{program |
-            offset: mod(program.offset - 1, program.length),
-            waited: program.waited + 1
+          %{tlc |
+            offset: mod(tlc.offset - 1, tlc.program.length),
+            waited: tlc.waited + 1
           }
           |> find_target_distance
         else
           # wait maxed so continue
-          %{program | waited: 0 }
+          %{tlc | waited: 0 }
         end
     end
   end
-  def apply_waits(program), do: %{ program | waited: 0 }
+  def apply_waits(tlc), do: %{tlc | waited: 0 }
 
-
-  def apply_skips(program) when program.target_distance > 0 do
-    case Map.get(program.skips, program.cycle_time) do
-      nil -> program
+  def apply_skips(tlc) when tlc.target_distance > 0 do
+    case Map.get(tlc.program.skips, tlc.cycle_time) do
+      nil -> tlc
       duration ->
         # Apply skip and handle wrap-around if the new offset exceeds the cycle length
-        %{program | offset: mod(program.offset + duration, program.length)}
+        %{tlc | offset: mod(tlc.offset + duration, tlc.program.length)}
         |> compute_cycle_time
         |> find_target_distance
     end
   end
-  def apply_skips(program), do: program
+  def apply_skips(tlc), do: tlc
 
-
-  def compute_cycle_time(program) do
-    %{program | cycle_time: mod(program.base_time + program.offset, program.length) }
+  def compute_cycle_time(tlc) do
+    %{tlc | cycle_time: mod(tlc.base_time + tlc.offset, tlc.program.length) }
   end
 
   @doc """
   Sets the target offset for the traffic program. This will cause the program to
   gradually adjust to the new offset using skip and wait points.
 
-  Returns the updated program.
+  Returns the updated program tlc.
   """
-  def set_target_offset(program, target_offset) do
-    %{program | target_offset: mod(target_offset, program.length)}
+  def set_target_offset(tlc, target_offset) do
+    %{tlc | target_offset: mod(target_offset, tlc.program.length)}
     |> find_target_distance
   end
 
-  # Make find_state_for_cycle_time public since it will be used directly
   @doc """
-  Determines the state string for a given cycle time.
+  Updates the current states based on the cycle time.
   """
-  def update_states(program) do
+  def update_states(tlc) do
     # Get all defined times in descending order
-    times = program.states |> Map.keys() |> Enum.sort(:desc)
+    times = tlc.program.states |> Map.keys() |> Enum.sort(:desc)
 
     # Find time
-    time = Enum.find(times, fn time -> time <= program.cycle_time end) || List.first(times)
+    time = Enum.find(times, fn time -> time <= tlc.cycle_time end) || List.first(times)
 
-    # Get the state string
-    states = Map.get(program.states, time)
-    %{program | current_states: states}
+    # Get the tlc string
+    states = Map.get(tlc.program.states, time)
+    %{tlc | current_states: states}
   end
 
-  def resolve_state(program, cycle_time) do
+  def resolve_state(tlc, cycle_time) do
     # Get all defined times in descending order
-    times = program.states |> Map.keys() |> Enum.sort(:desc)
+    times = tlc.program.states |> Map.keys() |> Enum.sort(:desc)
 
     # Find time
     time = Enum.find(times, fn time -> time <= cycle_time end) || List.first(times)
 
-    # Get the state string
-    Map.get(program.states, time)
+    # Get the tlc string
+    Map.get(tlc.program.states, time)
+  end
+
+  def example_program_tlc() do
+    TLC.Program.example()
+    |> new()
   end
 end

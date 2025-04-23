@@ -3,7 +3,7 @@ defmodule TlcElixirWeb.TLCLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    program = TLC.example_program() # Now using the public TLC.example_program/0 function
+    program = TLC.Program.example()
     :timer.send_interval(1000, self(), :tick)
     {:ok, assign(socket,
       program: program,
