@@ -16,7 +16,8 @@ defmodule TlcElixir.Application do
       # Start a worker by calling: TlcElixir.Worker.start_link(arg)
       # {TlcElixir.Worker, arg},
       # Start to serve requests, typically the last entry
-      TlcElixirWeb.Endpoint
+      TlcElixirWeb.Endpoint,
+      {TLC.Server, TLC.Program.example()}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
@@ -32,4 +33,5 @@ defmodule TlcElixir.Application do
     TlcElixirWeb.Endpoint.config_change(changed, removed)
     :ok
   end
+
 end

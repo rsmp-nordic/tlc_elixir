@@ -129,15 +129,4 @@ defmodule TLC do
     # Get the tlc string
     Map.get(tlc.program.states, time)
   end
-
-  # Add this function to handle Program structs directly
-  def resolve_state(%TLC.Program{} = program, cycle) do
-    # Call the existing resolve_state logic but with a program instead of a TLC struct
-    TLC.Program.resolve_state(program, cycle)
-  end
-
-  def example_program_tlc() do
-    TLC.Program.example()
-    |> new()
-  end
 end
