@@ -6,7 +6,7 @@
     <form phx-submit="set_target_offset" class="flex items-center gap-4">
       <label class="flex items-center gap-2">
         <span class="font-medium">Target Offset:</span>
-        <input name="target_offset" type="number" value={@target_offset} 
+        <input name="target_offset" type="number" value={@tlc.target_offset} 
                class="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
       </label>
       <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
@@ -20,7 +20,7 @@
     <div class="bg-white p-4 rounded shadow">
       <h2 class="text-xl font-semibold mb-4 text-gray-700">Program Definition</h2>
       <div class="font-mono text-sm overflow-x-auto bg-gray-50 p-4 rounded">
-        <pre><%= format_program_as_elixir(@program) %></pre>
+        <pre><%= format_program_as_elixir(@tlc.program) %></pre>
       </div>
     </div>
 
@@ -29,40 +29,40 @@
       <table class="w-full border-collapse">
         <tr class="border-b">
           <th class="text-left py-2 px-4 bg-gray-50">base_time:</th>
-          <td class="py-2 px-4"><%= @program.base_time %></td>
+          <td class="py-2 px-4"><%= @tlc.base_time %></td>
         </tr>
         <tr class="border-b">
           <th class="text-left py-2 px-4 bg-gray-50">cycle_time:</th>
-          <td class="py-2 px-4"><%= @program.cycle_time %></td>
+          <td class="py-2 px-4"><%= @tlc.cycle_time %></td>
         </tr>
         <tr class="border-b">
           <th class="text-left py-2 px-4 bg-gray-50">offset:</th>
-          <td class="py-2 px-4"><%= @program.offset %></td>
+          <td class="py-2 px-4"><%= @tlc.offset %></td>
         </tr>
         <tr class="border-b">
           <th class="text-left py-2 px-4 bg-gray-50">target_offset:</th>
-          <td class="py-2 px-4"><%= @program.target_offset %></td>
+          <td class="py-2 px-4"><%= @tlc.target_offset %></td>
         </tr>
         <tr class="border-b">
           <th class="text-left py-2 px-4 bg-gray-50">target_distance:</th>
-          <td class="py-2 px-4"><%= @program.target_distance %></td>
+          <td class="py-2 px-4"><%= @tlc.target_distance %></td>
         </tr>
         <tr class="border-b">
           <th class="text-left py-2 px-4 bg-gray-50">waited:</th>
-          <td class="py-2 px-4"><%= @program.waited %></td>
+          <td class="py-2 px-4"><%= @tlc.waited %></td>
         </tr>
         <tr>
           <th class="text-left py-2 px-4 bg-gray-50">current states:</th>
           <td class="py-2 px-4">
             <table class="w-full border-collapse border">
               <tr class="bg-gray-100">
-                <%= for group <- @program.groups do %>
+                <%= for group <- @tlc.program.groups do %>
                   <th class="border p-2"><%= group %></th>
                 <% end %>
               </tr>
               <tr>
-                <%= for i <- 0..(length(@program.groups)-1) do %>
-                  <% signal = String.at(@program.current_states, i) %>
+                <%= for i <- 0..(length(@tlc.program.groups)-1) do %>
+                  <% signal = String.at(@tlc.current_states, i) %>
                   <td class={"border p-2 text-center #{cell_bg_class(signal)} font-bold"}>
                     <span class={get_signal_class(signal)}><%= signal %></span>
                   </td>
@@ -82,8 +82,8 @@
       <thead>
         <tr class="bg-gray-100">
           <th class="border p-2"></th>
-          <%= for cycle <- 0..(@program.length - 1) do %>
-            <th class={"border p-2 px-4 #{if @program.cycle_time == cycle, do: "bg-gray-300 font-bold border-b-2 border-b-gray-500", else: ""}"}>
+          <%= for cycle <- 0..(@tlc.program.length - 1) do %>
+            <th class={"border p-2 px-4 #{if @tlc.cycle_time == cycle, do: "bg-gray-300 font-bold border-b-2 border-b-gray-500", else: ""}"}>
               <%= cycle %>
             </th>
           <% end %>
@@ -93,33 +93,33 @@
         <!-- Offset indicator row -->
         <tr>
           <th class="border p-2 px-4 bg-gray-50 text-left">Offset</th>
-          <%= for cycle <- 0..(@program.length - 1) do %>
+          <%= for cycle <- 0..(@tlc.program.length - 1) do %>
             <% 
               # Check if this cycle is between offset and target_offset
               is_between = cond do
                 # If target is ahead (positive distance)
-                @program.target_distance > 0 -> 
-                  cycle > @program.offset && cycle <= @program.target_offset
+                @tlc.target_distance > 0 -> 
+                  cycle > @tlc.offset && cycle <= @tlc.target_offset
                 # If target is behind (negative distance)
-                @program.target_distance < 0 -> 
-                  (cycle < @program.offset && cycle >= @program.target_offset)
+                @tlc.target_distance < 0 -> 
+                  (cycle < @tlc.offset && cycle >= @tlc.target_offset)
                 # If at target (zero distance)
                 true -> false
               end 
             %>
             <td class={"border p-1 text-center cursor-pointer #{cond do 
-              cycle == @program.offset && cycle == @program.target_offset -> "bg-blue-300" 
-              cycle == @program.offset -> "bg-blue-300"
-              cycle == @program.target_offset -> "bg-gray-300"
+              cycle == @tlc.offset && cycle == @tlc.target_offset -> "bg-blue-300" 
+              cycle == @tlc.offset -> "bg-blue-300"
+              cycle == @tlc.target_offset -> "bg-gray-300"
               is_between -> "bg-gray-200"
               true -> "hover:bg-gray-100"
-            end} #{if @program.cycle_time == cycle, do: "border-l-2 border-r-2 border-gray-400", else: ""}"} 
+            end} #{if @tlc.cycle_time == cycle, do: "border-l-2 border-r-2 border-gray-400", else: ""}"} 
               phx-click="set_target_offset" phx-value-target_offset={cycle}>
               <div class="h-6 flex items-center justify-center">
-                <%= if cycle == @program.offset do %>
+                <%= if cycle == @tlc.offset do %>
                   <span class="font-medium text-gray-700">
-                    <%= if @program.target_distance != 0 do %>
-                      <%= if @program.target_distance > 0, do: "+", else: "" %><%= @program.target_distance %>
+                    <%= if @tlc.target_distance != 0 do %>
+                      <%= if @tlc.target_distance > 0, do: "+", else: "" %><%= @tlc.target_distance %>
                     <% else %>
                       0
                     <% end %>
@@ -133,20 +133,20 @@
         <!-- Skip points row -->
         <tr>
           <th class="border p-2 px-4 bg-gray-50 text-left">Skips</th>
-          <%= for i <- 0..(@program.length - 1) do %>
+          <%= for i <- 0..(@tlc.program.length - 1) do %>
             <% 
-              skip_duration = Map.get(@program.skips, i, 0)
+              skip_duration = Map.get(@tlc.program.skips, i, 0)
               has_skip = skip_duration > 0
               
               # This cell is the start of a skip
               is_start_of_skip = has_skip
               
               # Check if this cell is within a skip span but not the start
-              is_within_skip = Enum.any?(@program.skips, fn {start, duration} -> 
+              is_within_skip = Enum.any?(@tlc.program.skips, fn {start, duration} -> 
                 i > start && i < start + duration
               end)
             %>
-            <td class={"border p-1 text-center #{if @program.cycle_time == i, do: "border-l-2 border-r-2 border-gray-400", else: ""} #{if is_start_of_skip || is_within_skip, do: "bg-gray-200", else: ""}"}>
+            <td class={"border p-1 text-center #{if @tlc.cycle_time == i, do: "border-l-2 border-r-2 border-gray-400", else: ""} #{if is_start_of_skip || is_within_skip, do: "bg-gray-200", else: ""}"}>
               <%= if is_start_of_skip do %>
                 <%= skip_duration %>
               <% end %>
@@ -157,12 +157,12 @@
         <!-- Wait points row -->
         <tr>
           <th class="border p-2 px-4 bg-gray-50 text-left">Waits</th>
-          <%= for i <- 0..(@program.length - 1) do %>
+          <%= for i <- 0..(@tlc.program.length - 1) do %>
             <% 
-              wait_duration = Map.get(@program.waits, i, 0)
+              wait_duration = Map.get(@tlc.program.waits, i, 0)
               has_wait = wait_duration > 0
             %>
-            <td class={"border p-1 text-center #{if @program.cycle_time == i, do: "border-l-2 border-r-2 border-gray-400", else: ""} #{if has_wait, do: "bg-gray-200", else: ""}"}>
+            <td class={"border p-1 text-center #{if @tlc.cycle_time == i, do: "border-l-2 border-r-2 border-gray-400", else: ""} #{if has_wait, do: "bg-gray-200", else: ""}"}>
               <%= if has_wait do %>
                 <%= wait_duration %>
               <% end %>
@@ -171,13 +171,13 @@
         </tr>
         
         <!-- Group signals -->
-        <%= for {group, i} <- Enum.with_index(@program.groups) do %>
+        <%= for {group, i} <- Enum.with_index(@tlc.program.groups) do %>
           <tr>
             <th class="border p-2 px-4 bg-gray-50 text-left"><%= group %></th>
-            <%= for cycle <- 0..(@program.length - 1) do %>
-              <% state = TLC.resolve_state(@program, cycle) %>
+            <%= for cycle <- 0..(@tlc.program.length - 1) do %>
+              <% state = TLC.resolve_state(@tlc, cycle) %>
               <% signal = String.at(state, i) %>
-              <td class={"border p-2 text-center #{cell_bg_class(signal)} #{if @program.cycle_time == cycle, do: "border-l-2 border-r-2 border-gray-400", else: ""}"}>
+              <td class={"border p-2 text-center #{cell_bg_class(signal)} #{if @tlc.cycle_time == cycle, do: "border-l-2 border-r-2 border-gray-400", else: ""}"}>
                 <!-- Removed the span containing the signal letter -->
               </td>
             <% end %>

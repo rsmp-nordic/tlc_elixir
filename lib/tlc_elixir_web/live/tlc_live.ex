@@ -4,24 +4,22 @@ defmodule TlcElixirWeb.TLCLive do
   @impl true
   def mount(_params, _session, socket) do
     program = TLC.Program.example()
+    tlc = TLC.new(program)
     :timer.send_interval(1000, self(), :tick)
-    {:ok, assign(socket,
-      program: program,
-      target_offset: program.target_offset
-    )}
+    {:ok, assign(socket, tlc: tlc)}
   end
 
   @impl true
   def handle_info(:tick, socket) do
-    program = TLC.tick(socket.assigns.program)
-    {:noreply, assign(socket, program: program)}
+    tlc = TLC.tick(socket.assigns.tlc)
+    {:noreply, assign(socket, tlc: tlc)}
   end
 
   @impl true
   def handle_event("set_target_offset", %{"target_offset" => target_offset}, socket) do
     offset = String.to_integer(target_offset)
-    program = TLC.set_target_offset(socket.assigns.program, offset)
-    {:noreply, assign(socket, program: program, target_offset: offset)}
+    tlc = TLC.set_target_offset(socket.assigns.tlc, offset)
+    {:noreply, assign(socket, tlc: tlc)}
   end
 
   # Helper functions for cell styling
