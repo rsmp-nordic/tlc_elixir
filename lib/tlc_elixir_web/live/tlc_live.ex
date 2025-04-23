@@ -32,27 +32,15 @@ defmodule TlcElixirWeb.TLCLive do
   end
 
   # Helper functions for cell styling
-  defp cell_bg_class("R"), do: "bg-red-300"
-  defp cell_bg_class("Y"), do: "bg-yellow-200"
-  defp cell_bg_class("G"), do: "bg-green-300"
-  defp cell_bg_class("A"), do: "bg-green-100"
-  defp cell_bg_class("B"), do: "bg-yellow-100"
-  defp cell_bg_class("C"), do: "bg-red-100"
-  defp cell_bg_class("D"), do: "bg-purple-100"
-  defp cell_bg_class("E"), do: "bg-blue-100"
-  defp cell_bg_class("F"), do: "bg-pink-100"
-  defp cell_bg_class(_), do: "bg-gray-50"
+  defp cell_bg_class("R"), do: "bg-red-700"
+  defp cell_bg_class("Y"), do: "bg-yellow-600"
+  defp cell_bg_class("G"), do: "bg-green-700"
+  defp cell_bg_class(_), do: "bg-gray-700"
 
-  defp get_signal_class("R"), do: "font-bold text-red-800"
-  defp get_signal_class("Y"), do: "font-bold text-yellow-800"
-  defp get_signal_class("G"), do: "font-bold text-green-800"
-  defp get_signal_class("A"), do: "text-green-700 font-bold"
-  defp get_signal_class("B"), do: "text-yellow-600 font-bold"
-  defp get_signal_class("C"), do: "text-red-600 font-bold"
-  defp get_signal_class("D"), do: "text-purple-600 font-bold"
-  defp get_signal_class("E"), do: "text-blue-600 font-bold"
-  defp get_signal_class("F"), do: "text-pink-600 font-bold"
-  defp get_signal_class(_), do: "text-gray-500"
+  defp get_signal_class("R"), do: "text-red-300"
+  defp get_signal_class("Y"), do: "text-yellow-300"
+  defp get_signal_class("G"), do: "text-green-300"
+  defp get_signal_class(_), do: "text-gray-300"
 
   # Helper function to format program as Elixir map
   defp format_program_as_elixir(program) do

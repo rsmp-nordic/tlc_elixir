@@ -1,58 +1,58 @@
-<div class="bg-gray-50 w-full">
+<div class="w-full bg-gray-900">
   <div class="container mx-auto">
-    <!-- Current State section (compact design) -->
-    <div class="pt-4 mb-6">
-      <div class="bg-white p-4 rounded shadow">
-        <h2 class="text-lg font-semibold text-gray-700 mb-3">Current State</h2>
+    <!-- Current State section (dark mode) -->
+    <div class="p-4 mb-8">
+      <div class="bg-gray-800 p-4 rounded shadow-lg border border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-200 mb-3">Current State</h2>
         <div class="grid grid-cols-3 gap-3 text-sm">
-          <div class="bg-gray-50 p-2 rounded shadow-sm flex justify-between items-center">
-            <span class="text-xs font-medium text-gray-500">Base Time:</span>
-            <span class="font-mono"><%= @tlc.base_time %></span>
+          <div class="bg-gray-700 p-2 rounded shadow-sm flex justify-between items-center">
+            <span class="text-xs font-medium text-gray-300">Base Time:</span>
+            <span class="font-mono text-gray-200"><%= @tlc.base_time %></span>
           </div>
-          <div class="bg-gray-50 p-2 rounded flex justify-between items-center">
-            <span class="text-xs font-medium text-gray-500">Cycle Time:</span>
-            <span class="font-mono"><%= @tlc.cycle_time %></span>
+          <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
+            <span class="text-xs font-medium text-gray-300">Cycle Time:</span>
+            <span class="font-mono text-gray-200"><%= @tlc.cycle_time %></span>
           </div>
-          <div class="bg-gray-50 p-2 rounded flex justify-between items-center">
-            <span class="text-xs font-medium text-gray-500">Offset:</span>
-            <span class="font-mono"><%= @tlc.offset %></span>
+          <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
+            <span class="text-xs font-medium text-gray-300">Offset:</span>
+            <span class="font-mono text-gray-200"><%= @tlc.offset %></span>
           </div>
-          <div class="bg-gray-50 p-2 rounded flex justify-between items-center">
-            <span class="text-xs font-medium text-gray-500">Target Offset:</span>
-            <span class="font-mono"><%= @tlc.target_offset %></span>
+          <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
+            <span class="text-xs font-medium text-gray-300">Target Offset:</span>
+            <span class="font-mono text-gray-200"><%= @tlc.target_offset %></span>
           </div>
-          <div class="bg-gray-50 p-2 rounded flex justify-between items-center">
-            <span class="text-xs font-medium text-gray-500">Target Distance:</span>
-            <span class="font-mono"><%= @tlc.target_distance %></span>
+          <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
+            <span class="text-xs font-medium text-gray-300">Target Distance:</span>
+            <span class="font-mono text-gray-200"><%= @tlc.target_distance %></span>
           </div>
-          <div class="bg-gray-50 p-2 rounded flex justify-between items-center">
-            <span class="text-xs font-medium text-gray-500">Waited:</span>
-            <span class="font-mono"><%= @tlc.waited %></span>
+          <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
+            <span class="text-xs font-medium text-gray-300">Waited:</span>
+            <span class="font-mono text-gray-200"><%= @tlc.waited %></span>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Cycle table section -->
-    <div class="pb-4 overflow-x-auto">
-      <div class="bg-white p-4 rounded shadow">
+    <div class="p-4 overflow-x-auto">
+      <div class="bg-gray-800 p-4 rounded shadow-lg border border-gray-700">
         <div class="flex justify-between items-center mb-4">
-          <h2 class="text-xl font-semibold text-gray-700">Cycle Table</h2>
-          <button phx-click="show_program_modal" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+          <h2 class="text-xl font-semibold text-gray-200">Cycle Table</h2>
+          <button phx-click="show_program_modal" class="bg-stone-600 hover:bg-purple-700 text-white px-4 py-2 rounded">
             View Program
           </button>
         </div>
         
         <!-- Column-based layout -->
-        <div class="flex border-t border-l border-gray-200">
+        <div class="flex border-t border-l border-gray-600">
           <!-- Labels column -->
           <div class="w-24 flex flex-col">
-            <div class="p-2 h-12 flex items-center justify-left font-semibold bg-gray-50 border-r border-b border-gray-200"></div>
-            <div class="p-2 h-12 flex items-center text-left bg-gray-50 font-medium border-r border-b border-gray-200">Offset</div>
-            <div class="p-2 h-12 flex items-center text-left bg-gray-50 font-medium border-r border-b border-gray-200">Skips</div>
-            <div class="p-2 h-12 flex items-center text-left bg-gray-50 font-medium border-r border-b border-gray-200">Waits</div>
+            <div class="p-2 h-12 flex items-center justify-left font-semibold bg-gray-700 text-gray-200 border-r border-b border-gray-600">Cycle</div>
+            <div class="p-2 h-12 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Offset</div>
+            <div class="p-2 h-12 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Skips</div>
+            <div class="p-2 h-12 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Waits</div>
             <%= for {group, i} <- Enum.with_index(@tlc.program.groups) do %>
-              <div class={"p-2 h-12 flex items-center text-left bg-gray-50 font-medium border-r #{if i == length(@tlc.program.groups) - 1, do: "", else: "border-b"} border-gray-200"}>
+              <div class={"p-2 h-12 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r #{if i == length(@tlc.program.groups) - 1, do: "", else: "border-b"} border-gray-600"}>
                 <%= group %>
               </div>
             <% end %>
@@ -60,9 +60,9 @@
           
           <!-- Data columns -->
           <%= for {cycle, col_idx} <- Enum.with_index(0..(@tlc.program.length - 1)) do %>
-            <div class={"flex-1 flex flex-col relative #{if col_idx == @tlc.program.length - 1, do: "border-r", else: ""} border-gray-200 #{if @tlc.cycle_time == cycle, do: "outline outline-4 outline-offset-0 outline-gray-500 z-10 rounded", else: ""}"}>
+            <div class={"flex-1 flex flex-col relative #{if col_idx == @tlc.program.length - 1, do: "border-r", else: ""} border-gray-600 #{if @tlc.cycle_time == cycle, do: "outline outline-4 outline-offset-0 outline-gray-500 z-10 rounded", else: ""}"}>
               <!-- Header cell -->
-              <div class="p-2 h-12 flex items-center justify-center font-semibold border-r border-b border-gray-200">
+              <div class="p-2 h-12 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200">
                 <%= cycle %>
               </div>
               
@@ -88,16 +88,16 @@
                   true -> false
                 end 
               %>
-              <div class={"p-2 h-12 flex items-center justify-center cursor-pointer border-r border-b border-gray-200 #{cond do 
-                cycle == @tlc.offset && cycle == @tlc.target_offset -> "bg-blue-300" 
-                cycle == @tlc.offset -> "bg-blue-300"
-                cycle == @tlc.target_offset -> "bg-gray-300"
-                is_between -> "bg-gray-200"
-                true -> "hover:bg-gray-100"
+              <div class={"p-2 h-12 flex items-center justify-center cursor-pointer border-r border-b border-gray-600 #{cond do 
+                cycle == @tlc.offset && cycle == @tlc.target_offset -> "bg-purple-700" 
+                cycle == @tlc.offset -> "bg-purple-700"
+                cycle == @tlc.target_offset -> "bg-gray-500"
+                is_between -> "bg-gray-400"
+                true -> "hover:bg-gray-600"
               end}"} 
                 phx-click="set_target_offset" phx-value-target_offset={cycle}>
                 <%= if cycle == @tlc.offset do %>
-                  <span class="font-medium text-gray-700">
+                  <span class="font-medium text-gray-200">
                     <%= if @tlc.target_distance != 0 do %>
                       <%= if @tlc.target_distance > 0, do: "+", else: "" %><%= @tlc.target_distance %>
                     <% else %>
@@ -118,7 +118,7 @@
                   cycle > start && cycle < start + duration
                 end)
               %>
-              <div class={"p-2 h-12 flex items-center justify-center border-r border-b border-gray-200 #{if is_start_of_skip || is_within_skip, do: "bg-gray-200", else: ""}"}>
+              <div class={"p-2 h-12 flex items-center justify-center border-r border-b border-gray-600 #{if is_start_of_skip || is_within_skip, do: "bg-gray-400", else: ""}"}>
                 <%= if is_start_of_skip do %>
                   <%= skip_duration %>
                 <% else %>
@@ -131,7 +131,7 @@
                 wait_duration = Map.get(@tlc.program.waits, cycle, 0)
                 has_wait = wait_duration > 0
               %>
-              <div class={"p-2 h-12 flex items-center justify-center border-r border-b border-gray-200 #{if has_wait, do: "bg-gray-200", else: ""}"}>
+              <div class={"p-2 h-12 flex items-center justify-center border-r border-b border-gray-600 #{if has_wait, do: "bg-gray-400", else: ""}"}>
                 <%= if has_wait do %>
                   <%= wait_duration %>
                 <% else %>
@@ -143,8 +143,8 @@
               <%= for {_, i} <- Enum.with_index(@tlc.program.groups) do %>
                 <% state = TLC.resolve_state(@tlc, cycle) %>
                 <% signal = String.at(state, i) %>
-                <div class={"p-2 h-12 flex items-center justify-center border-r #{if i == length(@tlc.program.groups) - 1, do: "", else: "border-b"} border-gray-200 #{cell_bg_class(signal)}"}>
-                  <span><%= signal %></span>
+                <div class={"p-2 h-12 flex items-center justify-center border-r #{if i == length(@tlc.program.groups) - 1, do: "", else: "border-b"} border-gray-600 #{cell_bg_class(signal)}"}>
+                  <span class="text-gray-200"><%= signal %></span>
                 </div>
               <% end %>
             </div>
@@ -155,17 +155,17 @@
   </div>
 
   <!-- Program Modal -->
-  <div id="program-modal" class={"fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 #{if @show_program_modal, do: "", else: "hidden"}"}>
-    <div class="bg-white rounded-lg p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+  <div id="program-modal" class={"fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 #{if @show_program_modal, do: "", else: "hidden"}"}>
+    <div class="bg-gray-800 rounded-lg p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-gray-700">
       <div class="flex justify-between items-center mb-4">
-        <h3 class="text-xl font-semibold text-gray-700">Program Definition</h3>
-        <button phx-click="hide_program_modal" class="text-gray-500 hover:text-gray-700">
+        <h3 class="text-xl font-semibold text-gray-200">Program Definition</h3>
+        <button phx-click="hide_program_modal" class="text-gray-400 hover:text-gray-200">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
-      <div class="font-mono text-sm overflow-x-auto bg-gray-50 p-4 rounded">
+      <div class="font-mono text-sm overflow-x-auto bg-gray-900 text-gray-200 p-4 rounded">
         <pre><%= format_program_as_elixir(@tlc.program) %></pre>
       </div>
     </div>
