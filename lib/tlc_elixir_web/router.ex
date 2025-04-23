@@ -17,8 +17,7 @@ defmodule TlcElixirWeb.Router do
   scope "/", TlcElixirWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
-    live "/tlc", TLCLive
+    live "/", TLCLive
   end
 
   # Other scopes may use custom stacks.
