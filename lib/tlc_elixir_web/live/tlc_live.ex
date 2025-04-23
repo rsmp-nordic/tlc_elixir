@@ -6,6 +6,7 @@ defmodule TlcElixirWeb.TLCLive do
     program = TLC.Program.example()
     tlc = TLC.new(program)
     :timer.send_interval(1000, self(), :tick)
+    socket = assign(socket, :show_program_modal, false)
     {:ok, assign(socket, tlc: tlc)}
   end
 
@@ -20,6 +21,14 @@ defmodule TlcElixirWeb.TLCLive do
     offset = String.to_integer(target_offset)
     tlc = TLC.set_target_offset(socket.assigns.tlc, offset)
     {:noreply, assign(socket, tlc: tlc)}
+  end
+
+  def handle_event("show_program_modal", _params, socket) do
+    {:noreply, assign(socket, :show_program_modal, true)}
+  end
+
+  def handle_event("hide_program_modal", _params, socket) do
+    {:noreply, assign(socket, :show_program_modal, false)}
   end
 
   # Helper functions for cell styling
