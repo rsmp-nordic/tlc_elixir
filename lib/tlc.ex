@@ -41,10 +41,6 @@ defmodule TLC do
     |> update_states
   end
 
-  @spec advance_base_time(%{:base_time => integer(), optional(any()) => any()}) :: %{
-          :base_time => integer(),
-          optional(any()) => any()
-        }
   def advance_base_time(tlc) do
     %{tlc | base_time: mod(tlc.base_time + 1, tlc.program.length) }
   end
