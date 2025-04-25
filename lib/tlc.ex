@@ -46,11 +46,11 @@ defmodule TLC do
   end
 
   def find_target_distance(tlc) do
-    diff = mod(tlc.target_offset - tlc.offset, tlc.program.length)
+    diff = mod(tlc.target_offset - combined_offset(tlc), tlc.program.length)
     if diff < tlc.program.length/2 && Enum.any?(tlc.program.skips) do   # moving forward only possible if skips are defined
       %{tlc | target_distance: diff }
     else
-      %{tlc | target_distance: -mod(tlc.offset - tlc.target_offset, tlc.program.length) }
+      %{tlc | target_distance: -mod(combined_offset(tlc) - tlc.target_offset, tlc.program.length) }
     end
   end
 
@@ -61,7 +61,7 @@ defmodule TLC do
         if tlc.waited < duration do
           # wait by moving offset back 1
           %{tlc |
-            offset: mod(tlc.offset - 1, tlc.program.length),
+            offset: mod(combined_offset(tlc) - 1, tlc.program.length),
             waited: tlc.waited + 1
           }
           |> find_target_distance
@@ -78,7 +78,7 @@ defmodule TLC do
       nil -> tlc
       duration ->
         # Apply skip and handle wrap-around if the new offset exceeds the cycle length
-        %{tlc | offset: mod(tlc.offset + duration, tlc.program.length)}
+        %{tlc | offset: mod(combined_offset(tlc) + duration, tlc.program.length)}
         |> compute_cycle_time
         |> find_target_distance
     end
@@ -86,7 +86,7 @@ defmodule TLC do
   def apply_skips(tlc), do: tlc
 
   def compute_cycle_time(tlc) do
-    %{tlc | cycle_time: mod(tlc.base_time + tlc.offset, tlc.program.length) }
+    %{tlc | cycle_time: mod(tlc.base_time + combined_offset(tlc), tlc.program.length) }
   end
 
   @doc """
@@ -125,4 +125,9 @@ defmodule TLC do
     # Get the tlc string
     Map.get(tlc.program.states, time)
   end
+
+  def combined_offset(tlc) do
+    mod(tlc.offset + tlc.program.offset, tlc.program.length)
+  end
+
 end
