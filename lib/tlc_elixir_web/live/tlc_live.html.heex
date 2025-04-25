@@ -33,6 +33,21 @@
       </div>
     </div>
 
+    <!-- Available Programs section -->
+    <div class="p-4 mb-8">
+      <div class="bg-gray-800 p-4 rounded shadow-lg border border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-200 mb-3">Available Programs</h2>
+        <div class="flex flex-wrap gap-3">
+          <%= for {program_name, _program} <- @tlc.programs do %>
+            <div class="bg-gray-700 px-3 py-2 rounded-md text-gray-200 flex items-center cursor-pointer hover:bg-gray-600 transition-colors"
+                 phx-click="switch_program" phx-value-program_name={program_name}>
+              <span class="font-medium"><%= program_name %></span>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+
     <!-- Cycle table section -->
     <div class="p-4 overflow-x-auto">
       <div class="bg-gray-800 p-4 rounded shadow-lg border border-gray-700">

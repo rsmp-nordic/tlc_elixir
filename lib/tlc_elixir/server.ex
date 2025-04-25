@@ -14,8 +14,16 @@ defmodule TLC.Server do
     GenServer.call(server, :get_state)
   end
 
+  def get_programs(server \\ __MODULE__) do
+    GenServer.call(server, :get_programs)
+  end
+
   def set_target_offset(server, target_offset) do
     GenServer.cast(server, {:set_target_offset, target_offset})
+  end
+
+  def switch_program(server, program_name) do
+    GenServer.cast(server, {:switch_program, program_name})
   end
 
   # Server callbacks
@@ -24,19 +32,28 @@ defmodule TLC.Server do
   def init(_init_args) do
     programs = %{
       :start => %TLC.Program{
-        length: 4,
+        length: 6,
         groups: ["a", "b"],
-        states: %{ 0 => "RR", 2 => "YY"},
-        switch: [3]
+        states: %{ 0 => "RR", 2 => "YR", 4 => "GR"},
+        switch: [4]
       },
-      :default => %TLC.Program{
-        length: 8,
+      :busy => %TLC.Program{
+        length: 10,
+        offset: 35,
+        groups: ["a", "b"],
+        states: %{ 0 => "RY", 1 => "GR", 5 => "YR", 6 => "RG"},
+        skips: %{0 => 3},
+        waits: %{5 => 3},
+        switch: [1]
+      },
+      :calm => %TLC.Program{
+        length: 6,
         offset: 3,
         groups: ["a", "b"],
-        states: %{ 0 => "RY", 1 => "GR", 4 => "YR", 5 => "RG"},
-        skips: %{0 => 2},
-        waits: %{5 => 2},
-        switch: [0]
+        states: %{ 0 => "RY", 1 => "GR", 3 => "YR", 4 => "RG"},
+        skips: %{0 => 1},
+        waits: %{3 => 1},
+        switch: [1]
       },
     }
     tlc = TLC.new(programs)
@@ -51,8 +68,23 @@ defmodule TLC.Server do
   end
 
   @impl true
+  def handle_call(:get_programs, _from, tlc) do
+    {:reply, tlc.programs, tlc}
+  end
+
+  @impl true
   def handle_cast({:set_target_offset, target_offset}, tlc) do
-    updated_tlc = TLC.Logic.set_target_offset(tlc.logic, target_offset)
+    updated_logic = TLC.Logic.set_target_offset(tlc.logic, target_offset)
+    updated_tlc = %{tlc | logic: updated_logic}
+    broadcast_update(updated_tlc)
+    {:noreply, updated_tlc}
+  end
+
+  @impl true
+  def handle_cast({:switch_program, program_name}, tlc) do
+    program = Map.get(tlc.programs, program_name)
+    updated_logic = TLC.Logic.switch(tlc.logic, program)
+    updated_tlc = %{tlc | logic: updated_logic}
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
   end

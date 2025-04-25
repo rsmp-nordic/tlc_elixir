@@ -1,0 +1,49 @@
+/* ...existing code... */
+
+/* Program section styling */
+.page-container {
+  padding: 1rem;
+}
+
+.program-section {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background-color: #f9f9f9;
+}
+
+.program-selector {
+  margin: 1rem 0;
+}
+
+.program-selector label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+}
+
+.form-select {
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  background-color: white;
+  width: 100%;
+  max-width: 400px;
+  margin-bottom: 1rem;
+}
+
+.selected-program-info {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background-color: #e8f4ff;
+  border-radius: 4px;
+}
+
+.tlc-container {
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+/* ...existing code... */
