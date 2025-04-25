@@ -18,7 +18,7 @@ defmodule TLC.Program do
   def example() do
     %__MODULE__{
       length: 8,
-      offset: 0,
+      offset: 3,
       groups: ["a", "b"],
       states: %{ 0 => "RY", 1 => "GR", 4 => "YR", 5 => "RG"},
       skips: %{0 => 2},

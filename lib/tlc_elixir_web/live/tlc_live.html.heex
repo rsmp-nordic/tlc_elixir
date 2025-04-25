@@ -14,8 +14,8 @@
             <span class="font-mono text-gray-200"><%= @tlc.cycle_time %></span>
           </div>
           <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
-            <span class="text-xs font-medium text-gray-300">Offset:</span>
-            <span class="font-mono text-gray-200"><%= @tlc.offset %></span>
+            <span class="text-xs font-medium text-gray-300">Offset (program / adjust / actual)</span>
+            <span class="font-mono text-gray-200"><%= @tlc.program.offset %>/<%= @tlc.offset_adjust %>/<%= @tlc.offset %></span>
           </div>
           <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
             <span class="text-xs font-medium text-gray-300">Target Offset:</span>
@@ -72,7 +72,7 @@
                   @tlc.target_distance > 0 -> 
                     if @tlc.target_offset < @tlc.offset do
                       # Wrap around case for positive distance
-                      cycle > @tlc.offset || cycle <= @tlc.target_offset
+                      cycle > @tlc.offset|| cycle <= @tlc.target_offset
                     else
                       # Normal case
                       cycle > @tlc.offset && cycle <= @tlc.target_offset

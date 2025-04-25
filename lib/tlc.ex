@@ -6,6 +6,7 @@ defmodule TLC do
   """
 
   defstruct program: %TLC.Program{},
+            offset_adjust: 0,
             offset: 0,
             base_time: -1,    # -1 is ready tlc, before first actual step
             cycle_time: -1,
@@ -23,9 +24,9 @@ defmodule TLC do
   """
   def new(program) do
     %TLC{
-      program: program,
-      offset: program.offset
+      program: program
     }
+    |> update_offset
   end
 
   @doc """
@@ -46,11 +47,11 @@ defmodule TLC do
   end
 
   def find_target_distance(tlc) do
-    diff = mod(tlc.target_offset - combined_offset(tlc), tlc.program.length)
+    diff = mod(tlc.target_offset - tlc.offset, tlc.program.length)
     if diff < tlc.program.length/2 && Enum.any?(tlc.program.skips) do   # moving forward only possible if skips are defined
       %{tlc | target_distance: diff }
     else
-      %{tlc | target_distance: -mod(combined_offset(tlc) - tlc.target_offset, tlc.program.length) }
+      %{tlc | target_distance: -mod(tlc.offset - tlc.target_offset, tlc.program.length) }
     end
   end
 
@@ -61,9 +62,10 @@ defmodule TLC do
         if tlc.waited < duration do
           # wait by moving offset back 1
           %{tlc |
-            offset: mod(combined_offset(tlc) - 1, tlc.program.length),
+            offset_adjust: mod(tlc.offset_adjust - 1, tlc.program.length),
             waited: tlc.waited + 1
           }
+          |> update_offset
           |> find_target_distance
         else
           # wait maxed so continue
@@ -78,7 +80,8 @@ defmodule TLC do
       nil -> tlc
       duration ->
         # Apply skip and handle wrap-around if the new offset exceeds the cycle length
-        %{tlc | offset: mod(combined_offset(tlc) + duration, tlc.program.length)}
+        %{tlc | offset_adjust: mod(tlc.offset_adjust + duration, tlc.program.length)}
+        |> update_offset
         |> compute_cycle_time
         |> find_target_distance
     end
@@ -86,7 +89,7 @@ defmodule TLC do
   def apply_skips(tlc), do: tlc
 
   def compute_cycle_time(tlc) do
-    %{tlc | cycle_time: mod(tlc.base_time + combined_offset(tlc), tlc.program.length) }
+    %{tlc | cycle_time: mod(tlc.base_time + tlc.offset, tlc.program.length) }
   end
 
   @doc """
@@ -126,8 +129,7 @@ defmodule TLC do
     Map.get(tlc.program.states, time)
   end
 
-  def combined_offset(tlc) do
-    mod(tlc.offset + tlc.program.offset, tlc.program.length)
+  def update_offset(tlc) do
+    %{tlc | offset: mod(tlc.program.offset + tlc.offset_adjust, tlc.program.length) }
   end
-
 end
