@@ -66,6 +66,7 @@
             <div class="p-2 h-12 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Offset</div>
             <div class="p-2 h-12 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Skips</div>
             <div class="p-2 h-12 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Waits</div>
+            <div class="p-2 h-12 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Switch</div>
             <%= for {group, i} <- Enum.with_index(@tlc.logic.program.groups) do %>
               <div class={"p-2 h-12 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r #{if i == length(@tlc.logic.program.groups) - 1, do: "", else: "border-b"} border-gray-600"}>
                 <%= group %>
@@ -152,6 +153,12 @@
                 <% else %>
                   <span class="opacity-0">0</span>
                 <% end %>
+              </div>
+              
+              <!-- Switch cell -->
+              <% is_switch_point = cycle == @tlc.logic.program.switch %>
+              <div class={"p-2 h-12 flex items-center justify-center border-r border-b border-gray-600 #{if is_switch_point, do: "bg-gray-400", else: ""}"}>
+                <span class="opacity-0">0</span>
               </div>
               
               <!-- Group signal cells -->

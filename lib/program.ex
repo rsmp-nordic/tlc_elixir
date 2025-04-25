@@ -10,7 +10,7 @@ defmodule TLC.Program do
             states: %{},
             skips: %{},
             waits: %{},
-            switch: []
+            switch: 0
 
   @doc """
   Provides an example traffic program definition.
@@ -23,7 +23,7 @@ defmodule TLC.Program do
       states: %{ 0 => "RY", 1 => "GR", 4 => "YR", 5 => "RG"},
       skips: %{0 => 2},
       waits: %{5 => 2},
-      switch: [0]
+      switch: 0
     }
   end
 

@@ -6,6 +6,7 @@ defmodule TLC.Logic do
   """
 
   defstruct program: %TLC.Program{},
+            target_program: nil,
             offset_adjust: 0,
             offset: 0,
             base_time: -1,    # -1 is ready logic, before first actual step
@@ -35,6 +36,7 @@ defmodule TLC.Logic do
   def tick(logic) do
     logic
     |> advance_base_time
+    |> check_switch
     |> find_target_distance
     |> apply_waits
     |> compute_cycle_time
@@ -133,12 +135,29 @@ defmodule TLC.Logic do
     %{logic | offset: mod(logic.program.offset + logic.offset_adjust, logic.program.length) }
   end
 
+  def set_target_program(logic, program) do
+    %{logic | target_program: program}
+  end
+
+
+  def check_switch(logic) do
+    if logic.target_program && logic.target_program.switch == logic.cycle_time do
+      switch(logic)
+    else
+      logic
+    end
+  end
   @doc """
   Switches to a new program.
   """
-  def switch(logic, program) do
-    %{logic | program: program}
+  def switch(logic) do
+    %{logic |
+      program: logic.target_program,
+      target_program: nil,
+      offset_adjust: mod(logic.cycle_time - logic.target_program.offset - logic.offset_adjust, logic.program.length)
+    }
     |> update_offset
     |> compute_cycle_time
+    |> find_target_distance
   end
 end

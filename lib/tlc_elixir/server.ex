@@ -35,16 +35,16 @@ defmodule TLC.Server do
         length: 6,
         groups: ["a", "b"],
         states: %{ 0 => "RR", 2 => "YR", 4 => "GR"},
-        switch: [4]
+        switch: 4
       },
       :busy => %TLC.Program{
         length: 10,
-        offset: 35,
+        offset: 5,
         groups: ["a", "b"],
         states: %{ 0 => "RY", 1 => "GR", 5 => "YR", 6 => "RG"},
         skips: %{0 => 3},
         waits: %{5 => 3},
-        switch: [1]
+        switch: 3
       },
       :calm => %TLC.Program{
         length: 6,
@@ -53,7 +53,7 @@ defmodule TLC.Server do
         states: %{ 0 => "RY", 1 => "GR", 3 => "YR", 4 => "RG"},
         skips: %{0 => 1},
         waits: %{3 => 1},
-        switch: [1]
+        switch: 1
       },
     }
     tlc = TLC.new(programs)
@@ -83,7 +83,7 @@ defmodule TLC.Server do
   @impl true
   def handle_cast({:switch_program, program_name}, tlc) do
     program = Map.get(tlc.programs, program_name)
-    updated_logic = TLC.Logic.switch(tlc.logic, program)
+    updated_logic = TLC.Logic.set_target_program(tlc.logic, program)
     updated_tlc = %{tlc | logic: updated_logic}
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
