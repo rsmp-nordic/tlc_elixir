@@ -17,7 +17,7 @@ defmodule TlcElixir.Application do
       # {TlcElixir.Worker, arg},
       # Start to serve requests, typically the last entry
       TlcElixirWeb.Endpoint,
-      {TLC.Server, TLC.Program.example()}
+      {TLC.Server, []}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

@@ -6,8 +6,8 @@ defmodule TLC.Server do
 
   # Client API
 
-  def start_link(program) do
-    GenServer.start_link(__MODULE__, program, name: __MODULE__)
+  def start_link(init_args) do
+    GenServer.start_link(__MODULE__, init_args, name: __MODULE__)
   end
 
   def current_state(server) do
@@ -21,8 +21,25 @@ defmodule TLC.Server do
   # Server callbacks
 
   @impl true
-  def init(program) do
-    tlc = TLC.new(program)
+  def init(_init_args) do
+    programs = %{
+      :start => %TLC.Program{
+        length: 4,
+        groups: ["a", "b"],
+        states: %{ 0 => "RR", 2 => "YY"},
+        switch: [3]
+      },
+      :default => %TLC.Program{
+        length: 8,
+        offset: 3,
+        groups: ["a", "b"],
+        states: %{ 0 => "RY", 1 => "GR", 4 => "YR", 5 => "RG"},
+        skips: %{0 => 2},
+        waits: %{5 => 2},
+        switch: [0]
+      },
+    }
+    tlc = TLC.new(programs)
     # Start the tick timer
     schedule_tick()
     {:ok, tlc}
@@ -35,7 +52,7 @@ defmodule TLC.Server do
 
   @impl true
   def handle_cast({:set_target_offset, target_offset}, tlc) do
-    updated_tlc = TLC.set_target_offset(tlc, target_offset)
+    updated_tlc = TLC.Logic.set_target_offset(tlc.logic, target_offset)
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
   end
@@ -43,7 +60,7 @@ defmodule TLC.Server do
   @impl true
   def handle_info(:tick, tlc) do
     # Update the TLC state for each tick
-    updated_tlc = TLC.tick(tlc)
+    updated_tlc = %{tlc| logic: TLC.Logic.tick(tlc.logic) }
     # Schedule the next tick
     schedule_tick()
     # Broadcast state changes

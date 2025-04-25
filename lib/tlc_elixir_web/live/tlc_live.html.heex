@@ -7,27 +7,27 @@
         <div class="grid grid-cols-3 gap-3 text-sm">
           <div class="bg-gray-700 p-2 rounded shadow-sm flex justify-between items-center">
             <span class="text-xs font-medium text-gray-300">Base Time:</span>
-            <span class="font-mono text-gray-200"><%= @tlc.base_time %></span>
+            <span class="font-mono text-gray-200"><%= @tlc.logic.base_time %></span>
           </div>
           <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
             <span class="text-xs font-medium text-gray-300">Cycle Time:</span>
-            <span class="font-mono text-gray-200"><%= @tlc.cycle_time %></span>
+            <span class="font-mono text-gray-200"><%= @tlc.logic.cycle_time %></span>
           </div>
           <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
             <span class="text-xs font-medium text-gray-300">Offset (program / adjust / actual)</span>
-            <span class="font-mono text-gray-200"><%= @tlc.program.offset %>/<%= @tlc.offset_adjust %>/<%= @tlc.offset %></span>
+            <span class="font-mono text-gray-200"><%= @tlc.logic.program.offset %>/<%= @tlc.logic.offset_adjust %>/<%= @tlc.logic.offset %></span>
           </div>
           <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
             <span class="text-xs font-medium text-gray-300">Target Offset:</span>
-            <span class="font-mono text-gray-200"><%= @tlc.target_offset %></span>
+            <span class="font-mono text-gray-200"><%= @tlc.logic.target_offset %></span>
           </div>
           <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
             <span class="text-xs font-medium text-gray-300">Target Distance:</span>
-            <span class="font-mono text-gray-200"><%= @tlc.target_distance %></span>
+            <span class="font-mono text-gray-200"><%= @tlc.logic.target_distance %></span>
           </div>
           <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
             <span class="text-xs font-medium text-gray-300">Waited:</span>
-            <span class="font-mono text-gray-200"><%= @tlc.waited %></span>
+            <span class="font-mono text-gray-200"><%= @tlc.logic.waited %></span>
           </div>
         </div>
       </div>
@@ -51,16 +51,16 @@
             <div class="p-2 h-12 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Offset</div>
             <div class="p-2 h-12 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Skips</div>
             <div class="p-2 h-12 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Waits</div>
-            <%= for {group, i} <- Enum.with_index(@tlc.program.groups) do %>
-              <div class={"p-2 h-12 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r #{if i == length(@tlc.program.groups) - 1, do: "", else: "border-b"} border-gray-600"}>
+            <%= for {group, i} <- Enum.with_index(@tlc.logic.program.groups) do %>
+              <div class={"p-2 h-12 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r #{if i == length(@tlc.logic.program.groups) - 1, do: "", else: "border-b"} border-gray-600"}>
                 <%= group %>
               </div>
             <% end %>
           </div>
           
           <!-- Data columns -->
-          <%= for {cycle, col_idx} <- Enum.with_index(0..(@tlc.program.length - 1)) do %>
-            <div class={"flex-1 flex flex-col relative #{if col_idx == @tlc.program.length - 1, do: "border-r", else: ""} border-gray-600 #{if @tlc.cycle_time == cycle, do: "outline outline-4 outline-offset-0 outline-gray-500 z-10 rounded", else: ""}"}>
+          <%= for {cycle, col_idx} <- Enum.with_index(0..(@tlc.logic.program.length - 1)) do %>
+            <div class={"flex-1 flex flex-col relative #{if col_idx == @tlc.logic.program.length - 1, do: "border-r", else: ""} border-gray-600 #{if @tlc.logic.cycle_time == cycle, do: "outline outline-4 outline-offset-0 outline-gray-500 z-10 rounded", else: ""}"}>
               <!-- Header cell -->
               <div class="p-2 h-12 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200">
                 <%= cycle %>
@@ -69,37 +69,37 @@
               <!-- Offset cell -->
               <% 
                 is_between = cond do
-                  @tlc.target_distance > 0 -> 
-                    if @tlc.target_offset < @tlc.offset do
+                  @tlc.logic.target_distance > 0 -> 
+                    if @tlc.logic.target_offset < @tlc.logic.offset do
                       # Wrap around case for positive distance
-                      cycle > @tlc.offset|| cycle <= @tlc.target_offset
+                      cycle > @tlc.logic.offset|| cycle <= @tlc.logic.target_offset
                     else
                       # Normal case
-                      cycle > @tlc.offset && cycle <= @tlc.target_offset
+                      cycle > @tlc.logic.offset && cycle <= @tlc.logic.target_offset
                     end
-                  @tlc.target_distance < 0 ->
-                    if @tlc.target_offset > @tlc.offset do
+                  @tlc.logic.target_distance < 0 ->
+                    if @tlc.logic.target_offset > @tlc.logic.offset do
                       # Wrap around case for negative distance
-                      cycle < @tlc.offset || cycle >= @tlc.target_offset
+                      cycle < @tlc.logic.offset || cycle >= @tlc.logic.target_offset
                     else
                       # Normal case
-                      cycle < @tlc.offset && cycle >= @tlc.target_offset
+                      cycle < @tlc.logic.offset && cycle >= @tlc.logic.target_offset
                     end
                   true -> false
                 end 
               %>
               <div class={"p-2 h-12 flex items-center justify-center cursor-pointer border-r border-b border-gray-600 #{cond do 
-                cycle == @tlc.offset && cycle == @tlc.target_offset -> "bg-purple-700" 
-                cycle == @tlc.offset -> "bg-purple-700"
-                cycle == @tlc.target_offset -> "bg-gray-500"
+                cycle == @tlc.logic.offset && cycle == @tlc.logic.target_offset -> "bg-purple-700" 
+                cycle == @tlc.logic.offset -> "bg-purple-700"
+                cycle == @tlc.logic.target_offset -> "bg-gray-500"
                 is_between -> "bg-gray-400"
                 true -> "hover:bg-gray-600"
               end}"} 
                 phx-click="set_target_offset" phx-value-target_offset={cycle}>
-                <%= if cycle == @tlc.offset do %>
+                <%= if cycle == @tlc.logic.offset do %>
                   <span class="font-medium text-gray-200">
-                    <%= if @tlc.target_distance != 0 do %>
-                      <%= if @tlc.target_distance > 0, do: "+", else: "" %><%= @tlc.target_distance %>
+                    <%= if @tlc.logic.target_distance != 0 do %>
+                      <%= if @tlc.logic.target_distance > 0, do: "+", else: "" %><%= @tlc.logic.target_distance %>
                     <% else %>
                       0
                     <% end %>
@@ -111,10 +111,10 @@
               
               <!-- Skip cell -->
               <% 
-                skip_duration = Map.get(@tlc.program.skips, cycle, 0)
+                skip_duration = Map.get(@tlc.logic.program.skips, cycle, 0)
                 has_skip = skip_duration > 0
                 is_start_of_skip = has_skip
-                is_within_skip = Enum.any?(@tlc.program.skips, fn {start, duration} -> 
+                is_within_skip = Enum.any?(@tlc.logic.program.skips, fn {start, duration} -> 
                   cycle > start && cycle < start + duration
                 end)
               %>
@@ -128,7 +128,7 @@
               
               <!-- Wait cell -->
               <% 
-                wait_duration = Map.get(@tlc.program.waits, cycle, 0)
+                wait_duration = Map.get(@tlc.logic.program.waits, cycle, 0)
                 has_wait = wait_duration > 0
               %>
               <div class={"p-2 h-12 flex items-center justify-center border-r border-b border-gray-600 #{if has_wait, do: "bg-gray-400", else: ""}"}>
@@ -140,10 +140,10 @@
               </div>
               
               <!-- Group signal cells -->
-              <%= for {_, i} <- Enum.with_index(@tlc.program.groups) do %>
-                <% state = TLC.resolve_state(@tlc, cycle) %>
+              <%= for {_, i} <- Enum.with_index(@tlc.logic.program.groups) do %>
+                <% state = TLC.Logic.resolve_state(@tlc.logic, cycle) %>
                 <% signal = String.at(state, i) %>
-                <div class={"p-2 h-12 flex items-center justify-center border-r #{if i == length(@tlc.program.groups) - 1, do: "", else: "border-b"} border-gray-600 #{cell_bg_class(signal)}"}>
+                <div class={"p-2 h-12 flex items-center justify-center border-r #{if i == length(@tlc.logic.program.groups) - 1, do: "", else: "border-b"} border-gray-600 #{cell_bg_class(signal)}"}>
                   <span class="text-gray-200"><%= signal %></span>
                 </div>
               <% end %>
@@ -166,7 +166,7 @@
         </button>
       </div>
       <div class="font-mono text-sm overflow-x-auto bg-gray-900 text-gray-200 p-4 rounded">
-        <pre><%= format_program_as_elixir(@tlc.program) %></pre>
+        <pre><%= format_program_as_elixir(@tlc.logic.program) %></pre>
       </div>
     </div>
   </div>
