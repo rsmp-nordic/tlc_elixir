@@ -32,7 +32,7 @@ defmodule TLC.Program do
   Returns {:ok, program} if the program is valid, {:error, reason} otherwise.
   """
   def validate(program) do
-    unless is_struct(program, __MODULE__) do
+    unless is_struct(program, %TLC.Program{}) do
       {:error, "Input must be a %TLC.Program{} struct"}
     else
       with :ok <- validate_length(program),
@@ -126,20 +126,12 @@ defmodule TLC.Program do
   defp validate_waits(%{waits: waits}) when is_map(waits), do: :ok
   defp validate_waits(_), do: {:error, "Waits must be a map"}
 
-  defp validate_switch(%{switch: switch, length: length}) when is_list(switch) do
-    switch_errors = Enum.reduce_while(switch, [], fn time, acc ->
-      if not is_integer(time) or time < 0 or time >= length do
-        {:halt, ["Switch time points must be integers between 0 and program length - 1"]}
-      else
-        {:cont, acc}
-      end
-    end)
-
-    case switch_errors do
-      [] -> :ok
-      [error | _] -> {:error, error}
+  defp validate_switch(%{switch: switch, length: length}) when is_integer(switch) do
+    if not is_integer(switch) or switch < 0 or switch >= length do
+      {:error, ["Switch time points must be integers between 0 and program length - 1"]}
+    else
+      :ok
     end
   end
-  defp validate_switch(%{switch: switch}) when is_list(switch), do: :ok
-  defp validate_switch(_), do: {:error, "Switch must be a list"}
+  defp validate_switch(_), do: {:error, "Switch must be an integer between 0 and program length - 1"}
 end

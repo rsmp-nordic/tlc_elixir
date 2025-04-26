@@ -2,7 +2,7 @@ defmodule TLC.Server do
   use GenServer
   require Logger
 
-  @tick_interval 1000 # 1 second
+  @tick_interval 500 # 1 second
 
   # Client API
 
@@ -35,20 +35,36 @@ defmodule TLC.Server do
         length: 6,
         groups: ["a", "b"],
         states: %{ 0 => "RR", 2 => "YR", 4 => "GR"},
-        switch: 4
+        waits: %{0 => 6},
+        switch: 5
       },
-      :busy => %TLC.Program{
+      :fault => %TLC.Program{
+        length: 1,
+        groups: ["a", "b"],
+        states: %{ 0 => "RR"},
+        switch: 0
+      },
+      :long => %TLC.Program{
+        length: 20,
+        offset: 15,
+        groups: ["a", "b"],
+        states: %{ 0 => "RY", 1 => "GR", 7 => "YR", 8 => "RG", 9 => "RY", 11 => "GR", 15 => "YR", 17 => "RG"},
+        skips: %{7 => 5, 17 => 2},
+        waits: %{1 => 2, 6 => 2, 13 => 3 },
+        switch: 19
+      },
+     :busy => %TLC.Program{
         length: 10,
-        offset: 5,
+        offset: 0,
         groups: ["a", "b"],
         states: %{ 0 => "RY", 1 => "GR", 5 => "YR", 6 => "RG"},
-        skips: %{0 => 3},
-        waits: %{5 => 3},
+        skips: %{5 => 3},
+        waits: %{0 => 3},
         switch: 3
       },
       :calm => %TLC.Program{
         length: 6,
-        offset: 3,
+        offset: 0,
         groups: ["a", "b"],
         states: %{ 0 => "RY", 1 => "GR", 3 => "YR", 4 => "RG"},
         skips: %{0 => 1},

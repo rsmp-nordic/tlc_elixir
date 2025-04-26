@@ -36,11 +36,11 @@ defmodule TLC.Logic do
   def tick(logic) do
     logic
     |> advance_base_time
-    |> check_switch
     |> find_target_distance
     |> apply_waits
     |> compute_cycle_time
     |> apply_skips
+    |> check_switch
     |> update_states
   end
 
@@ -141,7 +141,7 @@ defmodule TLC.Logic do
 
 
   def check_switch(logic) do
-    if logic.target_program && logic.target_program.switch == logic.cycle_time do
+    if logic.target_program && logic.program.switch == logic.cycle_time do
       switch(logic)
     else
       logic
@@ -154,10 +154,11 @@ defmodule TLC.Logic do
     %{logic |
       program: logic.target_program,
       target_program: nil,
-      offset_adjust: mod(logic.cycle_time - logic.target_program.offset - logic.offset_adjust, logic.program.length)
+      offset_adjust: mod(logic.target_program.switch - logic.base_time - logic.target_program.offset, logic.target_program.length)
     }
     |> update_offset
     |> compute_cycle_time
+    |> set_target_offset(logic.target_program.offset)
     |> find_target_distance
   end
 end
