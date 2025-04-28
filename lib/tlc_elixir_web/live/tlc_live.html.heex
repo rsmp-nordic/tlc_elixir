@@ -6,8 +6,8 @@
         <h2 class="text-lg font-semibold text-gray-200 mb-3">State</h2>
         <div class="grid grid-cols-3 gap-3 text-sm">
           <div class="bg-gray-700 p-2 rounded shadow-sm flex justify-between items-center">
-            <span class="text-xs font-medium text-gray-300">Base Time:</span>
-            <span class="font-mono text-gray-200"><%= @tlc.logic.base_time %></span>
+            <span class="text-xs font-medium text-gray-300">Time (unix / base):</span>
+            <span class="font-mono text-gray-200"><%= @tlc.logic.unix_time %> / <%= @tlc.logic.base_time %></span>
           </div>
           <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
             <span class="text-xs font-medium text-gray-300">Cycle Time:</span>
@@ -19,11 +19,11 @@
           </div>
           <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
             <span class="text-xs font-medium text-gray-300">Offset (program / adjust / actual)</span>
-            <span class="font-mono text-gray-200"><%= @tlc.logic.program.offset %>/<%= @tlc.logic.offset_adjust %>/<%= @tlc.logic.offset %></span>
+            <span class="font-mono text-gray-200"><%= @tlc.logic.program.offset %> / <%= @tlc.logic.offset_adjust %> / <%= @tlc.logic.offset %></span>
           </div>
           <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
             <span class="text-xs font-medium text-gray-300">Offset (target / distance)</span>
-            <span class="font-mono text-gray-200"><%= @tlc.logic.target_offset %>/<%= @tlc.logic.target_distance %></span>
+            <span class="font-mono text-gray-200"><%= @tlc.logic.target_offset %> / <%= @tlc.logic.target_distance %></span>
           </div>
           <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
             <span class="text-xs font-medium text-gray-300">Waited:</span>
@@ -162,11 +162,11 @@
               <div class={"p-2 h-12 flex items-center justify-center border-r border-b border-gray-600 #{if has_point, do: "bg-gray-400", else: ""}"}>
                 <%= cond do %>
                   <% is_switch_point && is_halt_point -> %>
-                    <span class="text-gray-200 font-medium">S/H</span>
+                    <span>S/H</span>
                   <% is_switch_point -> %>
-                    <span class="text-gray-200 font-medium">S</span>
+                    <span>S</span>
                   <% is_halt_point -> %>
-                    <span class="text-gray-200 font-medium">H</span>
+                    <span>H</span>
                   <% true -> %>
                     <span class="opacity-0">0</span>
                 <% end %>

@@ -4,7 +4,7 @@ defmodule TLC do
 
 
   def new(programs) do
-    logic = TLC.Logic.new(Enum.at(programs,0), Enum.at(programs,1))
+    logic = TLC.Logic.new(Enum.at(programs,0))
     %TLC{
       logic: logic,
       programs: programs

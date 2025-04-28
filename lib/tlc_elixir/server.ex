@@ -86,7 +86,9 @@ defmodule TLC.Server do
      ]
     tlc = TLC.new(programs)
     # Start the tick timer
-    schedule_tick()
+    ms = System.os_time(:millisecond)
+    schedule_tick(ms)
+
     {:ok, tlc}
   end
 
@@ -126,9 +128,11 @@ end
   @impl true
   def handle_info(:tick, tlc) do
     # Update the TLC state for each tick
-    updated_tlc = %{tlc| logic: TLC.Logic.tick(tlc.logic) }
+    ms = System.os_time(:millisecond)
+    unix_time = Kernel.round( ms / @tick_interval )
+    updated_tlc = %{tlc| logic: TLC.Logic.tick(tlc.logic, unix_time) }
     # Schedule the next tick
-    schedule_tick()
+    schedule_tick(ms)
     # Broadcast state changes
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
@@ -136,8 +140,12 @@ end
 
   # Private functions
 
-  defp schedule_tick do
-    Process.send_after(self(), :tick, @tick_interval)
+  defp schedule_tick(ms) do
+    # Calculate milliseconds until next second boundary
+    ms_to_wait = @tick_interval - rem(ms, @tick_interval)
+
+    # Schedule the tick at the next second boundary
+    Process.send_after(self(), :tick, ms_to_wait)
   end
 
   defp broadcast_update(tlc) do

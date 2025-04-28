@@ -9,6 +9,7 @@ defmodule TLC.Logic do
             target_program: nil,
             offset_adjust: 0,
             offset: 0,
+            unix_time: -1,
             base_time: -1,    # -1 is ready logic, before first actual step
             cycle_time: -1,
             target_offset: 0,
@@ -32,13 +33,10 @@ defmodule TLC.Logic do
     |> update_offset
   end
 
-  def tick(logic) when logic.mode == :halt do
+  def tick(logic, _unix_time) when logic.mode == :halt, do: logic
+  def tick(logic, unix_time) do
     logic
-  end
-
-  def tick(logic) do
-    logic
-    |> advance_base_time
+    |> update_base_time(unix_time)
     |> find_target_distance
     |> apply_waits
     |> compute_cycle_time
@@ -48,8 +46,8 @@ defmodule TLC.Logic do
     |> check_halt
   end
 
-  def advance_base_time(logic) do
-    %{logic | base_time: mod(logic.base_time + 1, logic.program.length) }
+  def update_base_time(logic, unix_time) do
+    %{logic | unix_time: unix_time, base_time: mod(unix_time, logic.program.length) }
   end
 
   def find_target_distance(logic) do
@@ -164,8 +162,9 @@ defmodule TLC.Logic do
     %{logic |
       program: logic.target_program,
       target_program: nil,
-      offset_adjust: mod(logic.target_program.switch - logic.base_time - logic.target_program.offset, logic.target_program.length)
+      offset_adjust: mod(logic.target_program.switch - logic.unix_time - logic.target_program.offset, logic.target_program.length)
     }
+    |> update_base_time(logic.unix_time)
     |> update_offset
     |> compute_cycle_time
     |> set_target_offset(logic.target_program.offset)
