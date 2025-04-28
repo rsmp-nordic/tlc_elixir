@@ -1,7 +1,7 @@
 <div class="w-full bg-gray-900">
   <div class="container mx-auto">
     <!-- Current State section (dark mode) -->
-    <div class="p-4 mb-8">
+    <div class="p-4">
       <div class="bg-gray-800 p-4 rounded shadow-lg border border-gray-700">
         <h2 class="text-lg font-semibold text-gray-200 mb-3">State</h2>
         <div class="grid grid-cols-3 gap-3 text-sm">
@@ -14,16 +14,16 @@
             <span class="font-mono text-gray-200"><%= @tlc.logic.cycle_time %></span>
           </div>
           <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
+            <span class="text-xs font-medium text-gray-300">Mode:</span>
+            <span class="font-mono text-gray-200"><%= @tlc.logic.mode %></span>
+          </div>
+          <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
             <span class="text-xs font-medium text-gray-300">Offset (program / adjust / actual)</span>
             <span class="font-mono text-gray-200"><%= @tlc.logic.program.offset %>/<%= @tlc.logic.offset_adjust %>/<%= @tlc.logic.offset %></span>
           </div>
           <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
-            <span class="text-xs font-medium text-gray-300">Target Offset:</span>
-            <span class="font-mono text-gray-200"><%= @tlc.logic.target_offset %></span>
-          </div>
-          <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
-            <span class="text-xs font-medium text-gray-300">Target Distance:</span>
-            <span class="font-mono text-gray-200"><%= @tlc.logic.target_distance %></span>
+            <span class="text-xs font-medium text-gray-300">Offset (target / distance)</span>
+            <span class="font-mono text-gray-200"><%= @tlc.logic.target_offset %>/<%= @tlc.logic.target_distance %></span>
           </div>
           <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
             <span class="text-xs font-medium text-gray-300">Waited:</span>
@@ -43,6 +43,9 @@
               <div class={"px-3 py-2 rounded-md text-gray-200 flex items-center cursor-pointer transition-colors #{if program.name == @tlc.logic.program.name, do: "bg-purple-700", else: "bg-gray-700 hover:bg-gray-600"}"} 
                   phx-click="switch_program" phx-value-program_name={program.name}>
                 <span class="font-medium"><%= program.name %></span>
+                <%= if program.name == @target_program && program.name != @tlc.logic.program.name do %>
+                  <span class="ml-2 text-amber-300 animate-pulse text-lg">→</span>
+                <% end %>
               </div>
             <% end %>
           </div>
@@ -150,10 +153,23 @@
                 <% end %>
               </div>
               
-              <!-- Switch cell -->
-              <% is_switch_point = cycle == @tlc.logic.program.switch %>
-              <div class={"p-2 h-12 flex items-center justify-center border-r border-b border-gray-600 #{if is_switch_point, do: "bg-gray-400", else: ""}"}>
-                <span class="opacity-0">0</span>
+              <!-- Combined Switch/Halt cell -->
+              <% 
+                is_switch_point = cycle == @tlc.logic.program.switch
+                is_halt_point = cycle == @tlc.logic.program.halt
+                has_point = is_switch_point || is_halt_point
+              %>
+              <div class={"p-2 h-12 flex items-center justify-center border-r border-b border-gray-600 #{if has_point, do: "bg-gray-400", else: ""}"}>
+                <%= cond do %>
+                  <% is_switch_point && is_halt_point -> %>
+                    <span class="text-gray-200 font-medium">S/H</span>
+                  <% is_switch_point -> %>
+                    <span class="text-gray-200 font-medium">S</span>
+                  <% is_halt_point -> %>
+                    <span class="text-gray-200 font-medium">H</span>
+                  <% true -> %>
+                    <span class="opacity-0">0</span>
+                <% end %>
               </div>
               
               <!-- Group signal cells -->

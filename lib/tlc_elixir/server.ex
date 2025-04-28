@@ -18,6 +18,10 @@ defmodule TLC.Server do
     GenServer.call(server, :get_programs)
   end
 
+  def get_target_program(server \\ __MODULE__) do
+    GenServer.call(server, :get_target_program)
+  end
+
   def set_target_offset(server, target_offset) do
     GenServer.cast(server, {:set_target_offset, target_offset})
   end
@@ -97,6 +101,12 @@ defmodule TLC.Server do
   end
 
   @impl true
+  def handle_call(:get_target_program, _from, tlc) do
+    target_program = get_target_program_from_logic(tlc.logic)
+    {:reply, target_program, tlc}
+  end
+
+  @impl true
   def handle_cast({:set_target_offset, target_offset}, tlc) do
     updated_logic = TLC.Logic.set_target_offset(tlc.logic, target_offset)
     updated_tlc = %{tlc | logic: updated_logic}
@@ -136,5 +146,14 @@ end
       "tlc_updates",
       {:tlc_updated, tlc}
     )
+  end
+
+  defp get_target_program_from_logic(logic) do
+    # Extract the target program name from the logic state
+    # This will depend on how the target program is stored in your logic module
+    case logic.target_program do
+      nil -> nil
+      program -> program.name
+    end
   end
 end
