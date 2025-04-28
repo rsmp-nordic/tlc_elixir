@@ -2,23 +2,36 @@ defmodule TLC.Server do
   use GenServer
   require Logger
 
-  @tick_interval 500 # 1 second
+  @tick_interval 500 # 500 milliseconds
 
   # Client API
 
   def start_link(init_args) do
-    GenServer.start_link(__MODULE__, init_args, name: __MODULE__)
+    GenServer.start_link(__MODULE__, init_args)
+  end
+
+  def start_link(init_args, name) do
+    GenServer.start_link(__MODULE__, init_args, name: name)
+  end
+
+  def start_session(session_id) do
+    name = via_tuple(session_id)
+    start_link(nil, name)
+  end
+
+  def via_tuple(session_id) do
+    {:via, Registry, {TLC.ServerRegistry, "tlc_server:#{session_id}"}}
   end
 
   def current_state(server) do
     GenServer.call(server, :get_state)
   end
 
-  def get_programs(server \\ __MODULE__) do
+  def get_programs(server) do
     GenServer.call(server, :get_programs)
   end
 
-  def get_target_program(server \\ __MODULE__) do
+  def get_target_program(server) do
     GenServer.call(server, :get_target_program)
   end
 
@@ -118,19 +131,19 @@ defmodule TLC.Server do
 
   @impl true
   def handle_cast({:switch_program, program_name}, tlc) do
-  program = Enum.find(tlc.programs, fn prog -> prog.name == program_name end)
-  updated_logic = TLC.Logic.set_target_program(tlc.logic, program)
-  updated_tlc = %{tlc | logic: updated_logic}
-  broadcast_update(updated_tlc)
-  {:noreply, updated_tlc}
-end
+    program = Enum.find(tlc.programs, fn prog -> prog.name == program_name end)
+    updated_logic = TLC.Logic.set_target_program(tlc.logic, program)
+    updated_tlc = %{tlc | logic: updated_logic}
+    broadcast_update(updated_tlc)
+    {:noreply, updated_tlc}
+  end
 
   @impl true
   def handle_info(:tick, tlc) do
     # Update the TLC state for each tick
     ms = System.os_time(:millisecond)
-    unix_time = Kernel.round( ms / @tick_interval )
-    updated_tlc = %{tlc| logic: TLC.Logic.tick(tlc.logic, unix_time) }
+    unix_time = Kernel.round(ms / @tick_interval)
+    updated_tlc = %{tlc | logic: TLC.Logic.tick(tlc.logic, unix_time)}
     # Schedule the next tick
     schedule_tick(ms)
     # Broadcast state changes
@@ -141,24 +154,28 @@ end
   # Private functions
 
   defp schedule_tick(ms) do
-    # Calculate milliseconds until next second boundary
+    # Calculate milliseconds until next tick boundary
     ms_to_wait = @tick_interval - rem(ms, @tick_interval)
-
-    # Schedule the tick at the next second boundary
+    # Schedule the tick
     Process.send_after(self(), :tick, ms_to_wait)
   end
 
   defp broadcast_update(tlc) do
+    # Get the session ID from the server process
+    session_id = case Registry.keys(TLC.ServerRegistry, self()) do
+      ["tlc_server:" <> id] -> id
+      _ -> "default"
+    end
+
     Phoenix.PubSub.broadcast(
-      TlcElixir.PubSub,  # Corrected PubSub name to match application.ex
-      "tlc_updates",
+      TlcElixir.PubSub,
+      "tlc_updates:#{session_id}",
       {:tlc_updated, tlc}
     )
   end
 
   defp get_target_program_from_logic(logic) do
     # Extract the target program name from the logic state
-    # This will depend on how the target program is stored in your logic module
     case logic.target_program do
       nil -> nil
       program -> program.name

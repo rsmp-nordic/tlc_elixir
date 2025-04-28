@@ -3,16 +3,24 @@ defmodule TlcElixirWeb.TLCLive do
   require Logger
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
+    # Generate a session ID if not already present
+    session_id = Map.get(session, "session_id", generate_session_id())
+
+    # Start a new server for this session or get the existing one
+    {:ok, server} = ensure_server_started(session_id)
+
     if connected?(socket) do
-      Phoenix.PubSub.subscribe(TlcElixir.PubSub, "tlc_updates")
+      Phoenix.PubSub.subscribe(TlcElixir.PubSub, "tlc_updates:#{session_id}")
     end
 
-    tlc = TLC.Server.current_state(TLC.Server)
-    target_program = TLC.Server.get_target_program()
+    tlc = TLC.Server.current_state(server)
+    target_program = TLC.Server.get_target_program(server)
 
     {:ok, assign(socket,
       tlc: tlc,
+      server: server,
+      session_id: session_id,
       show_program_modal: false,
       target_program: target_program
     )}
@@ -20,14 +28,14 @@ defmodule TlcElixirWeb.TLCLive do
 
   @impl true
   def handle_event("switch_program", %{"program_name" => program_name}, socket) do
-    TLC.Server.switch_program(TLC.Server, program_name)
+    TLC.Server.switch_program(socket.assigns.server, program_name)
     {:noreply, socket}
   end
 
   @impl true
   def handle_event("set_target_offset", %{"target_offset" => target_offset}, socket) do
     {offset, _} = Integer.parse(target_offset)
-    TLC.Server.set_target_offset(TLC.Server, offset)
+    TLC.Server.set_target_offset(socket.assigns.server, offset)
     {:noreply, socket}
   end
 
@@ -43,9 +51,11 @@ defmodule TlcElixirWeb.TLCLive do
 
   @impl true
   def handle_info({:tlc_updated, tlc}, socket) do
-    target_program = TLC.Server.get_target_program()
+    target_program = TLC.Server.get_target_program(socket.assigns.server)
     {:noreply, assign(socket, tlc: tlc, target_program: target_program)}
   end
+
+  # Helper functions
 
   # Helper function for cell background color
   defp cell_bg_class(signal) do
@@ -72,5 +82,21 @@ defmodule TlcElixirWeb.TLCLive do
       switch: #{program.switch}#{if Map.has_key?(program, :halt), do: ",\n      halt: #{program.halt}", else: ""}
     }
     """
+  end
+
+  defp ensure_server_started(session_id) do
+    server_name = TLC.Server.via_tuple(session_id)
+
+    case Registry.lookup(TLC.ServerRegistry, "tlc_server:#{session_id}") do
+      [{_pid, _}] ->
+        {:ok, server_name}
+      [] ->
+        TLC.Server.start_session(session_id)
+        {:ok, server_name}
+    end
+  end
+
+  defp generate_session_id do
+    :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower)
   end
 end

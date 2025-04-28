@@ -33,7 +33,11 @@ defmodule TLC.Logic do
     |> update_offset
   end
 
-  def tick(logic, _unix_time) when logic.mode == :halt, do: logic
+  def tick(logic, unix_time) when logic.mode == :halt do
+    logic
+    |> update_base_time(unix_time)
+  end
+
   def tick(logic, unix_time) do
     logic
     |> update_base_time(unix_time)

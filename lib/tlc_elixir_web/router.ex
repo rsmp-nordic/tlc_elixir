@@ -17,7 +17,22 @@ defmodule TlcElixirWeb.Router do
   scope "/", TlcElixirWeb do
     pipe_through :browser
 
-    live "/", TLCLive
+    # We need to use live_session to properly handle session data
+    live_session :tlc, session: {__MODULE__, :session_with_id, []} do
+      live "/", TLCLive
+    end
+  end
+
+  # Add session handling functionality
+  def session_with_id(conn) do
+    session_id = get_session(conn, :session_id) || generate_session_id()
+    # Don't assign result if we're not using it
+    # Just return the session data needed by the LiveView
+    %{"session_id" => session_id}
+  end
+
+  defp generate_session_id do
+    :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower)
   end
 
   # Other scopes may use custom stacks.

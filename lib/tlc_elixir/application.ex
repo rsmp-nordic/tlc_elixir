@@ -13,11 +13,11 @@ defmodule TlcElixir.Application do
       {Phoenix.PubSub, name: TlcElixir.PubSub},
       # Start the Finch HTTP client for sending emails
       {Finch, name: TlcElixir.Finch},
-      # Start a worker by calling: TlcElixir.Worker.start_link(arg)
-      # {TlcElixir.Worker, arg},
       # Start to serve requests, typically the last entry
       TlcElixirWeb.Endpoint,
-      {TLC.Server, []}
+      # Remove the default server instance as we'll create per-session instances
+      # {TLC.Server, []},
+      {Registry, keys: :unique, name: TLC.ServerRegistry}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
