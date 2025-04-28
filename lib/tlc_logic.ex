@@ -14,7 +14,8 @@ defmodule TLC.Logic do
             target_offset: 0,
             target_distance: 0,
             waited: 0,
-            current_states: ""
+            current_states: "",
+            mode: :run
 
   # Elixir has no modulo function, so define one.
   # rem() returns negative values if the input is negative, which is not what we want.
@@ -23,16 +24,18 @@ defmodule TLC.Logic do
   @doc """
   Creates a new traffic light controller from a TLC.Program.
   """
-  def new(program) do
+  def new(program, target_program \\ nil) do
     %TLC.Logic{
-      program: program
+      program: program,
+      target_program: target_program,
     }
     |> update_offset
   end
 
-  @doc """
-  Updates the program logic for the next cycle.
-  """
+  def tick(logic) when logic.mode == :halt do
+    logic
+  end
+
   def tick(logic) do
     logic
     |> advance_base_time
@@ -42,6 +45,7 @@ defmodule TLC.Logic do
     |> apply_skips
     |> check_switch
     |> update_states
+    |> check_halt
   end
 
   def advance_base_time(logic) do
@@ -136,7 +140,7 @@ defmodule TLC.Logic do
   end
 
   def set_target_program(logic, program) do
-    %{logic | target_program: program}
+    %{logic | target_program: program, mode: :run}
   end
 
 
@@ -147,9 +151,15 @@ defmodule TLC.Logic do
       logic
     end
   end
-  @doc """
-  Switches to a new program.
-  """
+
+  def check_halt(logic) do
+    if logic.cycle_time == logic.program.halt do
+      %{logic | mode: :halt}
+    else
+      logic
+    end
+  end
+
   def switch(logic) do
     %{logic |
       program: logic.target_program,

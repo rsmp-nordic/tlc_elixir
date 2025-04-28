@@ -33,29 +33,24 @@
       </div>
     </div>
 
-    <!-- Available Programs section -->
-    <div class="p-4 mb-8">
-      <div class="bg-gray-800 p-4 rounded shadow-lg border border-gray-700">
-        <h2 class="text-lg font-semibold text-gray-200 mb-3">Available Programs</h2>
-        <div class="flex flex-wrap gap-3">
-          <%= for {program_name, _program} <- @tlc.programs do %>
-            <div class="bg-gray-700 px-3 py-2 rounded-md text-gray-200 flex items-center cursor-pointer hover:bg-gray-600 transition-colors"
-                 phx-click="switch_program" phx-value-program_name={program_name}>
-              <span class="font-medium"><%= program_name %></span>
-            </div>
-          <% end %>
-        </div>
-      </div>
-    </div>
-
     <!-- Cycle table section -->
     <div class="p-4 overflow-x-auto">
       <div class="bg-gray-800 p-4 rounded shadow-lg border border-gray-700">
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-xl font-semibold text-gray-200">Cycle</h2>
-          <button phx-click="show_program_modal" class="bg-stone-600 hover:bg-purple-700 text-white px-4 py-2 rounded">
-            View Program
-          </button>
+        <div class="mb-4">
+          <h2 class="text-xl font-semibold text-gray-200 mb-3">Program</h2>
+          <div class="flex flex-wrap gap-3 mb-3">
+            <%= for program <- @tlc.programs do %>
+              <div class={"px-3 py-2 rounded-md text-gray-200 flex items-center cursor-pointer transition-colors #{if program.name == @tlc.logic.program.name, do: "bg-purple-700", else: "bg-gray-700 hover:bg-gray-600"}"} 
+                  phx-click="switch_program" phx-value-program_name={program.name}>
+                <span class="font-medium"><%= program.name %></span>
+              </div>
+            <% end %>
+          </div>
+          <div class="flex justify-end">
+            <button phx-click="show_program_modal" class="bg-gray-700 hover:bg-purple-700 text-white px-4 py-2 rounded">
+              View Program
+            </button>
+          </div>
         </div>
         
         <!-- Column-based layout -->

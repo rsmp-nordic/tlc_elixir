@@ -24,7 +24,6 @@ defmodule TlcElixirWeb.TLCLive do
 
   @impl true
   def handle_event("switch_program", %{"program_name" => program_name}, socket) do
-    program_name = String.to_existing_atom(program_name)
     TLC.Server.switch_program(TLC.Server, program_name)
     {:noreply, socket}
   end
@@ -44,6 +43,7 @@ defmodule TlcElixirWeb.TLCLive do
     {:noreply, assign(socket, tlc: tlc)}
   end
 
+  def cell_bg_class("D"), do: "bg-black"
   def cell_bg_class("R"), do: "bg-red-700"
   def cell_bg_class("Y"), do: "bg-yellow-600"
   def cell_bg_class("G"), do: "bg-green-700"

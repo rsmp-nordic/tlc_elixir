@@ -4,26 +4,29 @@ defmodule TLC.Program do
   Contains the static program configuration without runtime state.
   """
 
-  defstruct length: 0,
+  defstruct name: "",
+            length: 0,
             offset: 0,
             groups: [],
             states: %{},
             skips: %{},
             waits: %{},
-            switch: 0
+            switch: nil,
+            halt: nil
 
   @doc """
   Provides an example traffic program definition.
   """
   def example() do
     %__MODULE__{
+      name: "example",
       length: 8,
       offset: 3,
       groups: ["a", "b"],
       states: %{ 0 => "RY", 1 => "GR", 4 => "YR", 5 => "RG"},
       skips: %{0 => 2},
       waits: %{5 => 2},
-      switch: 0
+      switch: 0,
     }
   end
 
@@ -35,7 +38,8 @@ defmodule TLC.Program do
     unless is_struct(program, %TLC.Program{}) do
       {:error, "Input must be a %TLC.Program{} struct"}
     else
-      with :ok <- validate_length(program),
+      with :ok <- validate_name(program),
+           :ok <- validate_length(program),
            :ok <- validate_offset(program),
            :ok <- validate_groups(program),
            :ok <- validate_states(program),
@@ -46,6 +50,9 @@ defmodule TLC.Program do
       end
     end
   end
+
+  defp validate_name(%{name: name}) when is_binary(name) and name != "", do: :ok
+  defp validate_name(_), do: {:error, "Name must be a non-empty string"}
 
   defp validate_length(%{length: length}) when is_integer(length) and length > 0, do: :ok
   defp validate_length(_), do: {:error, "Program length must be a positive integer"}

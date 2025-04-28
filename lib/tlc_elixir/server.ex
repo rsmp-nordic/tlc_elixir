@@ -30,30 +30,37 @@ defmodule TLC.Server do
 
   @impl true
   def init(_init_args) do
-    programs = %{
-      :start => %TLC.Program{
+    programs = [
+      %TLC.Program{
+        name: "halt",
+        length: 12,
+        groups: ["a", "b"],
+        states: %{ 0 => "DD", 1 => "RR", 3 => "YR", 5 => "GR", 8 => "YY", 10 => "RR" },
+        switch: 6,
+        halt: 0
+      },
+      %TLC.Program{
+        name: "calm",
         length: 6,
+        offset: 0,
         groups: ["a", "b"],
-        states: %{ 0 => "RR", 2 => "YR", 4 => "GR"},
-        waits: %{0 => 6},
-        switch: 5
+        states: %{ 0 => "RY", 1 => "GR", 3 => "YR", 4 => "RG"},
+        skips: %{4 => 2},
+        waits: %{2 => 2},
+        switch: 1
       },
-      :fault => %TLC.Program{
-        length: 1,
+      %TLC.Program{
+        name: "normal",
+        length: 6,
+        offset: 2,
         groups: ["a", "b"],
-        states: %{ 0 => "RR"},
-        switch: 0
+        states: %{ 0 => "RY", 1 => "GR", 4 => "YR", 5 => "RG"},
+        skips: %{2 => 2},
+        waits: %{5 => 2},
+        switch: 1
       },
-      :long => %TLC.Program{
-        length: 20,
-        offset: 15,
-        groups: ["a", "b"],
-        states: %{ 0 => "RY", 1 => "GR", 7 => "YR", 8 => "RG", 9 => "RY", 11 => "GR", 15 => "YR", 17 => "RG"},
-        skips: %{7 => 5, 17 => 2},
-        waits: %{1 => 2, 6 => 2, 13 => 3 },
-        switch: 19
-      },
-     :busy => %TLC.Program{
+      %TLC.Program{
+        name: "busy",
         length: 10,
         offset: 0,
         groups: ["a", "b"],
@@ -62,16 +69,17 @@ defmodule TLC.Server do
         waits: %{0 => 3},
         switch: 3
       },
-      :calm => %TLC.Program{
-        length: 6,
-        offset: 0,
+      %TLC.Program{
+        name: "long",
+        length: 20,
+        offset: 15,
         groups: ["a", "b"],
-        states: %{ 0 => "RY", 1 => "GR", 3 => "YR", 4 => "RG"},
-        skips: %{0 => 1},
-        waits: %{3 => 1},
-        switch: 1
-      },
-    }
+        states: %{ 0 => "RY", 1 => "GR", 7 => "YR", 8 => "RG", 9 => "RY", 11 => "GR", 15 => "YR", 17 => "RG"},
+        skips: %{7 => 5, 17 => 2},
+        waits: %{1 => 2, 6 => 2, 13 => 3 },
+        switch: 19
+      }
+     ]
     tlc = TLC.new(programs)
     # Start the tick timer
     schedule_tick()
@@ -98,12 +106,12 @@ defmodule TLC.Server do
 
   @impl true
   def handle_cast({:switch_program, program_name}, tlc) do
-    program = Map.get(tlc.programs, program_name)
-    updated_logic = TLC.Logic.set_target_program(tlc.logic, program)
-    updated_tlc = %{tlc | logic: updated_logic}
-    broadcast_update(updated_tlc)
-    {:noreply, updated_tlc}
-  end
+  program = Enum.find(tlc.programs, fn prog -> prog.name == program_name end)
+  updated_logic = TLC.Logic.set_target_program(tlc.logic, program)
+  updated_tlc = %{tlc | logic: updated_logic}
+  broadcast_update(updated_tlc)
+  {:noreply, updated_tlc}
+end
 
   @impl true
   def handle_info(:tick, tlc) do
