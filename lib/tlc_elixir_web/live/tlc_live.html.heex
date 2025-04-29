@@ -1,33 +1,80 @@
 <div class="w-full bg-gray-900">
   <div class="container mx-auto">
     <!-- Current State section (dark mode) -->
-    <div class="p-4">
-      <div class="bg-gray-800 p-4 rounded shadow-lg border border-gray-700">
-        <h2 class="text-lg font-semibold text-gray-200 mb-3">State</h2>
-        <div class="grid grid-cols-3 gap-3 text-sm">
-          <div class="bg-gray-700 p-2 rounded shadow-sm flex justify-between items-center">
-            <span class="text-xs font-medium text-gray-300">Time (unix / base):</span>
-            <span class="font-mono text-gray-200"><%= @tlc.logic.unix_time %> / <%= @tlc.logic.base_time %></span>
+    <div class="p-2">
+      <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-200 mb-2">State</h2>
+        <div class="grid grid-cols-6 gap-2 text-xs">
+          <!-- Mode -->
+          <div class="bg-gray-700 p-2 rounded shadow-sm">
+            <div class="text-xs font-medium text-gray-400 mb-1">Mode</div>
+            <div class="font-mono text-gray-200 text-right"><%= @tlc.logic.mode %></div>
           </div>
-          <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
-            <span class="text-xs font-medium text-gray-300">Cycle Time:</span>
-            <span class="font-mono text-gray-200"><%= @tlc.logic.cycle_time %></span>
+          
+          <!-- Unix Time -->
+          <div class="bg-gray-700 p-2 rounded shadow-sm">
+            <div class="text-xs font-medium text-gray-400 mb-1">Unix Time</div>
+            <div class="font-mono text-gray-200 text-right"><%= @tlc.logic.unix_time %></div>
           </div>
-          <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
-            <span class="text-xs font-medium text-gray-300">Mode:</span>
-            <span class="font-mono text-gray-200"><%= @tlc.logic.mode %></span>
+
+          <!-- Unix Delta -->
+          <div class="bg-gray-700 p-2 rounded shadow-sm">
+            <div class="text-xs font-medium text-gray-400 mb-1">Unix Delta</div>
+            <div class="font-mono text-gray-200 text-right"><%= @tlc.logic.unix_delta %></div>
           </div>
-          <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
-            <span class="text-xs font-medium text-gray-300">Offset (program / adjust / actual)</span>
-            <span class="font-mono text-gray-200"><%= @tlc.logic.program.offset %> / <%= @tlc.logic.offset_adjust %> / <%= @tlc.logic.offset %></span>
+
+          <!-- Base Time -->
+          <div class="bg-gray-700 p-2 rounded shadow-sm">
+            <div class="text-xs font-medium text-gray-400 mb-1">Base Time</div>
+            <div class="font-mono text-gray-200 text-right"><%= @tlc.logic.base_time %></div>
           </div>
-          <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
-            <span class="text-xs font-medium text-gray-300">Offset (target / distance)</span>
-            <span class="font-mono text-gray-200"><%= @tlc.logic.target_offset %> / <%= @tlc.logic.target_distance %></span>
+          
+          <!-- Cycle Time -->
+          <div class="bg-gray-700 p-2 rounded shadow-sm">
+            <div class="text-xs font-medium text-gray-400 mb-1">Cycle Time</div>
+            <div class="font-mono text-gray-200 text-right"><%= @tlc.logic.cycle_time %></div>
           </div>
-          <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
-            <span class="text-xs font-medium text-gray-300">Waited:</span>
-            <span class="font-mono text-gray-200"><%= @tlc.logic.waited %></span>
+          
+          <div class="bg-gray-700 p-2 rounded shadow-sm">
+            <div class="text-xs font-medium text-gray-400 mb-1"></div>
+            <div class="font-mono text-gray-200 text-right"></div>
+          </div>
+    
+          <!-- Second row -->
+          <!-- Program Offset -->
+          <div class="bg-gray-700 p-2 rounded shadow-sm">
+            <div class="text-xs font-medium text-gray-400 mb-1">Program Offset</div>
+            <div class="font-mono text-gray-200 text-right"><%= @tlc.logic.program.offset %></div>
+          </div>
+          
+          <!-- Offset Adjust -->
+          <div class="bg-gray-700 p-2 rounded shadow-sm">
+            <div class="text-xs font-medium text-gray-400 mb-1">Offset Adjust</div>
+            <div class="font-mono text-gray-200 text-right"><%= @tlc.logic.offset_adjust %></div>
+          </div>
+          
+          <!-- Current Offset -->
+          <div class="bg-gray-700 p-2 rounded shadow-sm">
+            <div class="text-xs font-medium text-gray-400 mb-1">Current Offset</div>
+            <div class="font-mono text-gray-200 text-right"><%= @tlc.logic.offset %></div>
+          </div>
+          
+          <!-- Target Offset -->
+          <div class="bg-gray-700 p-2 rounded shadow-sm">
+            <div class="text-xs font-medium text-gray-400 mb-1">Target Offset</div>
+            <div class="font-mono text-gray-200 text-right"><%= @tlc.logic.target_offset %></div>
+          </div>
+
+          <!-- Target Distance -->
+          <div class="bg-gray-700 p-2 rounded shadow-sm">
+            <div class="text-xs font-medium text-gray-400 mb-1">Target Distance</div>
+            <div class="font-mono text-gray-200 text-right"><%= @tlc.logic.target_distance %></div>
+          </div>
+
+          <!-- Waited -->
+          <div class="bg-gray-700 p-2 rounded shadow-sm">
+            <div class="text-xs font-medium text-gray-400 mb-1">Waited</div>
+            <div class="font-mono text-gray-200 text-right"><%= @tlc.logic.waited %></div>
           </div>
         </div>
       </div>

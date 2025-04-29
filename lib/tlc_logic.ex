@@ -5,18 +5,19 @@ defmodule TLC.Logic do
   This module handles the traffic light logic and runtime logic for a TLC.Program.
   """
 
-  defstruct program: %TLC.Program{},
+  defstruct mode: :run,
+            program: %TLC.Program{},
             target_program: nil,
             offset_adjust: 0,
             offset: 0,
-            unix_time: -1,
+            unix_time: nil,
+            unix_delta: 0,
             base_time: -1,    # -1 is ready logic, before first actual step
             cycle_time: -1,
             target_offset: 0,
             target_distance: 0,
             waited: 0,
-            current_states: "",
-            mode: :run
+            current_states: ""
 
   # Elixir has no modulo function, so define one.
   # rem() returns negative values if the input is negative, which is not what we want.
@@ -35,12 +36,14 @@ defmodule TLC.Logic do
 
   def tick(logic, unix_time) when logic.mode == :halt do
     logic
-    |> update_base_time(unix_time)
+    |> update_unix_time(unix_time)
+    |> update_base_time()
   end
 
   def tick(logic, unix_time) do
     logic
-    |> update_base_time(unix_time)
+    |> update_unix_time(unix_time)
+    |> update_base_time()
     |> find_target_distance
     |> apply_waits
     |> compute_cycle_time
@@ -50,8 +53,15 @@ defmodule TLC.Logic do
     |> check_halt
   end
 
-  def update_base_time(logic, unix_time) do
-    %{logic | unix_time: unix_time, base_time: mod(unix_time, logic.program.length) }
+  def update_unix_time(logic, unix_time) when logic.unix_time == nil do
+    %{logic | unix_time: unix_time, unix_delta: 0 }
+  end
+  def update_unix_time(logic, unix_time)  do
+    %{logic | unix_time: unix_time, unix_delta: unix_time - logic.unix_time }
+  end
+
+  def update_base_time(logic) do
+    %{logic | base_time: mod(logic.unix_time, logic.program.length) }
   end
 
   def find_target_distance(logic) do
@@ -70,8 +80,8 @@ defmodule TLC.Logic do
         if logic.waited < duration do
           # wait by moving offset back 1
           %{logic |
-            offset_adjust: mod(logic.offset_adjust - 1, logic.program.length),
-            waited: logic.waited + 1
+            offset_adjust: mod(logic.offset_adjust - logic.unix_delta, logic.program.length),
+            waited: logic.waited + logic.unix_delta
           }
           |> update_offset
           |> find_target_distance
@@ -158,13 +168,8 @@ defmodule TLC.Logic do
     end
   end
 
-  def check_halt(logic) do
-    if logic.cycle_time == logic.program.halt do
-      %{logic | mode: :halt}
-    else
-      logic
-    end
-  end
+  def check_halt(logic) when logic.cycle_time == logic.program.halt, do: halt(logic)
+  def check_halt(logic), do: logic
 
   def switch(logic) do
     %{logic |
@@ -179,10 +184,20 @@ defmodule TLC.Logic do
     %{logic |
       offset_adjust: mod(target_cycle_time - logic.unix_time - logic.program.offset, logic.program.length)
     }
-    |> update_base_time(logic.unix_time)
     |> update_offset
     |> compute_cycle_time
     |> set_target_offset(logic.program.offset)
     |> find_target_distance
+  end
+
+  def halt(logic) do
+    %{logic |
+    mode: :halt,
+    target_program: nil,
+    offset_adjust: 0,
+    target_offset: 0,
+    offset: 0,
+    target_distance: 0
+  }
   end
 end

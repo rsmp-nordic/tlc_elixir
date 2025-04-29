@@ -427,5 +427,29 @@ defmodule TLCTest do
     logic = Logic.tick(logic); assert %{base: 3, cycle: 0, adjust: 0, offset: 1, target: 1, dist: 0, states: "CC", waited: 3} = to_map(logic)
   end
 
+  test "tick updates unix time and delta" do
+    program = %Program{
+      length: 4,
+      groups: ["a", "b"],
+      states: %{0 => "AA", 2 => "BB"},
+    }
+    logic = Logic.new(program)
+
+    assert logic.unix_time == nil
+    assert logic.unix_delta == 0
+
+    logic = TLC.Logic.tick(logic, 6983693664)
+    assert logic.unix_time == 6983693664
+    assert logic.unix_delta == 0
+
+    logic = TLC.Logic.tick(logic, 6983693665)
+    assert logic.unix_time == 6983693665
+    assert logic.unix_delta == 1
+
+    logic = TLC.Logic.tick(logic, 6983693667)
+    assert logic.unix_time == 6983693667
+    assert logic.unix_delta == 2
+  end
+
 
 end

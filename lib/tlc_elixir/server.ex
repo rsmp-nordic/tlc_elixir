@@ -2,7 +2,8 @@ defmodule TLC.Server do
   use GenServer
   require Logger
 
-  @tick_interval 500 # 500 milliseconds
+  @tick_interval 1000
+  @speed 4
 
   # Client API
 
@@ -97,9 +98,18 @@ defmodule TLC.Server do
         switch: 19
       }
      ]
+
+    ms = scaled_unix_time()
     tlc = TLC.new(programs)
+    logic =
+      tlc.logic
+      |> TLC.Logic.halt()
+      |> TLC.Logic.update_unix_time(round(ms/1000))
+      |> TLC.Logic.update_base_time()
+      |> TLC.Logic.sync(tlc.logic.program.halt)
+
+    tlc = %{tlc | logic: logic}
     # Start the tick timer
-    ms = System.os_time(:millisecond)
     schedule_tick(ms)
 
     {:ok, tlc}
@@ -141,9 +151,8 @@ defmodule TLC.Server do
   @impl true
   def handle_info(:tick, tlc) do
     # Update the TLC state for each tick
-    ms = System.os_time(:millisecond)
-    unix_time = Kernel.round(ms / @tick_interval)
-    updated_tlc = %{tlc | logic: TLC.Logic.tick(tlc.logic, unix_time)}
+    ms = scaled_unix_time()
+    updated_tlc = %{tlc | logic: TLC.Logic.tick(tlc.logic, round(ms/1000))}
     # Schedule the next tick
     schedule_tick(ms)
     # Broadcast state changes
@@ -155,8 +164,8 @@ defmodule TLC.Server do
 
   defp schedule_tick(ms) do
     # Calculate milliseconds until next tick boundary
-    ms_to_wait = @tick_interval - rem(ms, @tick_interval)
-    # Schedule the tick
+    ms_to_wait = descale_ms( @tick_interval - rem(ms, @tick_interval))
+    # Schedule th tick
     Process.send_after(self(), :tick, ms_to_wait)
   end
 
@@ -181,4 +190,9 @@ defmodule TLC.Server do
       program -> program.name
     end
   end
+
+
+  defp scaled_unix_time(), do: scale_ms(System.os_time(:millisecond))
+  defp scale_ms(ms), do: ms * @speed
+  defp descale_ms(ms), do: round(ms / @speed)
 end
