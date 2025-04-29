@@ -91,7 +91,9 @@
                   phx-click="switch_program" phx-value-program_name={program.name}>
                 <span class="font-medium"><%= program.name %></span>
                 <%= if program.name == @target_program && program.name != @tlc.logic.program.name do %>
-                  <span class="ml-2 text-amber-300 animate-pulse text-lg">→</span>
+                  <span class="ml-2 w-4 text-lg text-amber-300 animate-pulse">→</span>
+                <% else %>
+                  <span class="ml-2 w-4 text-lg opacity-0">→</span>
                 <% end %>
               </div>
             <% end %>
