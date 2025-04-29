@@ -141,8 +141,12 @@ defmodule TLC.Logic do
     %{logic | offset: mod(logic.program.offset + logic.offset_adjust, logic.program.length) }
   end
 
-  def set_target_program(logic, program) do
+  def set_target_program(logic, program) when logic.mode == :halt do
     %{logic | target_program: program, mode: :run}
+    |> sync(logic.cycle_time)
+  end
+  def set_target_program(logic, program) do
+    %{logic | target_program: program}
   end
 
 
@@ -166,12 +170,19 @@ defmodule TLC.Logic do
     %{logic |
       program: logic.target_program,
       target_program: nil,
-      offset_adjust: mod(logic.target_program.switch - logic.unix_time - logic.target_program.offset, logic.target_program.length)
+    }
+    |> sync(logic.target_program.switch)
+  end
+
+  ## adjust offset to get a specific cycle time
+  def sync(logic, target_cycle_time) do
+    %{logic |
+      offset_adjust: mod(target_cycle_time - logic.unix_time - logic.program.offset, logic.program.length)
     }
     |> update_base_time(logic.unix_time)
     |> update_offset
     |> compute_cycle_time
-    |> set_target_offset(logic.target_program.offset)
+    |> set_target_offset(logic.program.offset)
     |> find_target_distance
   end
 end
