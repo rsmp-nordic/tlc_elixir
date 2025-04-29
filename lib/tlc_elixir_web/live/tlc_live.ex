@@ -50,6 +50,13 @@ defmodule TlcElixirWeb.TLCLive do
   end
 
   @impl true
+  def handle_event("set_speed", %{"speed" => speed_str}, socket) do
+    speed = String.to_integer(speed_str)
+    TLC.Server.set_speed(socket.assigns.server, speed)
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_info({:tlc_updated, tlc}, socket) do
     target_program = TLC.Server.get_target_program(socket.assigns.server)
     {:noreply, assign(socket, tlc: tlc, target_program: target_program)}

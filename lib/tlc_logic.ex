@@ -12,8 +12,8 @@ defmodule TLC.Logic do
             offset: 0,
             unix_time: nil,
             unix_delta: 0,
-            base_time: -1,    # -1 is ready logic, before first actual step
-            cycle_time: -1,
+            base_time: 0,    # -1 is ready logic, before first actual step
+            cycle_time: 0,
             target_offset: 0,
             target_distance: 0,
             waited: 0,
@@ -159,6 +159,20 @@ defmodule TLC.Logic do
     %{logic | target_program: program}
   end
 
+  def check_halt(logic) when logic.cycle_time == logic.program.halt, do: halt(logic)
+  def check_halt(logic), do: logic
+
+
+  def halt(logic) do
+    %{logic |
+    mode: :halt,
+    target_program: nil,
+    offset_adjust: 0,
+    target_offset: 0,
+    offset: 0,
+    target_distance: 0
+  }
+  end
 
   def check_switch(logic) do
     if logic.target_program && logic.program.switch == logic.cycle_time do
@@ -168,14 +182,9 @@ defmodule TLC.Logic do
     end
   end
 
-  def check_halt(logic) when logic.cycle_time == logic.program.halt, do: halt(logic)
-  def check_halt(logic), do: logic
-
   def switch(logic) do
-    %{logic |
-      program: logic.target_program,
-      target_program: nil,
-    }
+    %{logic | program: logic.target_program, target_program: nil }
+    |> update_base_time()
     |> sync(logic.target_program.switch)
   end
 
@@ -190,14 +199,4 @@ defmodule TLC.Logic do
     |> find_target_distance
   end
 
-  def halt(logic) do
-    %{logic |
-    mode: :halt,
-    target_program: nil,
-    offset_adjust: 0,
-    target_offset: 0,
-    offset: 0,
-    target_distance: 0
-  }
-  end
 end

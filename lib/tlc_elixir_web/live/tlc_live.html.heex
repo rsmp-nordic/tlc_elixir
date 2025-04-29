@@ -98,7 +98,22 @@
               </div>
             <% end %>
           </div>
-          <div class="flex justify-end">
+          <div class="flex justify-between">
+            <div class="flex space-x-2">
+              <span class="text-gray-300 self-center mr-1">Speed:</span>
+              <button phx-click="set_speed" phx-value-speed="1" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @tlc.speed == 1, do: "bg-purple-700"}"}>
+                1x
+              </button>
+              <button phx-click="set_speed" phx-value-speed="2" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @tlc.speed == 2, do: "bg-purple-700"}"}>
+                2x
+              </button>
+              <button phx-click="set_speed" phx-value-speed="4" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @tlc.speed == 4, do: "bg-purple-700"}"}>
+                4x
+              </button>
+              <button phx-click="set_speed" phx-value-speed="8" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @tlc.speed == 8, do: "bg-purple-700"}"}>
+                8x
+              </button>
+            </div>
             <button phx-click="show_program_modal" class="bg-gray-700 hover:bg-purple-700 text-white px-4 py-2 rounded">
               View Program
             </button>

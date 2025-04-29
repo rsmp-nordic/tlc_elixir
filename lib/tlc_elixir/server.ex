@@ -3,7 +3,10 @@ defmodule TLC.Server do
   require Logger
 
   @tick_interval 1000
-  @speed 4
+  # Remove @speed module attribute
+
+  # Add a struct definition with a speed field
+  defstruct [:logic, :programs, :target_program, speed: 1]
 
   # Client API
 
@@ -42,6 +45,11 @@ defmodule TLC.Server do
 
   def switch_program(server, program_name) do
     GenServer.cast(server, {:switch_program, program_name})
+  end
+
+  # Add a new client function for setting speed
+  def set_speed(server, speed) when speed in [1, 2, 4, 8] do
+    GenServer.call(server, {:set_speed, speed})
   end
 
   # Server callbacks
@@ -99,18 +107,25 @@ defmodule TLC.Server do
       }
      ]
 
-    ms = scaled_unix_time()
+    ms = scaled_unix_time(4) # Use default speed of 4 for initialization
     tlc = TLC.new(programs)
     logic =
       tlc.logic
       |> TLC.Logic.halt()
       |> TLC.Logic.update_unix_time(round(ms/1000))
       |> TLC.Logic.update_base_time()
-      |> TLC.Logic.sync(tlc.logic.program.halt)
+      #|> TLC.Logic.sync(tlc.logic.program.halt)
 
-    tlc = %{tlc | logic: logic}
+    # Create the struct with all fields including speed
+    tlc = %__MODULE__{
+      logic: logic,
+      programs: tlc.programs,
+      target_program: nil,
+      speed: 2
+    }
+
     # Start the tick timer
-    schedule_tick(ms)
+    schedule_tick(ms, tlc.speed)
 
     {:ok, tlc}
   end
@@ -129,6 +144,13 @@ defmodule TLC.Server do
   def handle_call(:get_target_program, _from, tlc) do
     target_program = get_target_program_from_logic(tlc.logic)
     {:reply, target_program, tlc}
+  end
+
+  @impl true
+  def handle_call({:set_speed, speed}, _from, tlc) when speed in [1, 2, 4, 8] do
+    updated_tlc = %{tlc | speed: speed}
+    broadcast_update(updated_tlc)
+    {:reply, :ok, updated_tlc}
   end
 
   @impl true
@@ -151,10 +173,10 @@ defmodule TLC.Server do
   @impl true
   def handle_info(:tick, tlc) do
     # Update the TLC state for each tick
-    ms = scaled_unix_time()
+    ms = scaled_unix_time(tlc.speed)
     updated_tlc = %{tlc | logic: TLC.Logic.tick(tlc.logic, round(ms/1000))}
     # Schedule the next tick
-    schedule_tick(ms)
+    schedule_tick(ms, tlc.speed)
     # Broadcast state changes
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
@@ -162,9 +184,9 @@ defmodule TLC.Server do
 
   # Private functions
 
-  defp schedule_tick(ms) do
+  defp schedule_tick(ms, speed) do
     # Calculate milliseconds until next tick boundary
-    ms_to_wait = descale_ms( @tick_interval - rem(ms, @tick_interval))
+    ms_to_wait = descale_ms(@tick_interval - rem(ms, @tick_interval), speed)
     # Schedule th tick
     Process.send_after(self(), :tick, ms_to_wait)
   end
@@ -191,8 +213,8 @@ defmodule TLC.Server do
     end
   end
 
-
-  defp scaled_unix_time(), do: scale_ms(System.os_time(:millisecond))
-  defp scale_ms(ms), do: ms * @speed
-  defp descale_ms(ms), do: round(ms / @speed)
+  # Update scaling functions to take speed as parameter
+  defp scaled_unix_time(speed), do: scale_ms(System.os_time(:millisecond), speed)
+  defp scale_ms(ms, speed), do: ms * speed
+  defp descale_ms(ms, speed), do: round(ms / speed)
 end
