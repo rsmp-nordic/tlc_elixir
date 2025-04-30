@@ -19,7 +19,7 @@ config :tlc_elixir, TlcElixirWeb.Endpoint,
     layout: false
   ],
   pubsub_server: TlcElixir.PubSub,
-  live_view: [signing_salt: "W9CLkZtw"]
+  live_view: [signing_salt: "yourSigningSalt"]
 
 # Configures the mailer
 #

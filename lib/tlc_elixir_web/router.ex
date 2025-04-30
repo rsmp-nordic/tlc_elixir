@@ -23,6 +23,13 @@ defmodule TlcElixirWeb.Router do
     end
   end
 
+  scope "/", TlcElixirWeb do
+    pipe_through :browser
+
+    live "/", TLCLive
+    # ...other routes...
+  end
+
   # Add session handling functionality
   def session_with_id(conn) do
     session_id = get_session(conn, :session_id) || generate_session_id()

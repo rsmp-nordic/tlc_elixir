@@ -141,4 +141,161 @@ defmodule TLC.Program do
     end
   end
   defp validate_switch(_), do: {:error, "Switch must be an integer between 0 and program length - 1"}
+
+  @doc """
+  Resolves the state at a specific cycle time.
+  Returns the state string for the given cycle.
+  """
+  def resolve_state(program, cycle_time) do
+    # Get all defined times in descending order
+    times = program.states |> Map.keys() |> Enum.sort(:desc)
+
+    # Find time
+    time = Enum.find(times, fn time -> time <= cycle_time end) || List.first(times)
+
+    # Get the state string or create a default state with all "D" if none exists
+    Map.get(program.states, time, String.duplicate("D", length(program.groups)))
+  end
+
+  @doc """
+  Updates a specific group's signal at a specific time.
+  Returns an updated program struct.
+  """
+  def set_group_signal(program, time, group_idx, signal) do
+    # Get either the existing state at this time or resolve what would be shown
+    base_state = Map.get(program.states, time) || resolve_state(program, time)
+
+    # Update the signal at the specific position
+    updated_state =
+      if group_idx < String.length(base_state) do
+        String.slice(base_state, 0, group_idx) <>
+        signal <>
+        String.slice(base_state, group_idx + 1, String.length(base_state))
+      else
+        base_state
+      end
+
+    # Create or update a state entry at this time
+    updated_states = Map.put(program.states, time, updated_state)
+
+    # Check if there's a state defined at time+1
+    # If not, add one to prevent this change from propagating
+    next_time = time + 1
+    updated_states =
+      if next_time < program.length && !Map.has_key?(updated_states, next_time) do
+        # Get what would be displayed at next_time before our change
+        next_state = resolve_state(program, next_time)
+        # Add it explicitly to isolate our change
+        Map.put(updated_states, next_time, next_state)
+      else
+        updated_states
+      end
+
+    %{program | states: updated_states}
+  end
+
+  @doc """
+  Updates a group's signal for a range of cycles.
+  """
+  def set_group_signal_range(program, start_cycle, end_cycle, group_idx, signal) do
+    Enum.reduce(start_cycle..end_cycle, program, fn cycle, prog ->
+      set_group_signal(prog, cycle, group_idx, signal)
+    end)
+  end
+
+  @doc """
+  Sets a signal for all cycles between start_cycle and end_cycle inclusive.
+  Ensures all intermediate cells are updated even when dragging quickly.
+  """
+  def set_group_signal_stretch(program, start_cycle, end_cycle, group_idx, signal) do
+    # Ensure start_cycle <= end_cycle
+    {cycle_start, cycle_end} = if start_cycle <= end_cycle, do: {start_cycle, end_cycle}, else: {end_cycle, start_cycle}
+
+    # Create explicit state entries for every cycle in the range
+    Enum.reduce(cycle_start..cycle_end, program, fn cycle, prog ->
+      set_group_signal(prog, cycle, group_idx, signal)
+    end)
+  end
+
+  @doc """
+  Sets a skip at a specific cycle.
+  Duration of 0 removes the skip.
+  """
+  def set_skip(program, cycle, duration) do
+    updated_skips = if duration > 0 do
+      Map.put(program.skips || %{}, cycle, duration)
+    else
+      Map.delete(program.skips || %{}, cycle)
+    end
+
+    %{program | skips: updated_skips}
+  end
+
+  @doc """
+  Sets a wait at a specific cycle.
+  Duration of 0 removes the wait.
+  """
+  def set_wait(program, cycle, duration) do
+    updated_waits = if duration > 0 do
+      Map.put(program.waits || %{}, cycle, duration)
+    else
+      Map.delete(program.waits || %{}, cycle)
+    end
+
+    %{program | waits: updated_waits}
+  end
+
+  @doc """
+  Toggles the switch point at a specific cycle.
+  """
+  def toggle_switch(program, cycle) do
+    if program.switch == cycle do
+      %{program | switch: nil}
+    else
+      %{program | switch: cycle}
+    end
+  end
+
+  @doc """
+  Toggles the halt point at a specific cycle.
+  """
+  def toggle_halt(program, cycle) do
+    if program.halt == cycle do
+      Map.delete(program, :halt)
+    else
+      %{program | halt: cycle}
+    end
+  end
+
+  @doc """
+  Adds a new group to the program.
+  """
+  def add_group(program, group_name) do
+    updated_groups = program.groups ++ [group_name]
+
+    # Update all states to include a default "D" signal for the new group
+    updated_states = Map.new(program.states, fn {cycle, state} ->
+      {cycle, state <> "D"}
+    end)
+
+    %{program | groups: updated_groups, states: updated_states}
+  end
+
+  @doc """
+  Removes a group from the program.
+  """
+  def remove_group(program, group_idx) do
+    if group_idx < length(program.groups) do
+      updated_groups = List.delete_at(program.groups, group_idx)
+
+      # Update all states to remove the group
+      updated_states = Map.new(program.states, fn {cycle, state} ->
+        {cycle, String.slice(state, 0, group_idx) <> String.slice(state, group_idx + 1, String.length(state))}
+      end)
+
+      %{program | groups: updated_groups, states: updated_states}
+    else
+      program
+    end
+  end
 end

@@ -125,26 +125,9 @@ defmodule TLC.Logic do
   Updates the current states based on the cycle time.
   """
   def update_states(logic) do
-    # Get all defined times in descending order
-    times = logic.program.states |> Map.keys() |> Enum.sort(:desc)
-
-    # Find time
-    time = Enum.find(times, fn time -> time <= logic.cycle_time end) || List.first(times)
-
-    # Get the logic string
-    states = Map.get(logic.program.states, time)
+    # Use the TLC.Program.resolve_state function
+    states = TLC.Program.resolve_state(logic.program, logic.cycle_time)
     %{logic | current_states: states}
-  end
-
-  def resolve_state(logic, cycle_time) do
-    # Get all defined times in descending order
-    times = logic.program.states |> Map.keys() |> Enum.sort(:desc)
-
-    # Find time
-    time = Enum.find(times, fn time -> time <= cycle_time end) || List.first(times)
-
-    # Get the logic string
-    Map.get(logic.program.states, time)
   end
 
   def update_offset(logic) do
@@ -157,6 +140,13 @@ defmodule TLC.Logic do
   end
   def set_target_program(logic, program) do
     %{logic | target_program: program}
+  end
+
+  @doc """
+  Clears the target program.
+  """
+  def clear_target_program(logic) do
+    %{logic | target_program: nil, target_offset: logic.offset, target_distance: 0}
   end
 
   def check_halt(logic) when logic.cycle_time == logic.program.halt, do: halt(logic)
@@ -199,4 +189,5 @@ defmodule TLC.Logic do
     |> find_target_distance
   end
 
+  # End of module
 end

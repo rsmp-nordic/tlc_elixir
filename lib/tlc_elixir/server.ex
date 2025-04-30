@@ -52,6 +52,23 @@ defmodule TLC.Server do
     GenServer.call(server, {:set_speed, speed})
   end
 
+  @doc """
+  Clears the target program, canceling any pending program switch.
+  """
+  def clear_target_program(server) do
+    GenServer.cast(server, :clear_target_program)
+  end
+
+  @doc """
+  Updates a program in the server's program list.
+  If a program with the same name exists, it will be replaced.
+  If not, the program will be added to the list.
+  The update_active parameter controls whether to update the active program.
+  """
+  def update_program(server, program, update_active \\ false) do
+    GenServer.call(server, {:update_program, program, update_active})
+  end
+
   # Server callbacks
 
   @impl true
@@ -154,6 +171,38 @@ defmodule TLC.Server do
   end
 
   @impl true
+  def handle_call({:update_program, program, update_active}, _from, state) do
+    # Find if program with same name exists and update it
+    programs = Enum.map(state.programs, fn existing ->
+      if existing.name == program.name do
+        program  # Replace with new program
+      else
+        existing
+      end
+    end)
+
+    # If the program doesn't exist in the list, add it
+    programs = if Enum.any?(programs, fn p -> p.name == program.name end) do
+      programs
+    else
+      programs ++ [program]
+    end
+
+    # Only update the active program if explicitly requested and it's the same program
+    # Otherwise, make sure we keep the current active program
+    updated_state = if update_active && state.logic.program.name == program.name do
+      # Update both the programs list and active program
+      %{state | programs: programs, logic: %{state.logic | program: program}}
+    else
+      # Even if this is the active program, do NOT update it - just update the programs list
+      %{state | programs: programs}
+    end
+
+    broadcast_update(updated_state)
+    {:reply, :ok, updated_state}
+  end
+
+  @impl true
   def handle_cast({:set_target_offset, target_offset}, tlc) do
     updated_logic = TLC.Logic.set_target_offset(tlc.logic, target_offset)
     updated_tlc = %{tlc | logic: updated_logic}
@@ -165,6 +214,14 @@ defmodule TLC.Server do
   def handle_cast({:switch_program, program_name}, tlc) do
     program = Enum.find(tlc.programs, fn prog -> prog.name == program_name end)
     updated_logic = TLC.Logic.set_target_program(tlc.logic, program)
+    updated_tlc = %{tlc | logic: updated_logic}
+    broadcast_update(updated_tlc)
+    {:noreply, updated_tlc}
+  end
+
+  @impl true
+  def handle_cast(:clear_target_program, tlc) do
+    updated_logic = TLC.Logic.clear_target_program(tlc.logic)
     updated_tlc = %{tlc | logic: updated_logic}
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}

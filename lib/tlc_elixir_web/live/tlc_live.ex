@@ -22,7 +22,12 @@ defmodule TlcElixirWeb.TLCLive do
       server: server,
       session_id: session_id,
       show_program_modal: false,
-      target_program: target_program
+      target_program: target_program,
+      editing: false,
+      edited_program: nil,
+      saved_program: nil,  # Add this to store recently saved program
+      drag_start: nil,
+      drag_signal: nil
     )}
   end
 
@@ -57,10 +62,307 @@ defmodule TlcElixirWeb.TLCLive do
   end
 
   @impl true
+  def handle_event("start_editing", %{"program_name" => program_name}, socket) do
+    # Find the program to edit by name
+    program_to_edit = Enum.find(socket.assigns.tlc.programs, fn prog ->
+      prog.name == program_name
+    end)
+
+    if program_to_edit do
+      # Check if this is the target program - if so, clear it to prevent switch during editing
+      if socket.assigns.target_program == program_name do
+        TLC.Server.clear_target_program(socket.assigns.server)
+      end
+
+      {:noreply, assign(socket, editing: true, edited_program: program_to_edit)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("cancel_editing", _, socket) do
+    {:noreply, assign(socket, editing: false, edited_program: nil)}
+  end
+
+  @impl true
+  def handle_event("save_program", _, socket) do
+    # Get the edited program
+    edited_program = socket.assigns.edited_program
+
+    # Don't set saved_program for highlighting - this was causing visual confusion
+    socket = assign(socket, editing: false, edited_program: nil)
+
+    # Save the program but don't make it active (false parameter)
+    TLC.Server.update_program(socket.assigns.server, edited_program, false)
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("update_program_name", %{"value" => name}, socket) do
+    updated_program = Map.put(socket.assigns.edited_program, :name, name)
+    {:noreply, assign(socket, edited_program: updated_program)}
+  end
+
+  @impl true
+  def handle_event("update_program_length", %{"value" => length_str}, socket) do
+    # Parse input, default to 1 if empty or invalid
+    length = case Integer.parse(length_str) do
+      {value, _} when value > 0 -> value
+      _ -> 1  # Default to minimum valid length
+    end
+
+    updated_program = Map.put(socket.assigns.edited_program, :length, length)
+    {:noreply, assign(socket, edited_program: updated_program)}
+  end
+
+  @impl true
+  def handle_event("update_program_offset", %{"value" => offset_str}, socket) do
+    # Parse input, ensure it's valid
+    offset = case Integer.parse(offset_str) do
+      {value, _} when value >= 0 ->
+        # Ensure offset is within program length bounds
+        min(value, socket.assigns.edited_program.length - 1)
+      _ -> 0  # Default to 0 if invalid
+    end
+
+    updated_program = Map.put(socket.assigns.edited_program, :offset, offset)
+    {:noreply, assign(socket, edited_program: updated_program)}
+  end
+
+  @impl true
+  def handle_event("add_group", %{"name" => name}, socket) do
+    updated_program = TLC.Program.add_group(socket.assigns.edited_program, name)
+    {:noreply, assign(socket, edited_program: updated_program)}
+  end
+
+  @impl true
+  def handle_event("remove_group", %{"index" => index_str}, socket) do
+    {index, _} = Integer.parse(index_str)
+    updated_program = TLC.Program.remove_group(socket.assigns.edited_program, index)
+    {:noreply, assign(socket, edited_program: updated_program)}
+  end
+
+  @impl true
+  def handle_event("update_cell_signal", %{"cycle" => cycle_str, "group" => group_str, "signal" => signal}, socket) do
+    if socket.assigns.editing do
+      {cycle, _} = Integer.parse(cycle_str)
+      {group_idx, _} = Integer.parse(group_str)
+
+      updated_program = TLC.Program.set_group_signal(socket.assigns.edited_program, cycle, group_idx, signal)
+      {:noreply, assign(socket, edited_program: updated_program)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("set_skip", %{"cycle" => cycle_str, "duration" => duration_str}, socket) do
+    {cycle, _} = Integer.parse(cycle_str)
+    {duration, _} = Integer.parse(duration_str)
+
+    updated_program = TLC.Program.set_skip(socket.assigns.edited_program, cycle, duration)
+    {:noreply, assign(socket, edited_program: updated_program)}
+  end
+
+  @impl true
+  def handle_event("set_wait", %{"cycle" => cycle_str, "duration" => duration_str}, socket) do
+    {cycle, _} = Integer.parse(cycle_str)
+    {duration, _} = Integer.parse(duration_str)
+
+    updated_program = TLC.Program.set_wait(socket.assigns.edited_program, cycle, duration)
+    {:noreply, assign(socket, edited_program: updated_program)}
+  end
+
+  @impl true
+  def handle_event("toggle_switch", %{"cycle" => cycle_str}, socket) do
+    {cycle, _} = Integer.parse(cycle_str)
+
+    updated_program = TLC.Program.toggle_switch(socket.assigns.edited_program, cycle)
+    {:noreply, assign(socket, edited_program: updated_program)}
+  end
+
+  @impl true
+  def handle_event("toggle_halt", %{"cycle" => cycle_str}, socket) do
+    {cycle, _} = Integer.parse(cycle_str)
+
+    updated_program = TLC.Program.toggle_halt(socket.assigns.edited_program, cycle)
+    {:noreply, assign(socket, edited_program: updated_program)}
+  end
+
+  @impl true
+  def handle_event("drag_start", %{"cycle" => cycle_str, "group" => group_str, "signal" => signal}, socket) do
+    {cycle, _} = Integer.parse(cycle_str)
+    {group_idx, _} = Integer.parse(group_str)
+
+    {:noreply, assign(socket, drag_start: {cycle, group_idx}, drag_signal: signal)}
+  end
+
+  @impl true
+  def handle_event("drag_end", %{"cycle" => end_cycle_str, "group" => group_str,
+                               "start_cycle" => start_cycle_str, "signal" => signal}, socket) do
+    {end_cycle, _} = Integer.parse(end_cycle_str)
+    {start_cycle, _} = Integer.parse(start_cycle_str)
+    {group_idx, _} = Integer.parse(group_str)
+
+    # Sort the start and end cycles
+    {cycle_start, cycle_end} = if start_cycle <= end_cycle, do: {start_cycle, end_cycle}, else: {end_cycle, start_cycle}
+
+    # Apply the signal to all cells in the range
+    updated_program = TLC.Program.set_group_signal_range(
+      socket.assigns.edited_program,
+      cycle_start,
+      cycle_end,
+      group_idx,
+      signal
+    )
+
+    {:noreply, assign(socket, edited_program: updated_program, drag_start: nil, drag_signal: nil)}
+  end
+
+  @impl true
+  def handle_event("edit_skip", %{"cycle" => cycle_str, "duration" => duration_str}, socket) do
+    # Just push the event back to the client to open the prompt
+    {:noreply, push_event(socket, "open_skip_prompt", %{cycle: cycle_str, current_duration: duration_str})}
+  end
+
+  @impl true
+  def handle_event("edit_wait", %{"cycle" => cycle_str, "duration" => duration_str}, socket) do
+    # Just push the event back to the client to open the prompt
+    {:noreply, push_event(socket, "open_wait_prompt", %{cycle: cycle_str, current_duration: duration_str})}
+  end
+
+  @impl true
+  def handle_event("fill_gap", %{"start_cycle" => start_cycle_str, "end_cycle" => end_cycle_str,
+                              "group" => group_str, "signal" => signal}, socket) do
+    if socket.assigns.editing do
+      {start_cycle, _} = Integer.parse(start_cycle_str)
+      {end_cycle, _} = Integer.parse(end_cycle_str)
+      {group_idx, _} = Integer.parse(group_str)
+
+      # Use the new stretch function to fill all cycles in the gap
+      updated_program = TLC.Program.set_group_signal_stretch(
+        socket.assigns.edited_program,
+        start_cycle,
+        end_cycle,
+        group_idx,
+        signal
+      )
+      {:noreply, assign(socket, edited_program: updated_program)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("handle_length_keyup", %{"key" => "Enter", "value" => length_str}, socket) do
+    {length, _} = Integer.parse(length_str)
+    updated_program = Map.put(socket.assigns.edited_program, :length, length)
+    {:noreply, assign(socket, edited_program: updated_program)}
+  end
+
+  # Ignore non-Enter keypresses
+  def handle_event("handle_length_keyup", _params, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("handle_offset_keyup", %{"key" => "Enter", "value" => offset_str}, socket) do
+    # Parse input, ensure it's valid
+    offset = case Integer.parse(offset_str) do
+      {value, _} when value >= 0 ->
+        # Ensure offset is within program length bounds
+        min(value, socket.assigns.edited_program.length - 1)
+      _ -> 0  # Default to 0 if invalid
+    end
+
+    updated_program = Map.put(socket.assigns.edited_program, :offset, offset)
+    {:noreply, assign(socket, edited_program: updated_program)}
+  end
+
+  # Ignore non-Enter keypresses for offset
+  def handle_event("handle_offset_keyup", _params, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("update_program_length_immediate", %{"value" => length_str}, socket) do
+    # Parse input, default to 1 if empty or invalid
+    length = case Integer.parse(length_str) do
+      {value, _} when value > 0 -> value
+      _ -> socket.assigns.edited_program.length  # Keep current value if invalid
+    end
+
+    updated_program = Map.put(socket.assigns.edited_program, :length, length)
+
+    # Also make sure offset stays within bounds
+    current_offset = updated_program.offset || 0
+    updated_program =
+      if current_offset >= length do
+        Map.put(updated_program, :offset, length - 1)
+      else
+        updated_program
+      end
+
+    {:noreply, assign(socket, edited_program: updated_program)}
+  end
+
+  @impl true
+  def handle_event("update_program_offset_immediate", %{"value" => offset_str}, socket) do
+    # Parse input, ensure it's valid
+    offset = case Integer.parse(offset_str) do
+      {value, _} when value >= 0 ->
+        # Ensure offset is within program length bounds
+        min(value, socket.assigns.edited_program.length - 1)
+      _ -> socket.assigns.edited_program.offset || 0  # Keep current value if invalid
+    end
+
+    updated_program = Map.put(socket.assigns.edited_program, :offset, offset)
+    {:noreply, assign(socket, edited_program: updated_program)}
+  end
+
+  @impl true
   def handle_info({:tlc_updated, tlc}, socket) do
     target_program = TLC.Server.get_target_program(socket.assigns.server)
+
+    # We no longer need to check for saved_program since we don't use it anymore
     {:noreply, assign(socket, tlc: tlc, target_program: target_program)}
   end
+
+  # Add helper function to determine if a cycle is between offset and target
+  defp is_between_offsets(cycle, logic, editing) do
+    if editing do
+      false
+    else
+      cond do
+        logic.target_distance > 0 ->
+          if logic.target_offset < logic.offset do
+            # Wrap around case for positive distance
+            cycle > logic.offset || cycle <= logic.target_offset
+          else
+            # Normal case
+            cycle > logic.offset && cycle <= logic.target_offset
+          end
+        logic.target_distance < 0 ->
+          if logic.target_offset > logic.offset do
+            # Wrap around case for negative distance
+            cycle < logic.offset || cycle >= logic.target_offset
+          else
+            # Normal case
+            cycle < logic.offset && cycle >= logic.target_offset
+          end
+        true -> false
+      end
+    end
+  end
+
+  # Add helper for cycling signals
+  defp next_signal("R"), do: "Y"
+  defp next_signal("Y"), do: "G"
+  defp next_signal("G"), do: "D"
+  defp next_signal("D"), do: "R"
+  defp next_signal(_), do: "R"
 
   # Helper functions
 
