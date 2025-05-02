@@ -1,10 +1,10 @@
-defmodule TLC do
-  defstruct logic: %TLC.Logic{}, programs: {}
+defmodule Tlc do
+  defstruct logic: %Tlc.Logic{}, programs: {}
 
   def new(programs) do
     program = Enum.at(programs,0)
-    logic = TLC.Logic.new(program)
-    %TLC{
+    logic = Tlc.Logic.new(program)
+    %Tlc{
       logic: logic,
       programs: programs
     }

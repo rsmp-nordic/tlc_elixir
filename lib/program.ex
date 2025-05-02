@@ -1,4 +1,4 @@
-defmodule TLC.Program do
+defmodule Tlc.Program do
   @moduledoc """
   Struct representing a fixed-time traffic program definition.
   Contains the static program configuration without runtime state.
@@ -35,8 +35,8 @@ defmodule TLC.Program do
   Returns {:ok, program} if the program is valid, {:error, reason} otherwise.
   """
   def validate(program) do
-    unless is_struct(program, %TLC.Program{}) do
-      {:error, "Input must be a %TLC.Program{} struct"}
+    unless is_struct(program, %Tlc.Program{}) do
+      {:error, "Input must be a %Tlc.Program{} struct"}
     else
       with :ok <- validate_name(program),
            :ok <- validate_length(program),

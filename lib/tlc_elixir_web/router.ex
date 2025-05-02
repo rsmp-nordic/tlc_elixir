@@ -19,15 +19,8 @@ defmodule TlcElixirWeb.Router do
 
     # We need to use live_session to properly handle session data
     live_session :tlc, session: {__MODULE__, :session_with_id, []} do
-      live "/", TLCLive
+      live "/", TlcLive
     end
-  end
-
-  scope "/", TlcElixirWeb do
-    pipe_through :browser
-
-    live "/", TLCLive
-    # ...other routes...
   end
 
   # Add session handling functionality

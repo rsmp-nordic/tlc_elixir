@@ -1,4 +1,4 @@
-defmodule TLC.Server do
+defmodule Tlc.Server do
   use GenServer
   require Logger
 
@@ -24,7 +24,7 @@ defmodule TLC.Server do
   end
 
   def via_tuple(session_id) do
-    {:via, Registry, {TLC.ServerRegistry, "tlc_server:#{session_id}"}}
+    {:via, Registry, {Tlc.ServerRegistry, "tlc_server:#{session_id}"}}
   end
 
   def current_state(server) do
@@ -74,7 +74,7 @@ defmodule TLC.Server do
   @impl true
   def init(_init_args) do
     programs = [
-      %TLC.Program{
+      %Tlc.Program{
         name: "halt",
         length: 12,
         groups: ["a", "b"],
@@ -82,7 +82,7 @@ defmodule TLC.Server do
         switch: 6,
         halt: 0
       },
-      %TLC.Program{
+      %Tlc.Program{
         name: "calm",
         length: 6,
         offset: 0,
@@ -92,7 +92,7 @@ defmodule TLC.Server do
         waits: %{2 => 2},
         switch: 1
       },
-      %TLC.Program{
+      %Tlc.Program{
         name: "normal",
         length: 6,
         offset: 2,
@@ -102,7 +102,7 @@ defmodule TLC.Server do
         waits: %{5 => 2},
         switch: 1
       },
-      %TLC.Program{
+      %Tlc.Program{
         name: "busy",
         length: 10,
         offset: 0,
@@ -112,7 +112,7 @@ defmodule TLC.Server do
         waits: %{0 => 3},
         switch: 3
       },
-      %TLC.Program{
+      %Tlc.Program{
         name: "long",
         length: 20,
         offset: 15,
@@ -125,13 +125,13 @@ defmodule TLC.Server do
      ]
 
     ms = scaled_unix_time(4) # Use default speed of 4 for initialization
-    tlc = TLC.new(programs)
+    tlc = Tlc.new(programs)
     logic =
       tlc.logic
-      |> TLC.Logic.halt()
-      |> TLC.Logic.update_unix_time(round(ms/1000))
-      |> TLC.Logic.update_base_time()
-      #|> TLC.Logic.sync(tlc.logic.program.halt)
+      |> Tlc.Logic.halt()
+      |> Tlc.Logic.update_unix_time(round(ms/1000))
+      |> Tlc.Logic.update_base_time()
+      #|> Tlc.Logic.sync(tlc.logic.program.halt)
 
     # Create the struct with all fields including speed
     tlc = %__MODULE__{
@@ -204,7 +204,7 @@ defmodule TLC.Server do
 
   @impl true
   def handle_cast({:set_target_offset, target_offset}, tlc) do
-    updated_logic = TLC.Logic.set_target_offset(tlc.logic, target_offset)
+    updated_logic = Tlc.Logic.set_target_offset(tlc.logic, target_offset)
     updated_tlc = %{tlc | logic: updated_logic}
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
@@ -213,7 +213,7 @@ defmodule TLC.Server do
   @impl true
   def handle_cast({:switch_program, program_name}, tlc) do
     program = Enum.find(tlc.programs, fn prog -> prog.name == program_name end)
-    updated_logic = TLC.Logic.set_target_program(tlc.logic, program)
+    updated_logic = Tlc.Logic.set_target_program(tlc.logic, program)
     updated_tlc = %{tlc | logic: updated_logic}
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
@@ -221,7 +221,7 @@ defmodule TLC.Server do
 
   @impl true
   def handle_cast(:clear_target_program, tlc) do
-    updated_logic = TLC.Logic.clear_target_program(tlc.logic)
+    updated_logic = Tlc.Logic.clear_target_program(tlc.logic)
     updated_tlc = %{tlc | logic: updated_logic}
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
@@ -229,9 +229,9 @@ defmodule TLC.Server do
 
   @impl true
   def handle_info(:tick, tlc) do
-    # Update the TLC state for each tick
+    # Update the Tlc state for each tick
     ms = scaled_unix_time(tlc.speed)
-    updated_tlc = %{tlc | logic: TLC.Logic.tick(tlc.logic, round(ms/1000))}
+    updated_tlc = %{tlc | logic: Tlc.Logic.tick(tlc.logic, round(ms/1000))}
     # Schedule the next tick
     schedule_tick(ms, tlc.speed)
     # Broadcast state changes
@@ -250,7 +250,7 @@ defmodule TLC.Server do
 
   defp broadcast_update(tlc) do
     # Get the session ID from the server process
-    session_id = case Registry.keys(TLC.ServerRegistry, self()) do
+    session_id = case Registry.keys(Tlc.ServerRegistry, self()) do
       ["tlc_server:" <> id] -> id
       _ -> "default"
     end

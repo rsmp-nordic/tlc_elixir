@@ -16,8 +16,8 @@ defmodule TlcElixir.Application do
       # Start to serve requests, typically the last entry
       TlcElixirWeb.Endpoint,
       # Remove the default server instance as we'll create per-session instances
-      # {TLC.Server, []},
-      {Registry, keys: :unique, name: TLC.ServerRegistry}
+      # {Tlc.Server, []},
+      {Registry, keys: :unique, name: Tlc.ServerRegistry}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

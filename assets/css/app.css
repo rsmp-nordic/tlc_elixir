@@ -4,7 +4,28 @@
 
 /* This file is for your main application CSS */
 
-/* Switch Point Drag Styling - stronger highlight rule */
+/* Component Styles */
+@layer components {
+  /* Tlc Table Cells */
+  .tlc-cell {
+    @apply p-1 h-8 flex items-center justify-center border-r border-b border-gray-600;
+  }
+  
+  .tlc-header-cell {
+    @apply p-1 h-8 flex items-center font-semibold bg-gray-700 text-gray-200 border-r border-b border-gray-600;
+  }
+  
+  .tlc-label-cell {
+    @apply p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600;
+  }
+  
+  /* Empty cell placeholder */
+  .tlc-empty-placeholder {
+    @apply opacity-0;
+  }
+}
+
+/* Switch Point Drag Styling */
 #switch-drag-container.switch-dragging-active [data-switch-cycle]:hover {
   background-color: rgb(107 114 128) !important; /* bg-gray-500 */
   transition: background-color 0s !important; /* Immediate highlight */

@@ -1,7 +1,7 @@
-defmodule TLCTest do
+defmodule TlcTest do
   use ExUnit.Case
-  alias TLC.Logic
-  alias TLC.Program
+  alias Tlc.Logic
+  alias Tlc.Program
 
   # Helper to return a map with the relevant program state
   defp to_map(logic) do
@@ -438,15 +438,15 @@ defmodule TLCTest do
     assert logic.unix_time == nil
     assert logic.unix_delta == 0
 
-    logic = TLC.Logic.tick(logic, 6983693664)
+    logic = Tlc.Logic.tick(logic, 6983693664)
     assert logic.unix_time == 6983693664
     assert logic.unix_delta == 0
 
-    logic = TLC.Logic.tick(logic, 6983693665)
+    logic = Tlc.Logic.tick(logic, 6983693665)
     assert logic.unix_time == 6983693665
     assert logic.unix_delta == 1
 
-    logic = TLC.Logic.tick(logic, 6983693667)
+    logic = Tlc.Logic.tick(logic, 6983693667)
     assert logic.unix_time == 6983693667
     assert logic.unix_delta == 2
   end

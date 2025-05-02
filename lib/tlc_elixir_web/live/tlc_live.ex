@@ -1,6 +1,9 @@
-defmodule TlcElixirWeb.TLCLive do
+defmodule TlcElixirWeb.TlcLive do
   use TlcElixirWeb, :live_view
   require Logger
+
+  # Import our custom components with the updated module name
+  import TlcElixirWeb.TlcComponents
 
   @impl true
   def mount(_params, session, socket) do
@@ -14,8 +17,8 @@ defmodule TlcElixirWeb.TLCLive do
       Phoenix.PubSub.subscribe(TlcElixir.PubSub, "tlc_updates:#{session_id}")
     end
 
-    tlc = TLC.Server.current_state(server)
-    target_program = TLC.Server.get_target_program(server)
+    tlc = Tlc.Server.current_state(server)
+    target_program = Tlc.Server.get_target_program(server)
 
     {:ok, assign(socket,
       tlc: tlc,
@@ -28,26 +31,29 @@ defmodule TlcElixirWeb.TLCLive do
       saved_program: nil,  # Add this to store recently saved program
       drag_start: nil,
       drag_signal: nil,
-      switch_dragging: false  # New assign for tracking switch dragging state
+      switch_dragging: false,  # New assign for tracking switch dragging state
+      formatted_program: ""  # Add this line
     )}
   end
 
   @impl true
   def handle_event("switch_program", %{"program_name" => program_name}, socket) do
-    TLC.Server.switch_program(socket.assigns.server, program_name)
+    Tlc.Server.switch_program(socket.assigns.server, program_name)
     {:noreply, socket}
   end
 
   @impl true
   def handle_event("set_target_offset", %{"target_offset" => target_offset}, socket) do
     {offset, _} = Integer.parse(target_offset)
-    TLC.Server.set_target_offset(socket.assigns.server, offset)
+    Tlc.Server.set_target_offset(socket.assigns.server, offset)
     {:noreply, socket}
   end
 
   @impl true
   def handle_event("show_program_modal", _, socket) do
-    {:noreply, assign(socket, show_program_modal: true)}
+    program = if socket.assigns.editing, do: socket.assigns.edited_program, else: display_program(socket)
+    formatted_program = TlcElixirWeb.ProgramModalComponent.format_program_as_elixir(program)
+    {:noreply, assign(socket, show_program_modal: true, formatted_program: formatted_program)}
   end
 
   @impl true
@@ -58,7 +64,7 @@ defmodule TlcElixirWeb.TLCLive do
   @impl true
   def handle_event("set_speed", %{"speed" => speed_str}, socket) do
     speed = String.to_integer(speed_str)
-    TLC.Server.set_speed(socket.assigns.server, speed)
+    Tlc.Server.set_speed(socket.assigns.server, speed)
     {:noreply, socket}
   end
 
@@ -72,7 +78,7 @@ defmodule TlcElixirWeb.TLCLive do
     if program_to_edit do
       # Check if this is the target program - if so, clear it to prevent switch during editing
       if socket.assigns.target_program == program_name do
-        TLC.Server.clear_target_program(socket.assigns.server)
+        Tlc.Server.clear_target_program(socket.assigns.server)
       end
 
       {:noreply, assign(socket, editing: true, edited_program: program_to_edit)}
@@ -95,7 +101,7 @@ defmodule TlcElixirWeb.TLCLive do
     socket = assign(socket, editing: false, edited_program: nil)
 
     # Save the program but don't make it active (false parameter)
-    TLC.Server.update_program(socket.assigns.server, edited_program, false)
+    Tlc.Server.update_program(socket.assigns.server, edited_program, false)
 
     {:noreply, socket}
   end
@@ -134,14 +140,14 @@ defmodule TlcElixirWeb.TLCLive do
 
   @impl true
   def handle_event("add_group", %{"name" => name}, socket) do
-    updated_program = TLC.Program.add_group(socket.assigns.edited_program, name)
+    updated_program = Tlc.Program.add_group(socket.assigns.edited_program, name)
     {:noreply, assign(socket, edited_program: updated_program)}
   end
 
   @impl true
   def handle_event("remove_group", %{"index" => index_str}, socket) do
     {index, _} = Integer.parse(index_str)
-    updated_program = TLC.Program.remove_group(socket.assigns.edited_program, index)
+    updated_program = Tlc.Program.remove_group(socket.assigns.edited_program, index)
     {:noreply, assign(socket, edited_program: updated_program)}
   end
 
@@ -151,7 +157,7 @@ defmodule TlcElixirWeb.TLCLive do
       {cycle, _} = Integer.parse(cycle_str)
       {group_idx, _} = Integer.parse(group_str)
 
-      updated_program = TLC.Program.set_group_signal(socket.assigns.edited_program, cycle, group_idx, signal)
+      updated_program = Tlc.Program.set_group_signal(socket.assigns.edited_program, cycle, group_idx, signal)
       {:noreply, assign(socket, edited_program: updated_program)}
     else
       {:noreply, socket}
@@ -163,7 +169,7 @@ defmodule TlcElixirWeb.TLCLive do
     {cycle, _} = Integer.parse(cycle_str)
     {duration, _} = Integer.parse(duration_str)
 
-    updated_program = TLC.Program.set_skip(socket.assigns.edited_program, cycle, duration)
+    updated_program = Tlc.Program.set_skip(socket.assigns.edited_program, cycle, duration)
     {:noreply, assign(socket, edited_program: updated_program)}
   end
 
@@ -172,7 +178,7 @@ defmodule TlcElixirWeb.TLCLive do
     {cycle, _} = Integer.parse(cycle_str)
     {duration, _} = Integer.parse(duration_str)
 
-    updated_program = TLC.Program.set_wait(socket.assigns.edited_program, cycle, duration)
+    updated_program = Tlc.Program.set_wait(socket.assigns.edited_program, cycle, duration)
     {:noreply, assign(socket, edited_program: updated_program)}
   end
 
@@ -180,7 +186,7 @@ defmodule TlcElixirWeb.TLCLive do
   def handle_event("toggle_switch", %{"cycle" => cycle_str}, socket) do
     {cycle, _} = Integer.parse(cycle_str)
 
-    updated_program = TLC.Program.toggle_switch(socket.assigns.edited_program, cycle)
+    updated_program = Tlc.Program.toggle_switch(socket.assigns.edited_program, cycle)
     {:noreply, assign(socket, edited_program: updated_program)}
   end
 
@@ -188,7 +194,7 @@ defmodule TlcElixirWeb.TLCLive do
   def handle_event("toggle_halt", %{"cycle" => cycle_str}, socket) do
     {cycle, _} = Integer.parse(cycle_str)
 
-    updated_program = TLC.Program.toggle_halt(socket.assigns.edited_program, cycle)
+    updated_program = Tlc.Program.toggle_halt(socket.assigns.edited_program, cycle)
     {:noreply, assign(socket, edited_program: updated_program)}
   end
 
@@ -241,7 +247,7 @@ defmodule TlcElixirWeb.TLCLive do
     {cycle_start, cycle_end} = if start_cycle <= end_cycle, do: {start_cycle, end_cycle}, else: {end_cycle, start_cycle}
 
     # Apply the signal to all cells in the range
-    updated_program = TLC.Program.set_group_signal_range(
+    updated_program = Tlc.Program.set_group_signal_range(
       socket.assigns.edited_program,
       cycle_start,
       cycle_end,
@@ -273,7 +279,7 @@ defmodule TlcElixirWeb.TLCLive do
       {group_idx, _} = Integer.parse(group_str)
 
       # Use the new stretch function to fill all cycles in the gap
-      updated_program = TLC.Program.set_group_signal_stretch(
+      updated_program = Tlc.Program.set_group_signal_stretch(
         socket.assigns.edited_program,
         start_cycle,
         end_cycle,
@@ -355,7 +361,7 @@ defmodule TlcElixirWeb.TLCLive do
 
   @impl true
   def handle_info({:tlc_updated, tlc}, socket) do
-    target_program = TLC.Server.get_target_program(socket.assigns.server)
+    target_program = Tlc.Server.get_target_program(socket.assigns.server)
 
     # We no longer need to check for saved_program since we don't use it anymore
     {:noreply, assign(socket, tlc: tlc, target_program: target_program)}
@@ -408,35 +414,24 @@ defmodule TlcElixirWeb.TLCLive do
     end
   end
 
-  # Helper function to format program details
-  defp format_program_as_elixir(program) do
-    """
-    %TLC.Program{
-      name: "#{program.name}",
-      length: #{program.length},
-      offset: #{program.offset || 0},
-      groups: #{inspect(program.groups)},
-      states: #{inspect(program.states)},
-      skips: #{inspect(program.skips || %{})},
-      waits: #{inspect(program.waits || %{})},
-      switch: #{program.switch}#{if Map.has_key?(program, :halt), do: ",\n      halt: #{program.halt}", else: ""}
-    }
-    """
-  end
-
   defp ensure_server_started(session_id) do
-    server_name = TLC.Server.via_tuple(session_id)
+    server_name = Tlc.Server.via_tuple(session_id)
 
-    case Registry.lookup(TLC.ServerRegistry, "tlc_server:#{session_id}") do
+    case Registry.lookup(Tlc.ServerRegistry, "tlc_server:#{session_id}") do
       [{_pid, _}] ->
         {:ok, server_name}
       [] ->
-        TLC.Server.start_session(session_id)
+        Tlc.Server.start_session(session_id)
         {:ok, server_name}
     end
   end
 
   defp generate_session_id do
     :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower)
+  end
+
+  # Helper function to determine which program to display
+  defp display_program(socket) do
+    socket.assigns.tlc.logic.program
   end
 end
