@@ -214,13 +214,14 @@
         <div class="flex border-t border-l border-gray-600">
           <!-- Labels column -->
           <div class="w-24 flex flex-col">
-            <div class="p-2 h-12 flex items-center justify-left font-semibold bg-gray-700 text-gray-200 border-r border-b border-gray-600">Cycle</div>
-            <div class="p-2 h-12 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Offset</div>
-            <div class="p-2 h-12 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Skips</div>
-            <div class="p-2 h-12 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Waits</div>
-            <div class="p-2 h-12 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Switch/Halt</div>
+            <div class="p-1 h-8 flex items-center justify-left font-semibold bg-gray-700 text-gray-200 border-r border-b border-gray-600">Cycle</div>
+            <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Offset</div>
+            <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Skips</div>
+            <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Waits</div>
+            <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Switch</div>
+            <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Halt</div>
             <%= for {_group, i} <- Enum.with_index(display_program.groups) do %>
-              <div class={"p-2 h-12 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r #{if i == length(display_program.groups) - 1, do: "", else: "border-b"} border-gray-600"}>
+              <div class={"p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r #{if i == length(display_program.groups) - 1, do: "", else: "border-b"} border-gray-600"}>
                 <%= Enum.at(display_program.groups, i) %>
               </div>
             <% end %>
@@ -231,7 +232,7 @@
             <!-- Update the cycle highlighting logic -->
             <div class={"flex-1 flex flex-col relative #{if col_idx == display_program.length - 1, do: "border-r", else: ""} border-gray-600 #{if @tlc.logic.cycle_time == cycle && !@editing, do: "outline outline-4 outline-offset-0 outline-gray-500 z-10 rounded", else: ""}"}>
               <!-- Header cell -->
-              <div class="p-2 h-12 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200">
+              <div class="p-1 h-8 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200">
                 <%= cycle %>
               </div>
               
@@ -242,7 +243,7 @@
                 is_target_offset = if @editing, do: false, else: @tlc.logic.target_offset == cycle
                 is_between = is_between_offsets(cycle, @tlc.logic, @editing)
               %>
-              <div class={"p-2 h-12 flex items-center justify-center cursor-pointer border-r border-b border-gray-600 #{cond do 
+              <div class={"p-1 h-8 flex items-center justify-center cursor-pointer border-r border-b border-gray-600 #{cond do 
                 @editing && is_active_offset -> "bg-purple-700"
                 not @editing && is_active_offset && is_target_offset -> "bg-purple-700" 
                 not @editing && is_active_offset -> "bg-purple-700"
@@ -283,7 +284,7 @@
                   end)
                 end
               %>
-              <div class={"p-2 h-12 flex items-center justify-center border-r border-b border-gray-600 #{if is_start_of_skip || is_within_skip, do: "bg-gray-400", else: ""}"}>
+              <div class={"p-1 h-8 flex items-center justify-center border-r border-b border-gray-600 #{if is_start_of_skip || is_within_skip, do: "bg-gray-400", else: ""}"}>
                 <%= if is_start_of_skip do %>
                   <%= skip_duration %>
                 <% else %>
@@ -300,7 +301,7 @@
                 end
                 has_wait = wait_duration > 0
               %>
-              <div class={"p-2 h-12 flex items-center justify-center border-r border-b border-gray-600 #{if has_wait, do: "bg-gray-400", else: ""}"}>
+              <div class={"p-1 h-8 flex items-center justify-center border-r border-b border-gray-600 #{if has_wait, do: "bg-gray-400", else: ""}"}>
                 <%= if has_wait do %>
                   <%= wait_duration %>
                 <% else %>
@@ -308,24 +309,21 @@
                 <% end %>
               </div>
               
-              <!-- Combined Switch/Halt cell - display only, no editing -->
+              <!-- Switch cell - display only, no editing -->
               <% 
                 program = if @editing, do: @edited_program, else: display_program
                 is_switch_point = cycle == program.switch
-                is_halt_point = cycle == Map.get(program, :halt)
-                has_point = is_switch_point || is_halt_point
               %>
-              <div class={"p-2 h-12 flex items-center justify-center border-r border-b border-gray-600 #{if has_point, do: "bg-gray-400", else: ""}"}>
-                <%= cond do %>
-                  <% is_switch_point && is_halt_point -> %>
-                    <span>S/H</span>
-                  <% is_switch_point -> %>
-                    <span>S</span>
-                  <% is_halt_point -> %>
-                    <span>H</span>
-                  <% true -> %>
-                    <span class="opacity-0">0</span>
-                <% end %>
+              <div class={"p-1 h-8 flex items-center justify-center border-r border-b border-gray-600 #{if is_switch_point, do: "bg-gray-400", else: ""}"}>
+                <span class="opacity-0">0</span>
+              </div>
+              
+              <!-- Halt cell - display only, no editing -->
+              <% 
+                is_halt_point = cycle == Map.get(program, :halt)
+              %>
+              <div class={"p-1 h-8 flex items-center justify-center border-r border-b border-gray-600 #{if is_halt_point, do: "bg-gray-400", else: ""}"}>
+                <span class="opacity-0">0</span>
               </div>
 
               <!-- Group signal cells - keep these editable -->
@@ -338,7 +336,7 @@
                   end
                   signal = String.at(state, i) 
                 %>
-                <div class={"p-2 h-12 flex items-center justify-center border-r #{if i == length(display_program.groups) - 1, do: "", else: "border-b"} border-gray-600 #{cell_bg_class(signal)} #{if @editing, do: "cursor-pointer transition-colors duration-150"}"} 
+                <div class={"p-1 h-8 flex items-center justify-center border-r #{if i == length(display_program.groups) - 1, do: "", else: "border-b"} border-gray-600 #{cell_bg_class(signal)} #{if @editing, do: "cursor-pointer transition-colors duration-150"}"} 
                     phx-mousedown={if @editing, do: "drag_start"}
                     phx-value-cycle={cycle} 
                     phx-value-group={i} 
