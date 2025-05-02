@@ -363,14 +363,6 @@ defmodule TlcElixirWeb.TlcLive do
   end
 
   @impl true
-  def handle_info({:tlc_updated, tlc}, socket) do
-    target_program = Tlc.Server.get_target_program(socket.assigns.server)
-
-    # We no longer need to check for saved_program since we don't use it anymore
-    {:noreply, assign(socket, tlc: tlc, target_program: target_program)}
-  end
-
-  @impl true
   def handle_event("switch_fault", _params, socket) do
     Tlc.Server.switch_program_immediate(socket.assigns.server, "fault")
     {:noreply, socket}
@@ -380,6 +372,14 @@ defmodule TlcElixirWeb.TlcLive do
   def handle_event("toggle_fault", _params, socket) do
     Tlc.Server.toggle_fault(socket.assigns.server)
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:tlc_updated, tlc}, socket) do
+    target_program = Tlc.Server.get_target_program(socket.assigns.server)
+
+    # We no longer need to check for saved_program since we don't use it anymore
+    {:noreply, assign(socket, tlc: tlc, target_program: target_program)}
   end
 
   # Add helper function to determine if a cycle is between offset and target
