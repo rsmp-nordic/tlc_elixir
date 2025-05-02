@@ -143,6 +143,47 @@ defmodule Tlc.Program do
   defp validate_switch(_), do: {:error, "Switch must be an integer between 0 and program length - 1"}
 
   @doc """
+  Removes redundant state entries from a program.
+  A state entry is redundant if it has the same state as the previous time point.
+
+  ## Examples
+
+  Before: %{0 => "RR", 1 => "RR", 2 => "GR", 3 => "GR", 4 => "RG"}
+  After:  %{0 => "RR", 2 => "GR", 4 => "RG"}
+  """
+  def compact(program) do
+    # Sort time points in ascending order
+    time_points = program.states |> Map.keys() |> Enum.sort()
+
+    # Process time points, adding only non-redundant entries to new map
+    compact_states =
+      case time_points do
+        [] ->
+          %{}  # Empty states map, nothing to do
+        [first | rest] ->
+          # Always keep the first state
+          first_state = Map.get(program.states, first)
+          rest_states = Enum.reduce(rest, {%{first => first_state}, first_state}, fn time, {acc_map, prev_state} ->
+            current_state = Map.get(program.states, time)
+
+            if current_state == prev_state do
+              # Skip this entry as it's redundant
+              {acc_map, prev_state}
+            else
+              # Add this entry as it represents a state change
+              {Map.put(acc_map, time, current_state), current_state}
+            end
+          end)
+          |> elem(0)  # Extract just the map from the tuple
+
+          rest_states
+      end
+
+    # Return updated program
+    %{program | states: compact_states}
+  end
+
+  @doc """
   Resolves the state at a specific cycle time.
   Returns the state string for the given cycle.
   """
@@ -191,7 +232,9 @@ defmodule Tlc.Program do
         updated_states
       end
 
-    %{program | states: updated_states}
+    # Create updated program with the new states and compact it
+    updated_program = %{program | states: updated_states}
+    compact(updated_program)
   end
 
   @doc """

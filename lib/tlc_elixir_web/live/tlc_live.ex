@@ -396,21 +396,34 @@ defmodule TlcElixirWeb.TlcLive do
 
   # Add helper for cycling signals
   defp next_signal("R"), do: "Y"
-  defp next_signal("Y"), do: "G"
+  defp next_signal("Y"), do: "A"
+  defp next_signal("A"), do: "G"
   defp next_signal("G"), do: "D"
   defp next_signal("D"), do: "R"
   defp next_signal(_), do: "R"
 
-  # Helper functions
-
-  # Helper function for cell background color
-  defp cell_bg_class(signal) do
+  # Replace with a simpler lamp_states function that uses uppercase states directly
+  defp lamp_states(signal) do
     case signal do
-      "R" -> "bg-red-700"
-      "Y" -> "bg-yellow-600"
-      "G" -> "bg-green-600"
-      "D" -> "bg-black"
-      _ -> "bg-gray-700"
+      "R" -> %{red: true, yellow: false, green: false}
+      "Y" -> %{red: false, yellow: true, green: false}
+      "A" -> %{red: true, yellow: true, green: false}
+      "G" -> %{red: false, yellow: false, green: true}
+      "D" -> %{red: false, yellow: false, green: false}  # Dark state, all off
+      _ -> %{red: false, yellow: false, green: false}
+    end
+  end
+
+  # Helper functions for lamp classes
+  defp lamp_class(is_on, color) do
+    if is_on do
+      case color do
+        :red -> "bg-red-600"
+        :yellow -> "bg-yellow-500"
+        :green -> "bg-green-600"
+      end
+    else
+      "bg-gray-800"
     end
   end
 
