@@ -32,10 +32,9 @@ const Hooks = {
       let lastVisitedCycle = null;
       let visitedCycles = new Set(); 
       
-      // Switch point dragging - simplified
+      // Simplified switch point dragging - removing manual highlighting
       let isSwitchDragging = false;
       let switchPoint = null;
-      let lastHighlightedCell = null;
       
       this.el.addEventListener('mousedown', (e) => {
         // Check if we're starting a switch point drag
@@ -44,6 +43,9 @@ const Hooks = {
           console.log("Switch point drag started");
           isSwitchDragging = true;
           switchPoint = switchCell;
+          
+          // Notify server about drag start to set switch_dragging assign
+          this.pushEvent("switch_drag_start", {});
           
           // Prevent text selection
           e.preventDefault();
@@ -73,24 +75,11 @@ const Hooks = {
       // Handle mouseover for both regular dragging and switch point dragging
       document.addEventListener('mouseover', (e) => {
         if (isSwitchDragging) {
-          // Only affect cells in the switch row
+          // Only track for data needed for drag operation
+          // Let CSS handle the visual highlighting
           const targetCell = e.target.closest('[data-switch-cycle]');
           if (targetCell && targetCell !== switchPoint) {
-            const cycle = targetCell.getAttribute('data-switch-cycle');
-            
-            // Clean up previous highlight first
-            if (lastHighlightedCell && lastHighlightedCell !== targetCell) {
-              lastHighlightedCell.classList.remove('bg-gray-500');
-            }
-            
-            // Highlight current cell only during active drag
-            targetCell.classList.add('bg-gray-500');
-            lastHighlightedCell = targetCell;
-            
-            // Move the switch point in real-time
-            this.pushEvent("move_switch_point", {
-              cycle: cycle
-            });
+            // No manual class manipulation - CSS will handle hover effects
           }
         }
         else if (isDragging && startCell) {
@@ -135,17 +124,29 @@ const Hooks = {
         }
       });
       
-      // Simple cleanup on mouseup
+      // Handle all dragging end
       document.addEventListener('mouseup', (e) => {
         if (isSwitchDragging) {
+          console.log("Switch drag ending");
+          
+          // Find target cell
+          const targetCell = e.target.closest('[data-switch-cycle]');
+          if (targetCell && targetCell !== switchPoint) {
+            const endCycle = targetCell.getAttribute('data-switch-cycle');
+            
+            console.log(`Moving switch point to ${endCycle}`);
+            // Send final position with end_switch_drag event
+            this.pushEvent("end_switch_drag", {
+              cycle: endCycle
+            });
+          } else {
+            // No valid target, just end the drag without changes
+            this.pushEvent("end_switch_drag", {});
+          }
+          
           isSwitchDragging = false;
           switchPoint = null;
-          
-          // Clean up any highlighted cells
-          if (lastHighlightedCell) {
-            lastHighlightedCell.classList.remove('bg-gray-500');
-            lastHighlightedCell = null;
-          }
+          // Remove cleanup of highlighted cells - let CSS handle this
         }
         
         if (isDragging) {
@@ -156,18 +157,18 @@ const Hooks = {
         }
       });
       
-      // Cancel all drags on escape
+      // Also add escape key handler to notify server
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
           if (isSwitchDragging) {
+            console.log("Canceling switch drag with Escape key");
+            
+            // Just end the drag without sending a new position
+            this.pushEvent("end_switch_drag", {});
+            
             isSwitchDragging = false;
             switchPoint = null;
-            
-            // Clean up any highlighted cells
-            if (lastHighlightedCell) {
-              lastHighlightedCell.classList.remove('bg-gray-500');
-              lastHighlightedCell = null;
-            }
+            // Remove cleanup of highlighted cells - let CSS handle this
           }
           
           isDragging = false;

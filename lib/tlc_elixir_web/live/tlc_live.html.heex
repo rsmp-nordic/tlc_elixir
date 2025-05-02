@@ -1,7 +1,7 @@
 <div class="w-full bg-gray-900" id="tlc-container" phx-hook="DragHandler">
   <div class="container mx-auto">
     <!-- Add helper assign at the top of the template -->
-    <% 
+    <%
       # Determine which program to use in the UI - this logic will be used throughout
       display_program = cond do
         @editing -> @edited_program
@@ -9,7 +9,7 @@
         true -> @tlc.logic.program
       end
     %>
-    
+
     <!-- Current State section (dark mode) -->
     <div class="p-2">
       <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700">
@@ -20,7 +20,7 @@
             <div class="text-xs font-medium text-gray-400 mb-1">Mode</div>
             <div class="font-mono text-gray-200 text-right"><%= @tlc.logic.mode %></div>
           </div>
-          
+
           <!-- Unix Time -->
           <div class="bg-gray-700 p-2 rounded shadow-sm">
             <div class="text-xs font-medium text-gray-400 mb-1">Unix Time</div>
@@ -38,37 +38,37 @@
             <div class="text-xs font-medium text-gray-400 mb-1">Base Time</div>
             <div class="font-mono text-gray-200 text-right"><%= @tlc.logic.base_time %></div>
           </div>
-          
+
           <!-- Cycle Time -->
           <div class="bg-gray-700 p-2 rounded shadow-sm">
             <div class="text-xs font-medium text-gray-400 mb-1">Cycle Time</div>
             <div class="font-mono text-gray-200 text-right"><%= @tlc.logic.cycle_time %></div>
           </div>
-          
+
           <div class="bg-gray-700 p-2 rounded shadow-sm">
             <div class="text-xs font-medium text-gray-400 mb-1">Program</div>
             <div class="font-mono text-gray-200 text-right"><%= @tlc.logic.program.name %></div>
           </div>
-    
+
           <!-- Second row -->
           <!-- Program Offset -->
           <div class="bg-gray-700 p-2 rounded shadow-sm">
             <div class="text-xs font-medium text-gray-400 mb-1">Program Offset</div>
             <div class="font-mono text-gray-200 text-right"><%= @tlc.logic.program.offset %></div>
           </div>
-          
+
           <!-- Offset Adjust -->
           <div class="bg-gray-700 p-2 rounded shadow-sm">
             <div class="text-xs font-medium text-gray-400 mb-1">Offset Adjust</div>
             <div class="font-mono text-gray-200 text-right"><%= @tlc.logic.offset_adjust %></div>
           </div>
-          
+
           <!-- Current Offset -->
           <div class="bg-gray-700 p-2 rounded shadow-sm">
             <div class="text-xs font-medium text-gray-400 mb-1">Current Offset</div>
             <div class="font-mono text-gray-200 text-right"><%= @tlc.logic.offset %></div>
           </div>
-          
+
           <!-- Target Offset -->
           <div class="bg-gray-700 p-2 rounded shadow-sm">
             <div class="text-xs font-medium text-gray-400 mb-1">Target Offset</div>
@@ -90,19 +90,20 @@
       </div>
     </div>
 
-    <!-- Cycle table section -->
+    <!-- Cycle table section - use the assign to conditionally add the class -->
     <div class="p-2 overflow-x-auto">
-      <div class="bg-gray-800 p-4 rounded shadow-lg border border-gray-700">
+      <div id="switch-drag-container"
+           class={"bg-gray-800 p-4 rounded shadow-lg border border-gray-700 #{if @switch_dragging, do: "switch-dragging-active", else: ""}"}>
         <div class="mb-4">
           <h2 class="text-xl font-semibold text-gray-200 mb-3">Program</h2>
-          
+
           <!-- Program selector and edit mode controls -->
           <div class="flex justify-between mb-3">
             <!-- Replace the program selector section -->
             <div class="flex flex-wrap gap-3">
               <%= if not @editing do %>
                 <%= for program <- @tlc.programs do %>
-                  <% 
+                  <%
                     # A program is active only if it's the current program in the logic
                     is_active = program.name == @tlc.logic.program.name
                   %>
@@ -119,11 +120,11 @@
                         <!-- Program name -->
                         <span class="font-medium truncate"><%= program.name %></span>
                       </div>
-                      
+
                       <!-- Right side - space reserved for pencil icon -->
                       <span class="w-4"></span>
                     </div>
-                    
+
                     <!-- Pencil icon overlay - positioned absolutely on the right -->
                     <%= unless is_active do %>
                       <button phx-click="start_editing" phx-value-program_name={program.name}
@@ -140,7 +141,7 @@
                 <div class="flex items-center gap-3">
                   <div class="flex items-center">
                     <label class="text-gray-400 mr-2">Name:</label>
-                    <input type="text" value={@edited_program.name} 
+                    <input type="text" value={@edited_program.name}
                            phx-blur="update_program_name"
                            class="bg-gray-700 text-white px-2 py-1 rounded border border-gray-600 w-32" />
                   </div>
@@ -148,9 +149,9 @@
                   <!-- Update the length input to provide immediate feedback -->
                   <div class="flex items-center">
                     <label class="text-gray-400 mr-2">Length:</label>
-                    <input type="number" id="program-length-input" 
-                           value={@edited_program.length} 
-                           min="1" 
+                    <input type="number" id="program-length-input"
+                           value={@edited_program.length}
+                           min="1"
                            max="100"
                            phx-hook="NumberInputHandler"
                            data-field="length"
@@ -160,11 +161,11 @@
                   <div class="flex items-center">
                     <label class="text-gray-400 mr-2">Offset:</label>
                     <input type="number" id="program-offset-input"
-                           value={@edited_program.offset || 0} 
-                           min="0" 
+                           value={@edited_program.offset || 0}
+                           min="0"
                            max={@edited_program.length - 1}
                            phx-hook="NumberInputHandler"
-                           data-field="offset" 
+                           data-field="offset"
                            class="bg-gray-700 text-white px-2 py-1 rounded border border-gray-600 w-16" />
                   </div>
                 </div>
@@ -188,7 +189,7 @@
               <% end %>
             </div>
           </div>
-          
+
           <!-- Speed controls (only when not editing) -->
           <%= if not @editing do %>
             <div class="flex space-x-2 mb-3">
@@ -209,7 +210,7 @@
           <% end %>
           <!-- Removed group management UI -->
         </div>
-        
+
         <!-- Column-based layout -->
         <div class="flex border-t border-l border-gray-600">
           <!-- Labels column -->
@@ -226,7 +227,7 @@
               </div>
             <% end %>
           </div>
-          
+
           <!-- Data columns -->
           <%= for {cycle, col_idx} <- Enum.with_index(0..display_program.length - 1) do %>
             <!-- Update the cycle highlighting logic -->
@@ -235,23 +236,23 @@
               <div class="p-1 h-8 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200">
                 <%= cycle %>
               </div>
-              
+
               <!-- Offset cell - keep this editable -->
-              <% 
+              <%
                 current_program = if @editing, do: @edited_program, else: @tlc.logic.program
                 is_active_offset = if @editing, do: current_program.offset == cycle, else: @tlc.logic.offset == cycle
                 is_target_offset = if @editing, do: false, else: @tlc.logic.target_offset == cycle
                 is_between = is_between_offsets(cycle, @tlc.logic, @editing)
               %>
-              <div class={"p-1 h-8 flex items-center justify-center cursor-pointer border-r border-b border-gray-600 #{cond do 
+              <div class={"p-1 h-8 flex items-center justify-center cursor-pointer border-r border-b border-gray-600 #{cond do
                 @editing && is_active_offset -> "bg-purple-700"
-                not @editing && is_active_offset && is_target_offset -> "bg-purple-700" 
+                not @editing && is_active_offset && is_target_offset -> "bg-purple-700"
                 not @editing && is_active_offset -> "bg-purple-700"
                 not @editing && is_target_offset -> "bg-gray-500"
                 not @editing && is_between -> "bg-gray-400"
                 true -> "hover:bg-gray-600"
-              end}"} 
-                phx-click={if @editing, do: "update_program_offset", else: "set_target_offset"} 
+              end}"}
+                phx-click={if @editing, do: "update_program_offset", else: "set_target_offset"}
                 phx-value-target_offset={cycle}
                 phx-value-value={cycle}>
                 <%= if is_active_offset && not @editing do %>
@@ -266,9 +267,9 @@
                   <span class="opacity-0">0</span>
                 <% end %>
               </div>
-              
+
               <!-- Skip cell - display only, no editing -->
-              <% 
+              <%
                 skip_duration = if @editing do
                   Map.get(@edited_program.skips || %{}, cycle, 0)
                 else
@@ -279,7 +280,7 @@
                 is_within_skip = if @editing do
                   false # Simplified for editing
                 else
-                  Enum.any?(@tlc.logic.program.skips || %{}, fn {start, duration} -> 
+                  Enum.any?(@tlc.logic.program.skips || %{}, fn {start, duration} ->
                     cycle > start && cycle < start + duration
                   end)
                 end
@@ -291,9 +292,9 @@
                   <span class="opacity-0">0</span>
                 <% end %>
               </div>
-              
+
               <!-- Wait cell - display only, no editing -->
-              <% 
+              <%
                 wait_duration = if @editing do
                   Map.get(@edited_program.waits || %{}, cycle, 0)
                 else
@@ -308,13 +309,13 @@
                   <span class="opacity-0">0</span>
                 <% end %>
               </div>
-              
+
               <!-- Switch cell - removing hover effects -->
-              <% 
+              <%
                 program = if @editing, do: @edited_program, else: display_program
                 is_switch_point = cycle == program.switch
               %>
-              <div class={"p-1 h-8 flex items-center justify-between border-r border-b border-gray-600 #{if is_switch_point, do: "bg-gray-400", else: ""} #{if @editing && is_switch_point, do: "cursor-move", else: ""}"} 
+              <div class={"p-1 h-8 flex items-center justify-between border-r border-b border-gray-600 #{if is_switch_point, do: "bg-gray-400", else: ""} #{if @editing && is_switch_point, do: "cursor-move", else: ""}"}
                    phx-value-cycle={cycle}
                    data-switch-cycle={cycle}
                    phx-mousedown={if @editing && is_switch_point, do: "switch_drag_start"}>
@@ -331,7 +332,7 @@
               </div>
 
               <!-- Halt cell - display only, no editing -->
-              <% 
+              <%
                 is_halt_point = cycle == Map.get(program, :halt)
               %>
               <div class={"p-1 h-8 flex items-center justify-center border-r border-b border-gray-600 #{if is_halt_point, do: "bg-gray-400", else: ""}"}>
@@ -340,20 +341,20 @@
 
               <!-- Group signal cells - keep these editable -->
               <%= for {_group, i} <- Enum.with_index(display_program.groups) do %>
-                <% 
+                <%
                   state = if @editing do
                     TLC.Program.resolve_state(@edited_program, cycle)
                   else
                     TLC.Program.resolve_state(display_program, cycle)
                   end
-                  signal = String.at(state, i) 
+                  signal = String.at(state, i)
                 %>
-                <div class={"p-1 h-8 flex items-center justify-center border-r #{if i == length(display_program.groups) - 1, do: "", else: "border-b"} border-gray-600 #{cell_bg_class(signal)} #{if @editing, do: "cursor-pointer transition-colors duration-150"}"} 
+                <div class={"p-1 h-8 flex items-center justify-center border-r #{if i == length(display_program.groups) - 1, do: "", else: "border-b"} border-gray-600 #{cell_bg_class(signal)} #{if @editing, do: "cursor-pointer transition-colors duration-150"}"}
                     phx-mousedown={if @editing, do: "drag_start"}
-                    phx-value-cycle={cycle} 
-                    phx-value-group={i} 
+                    phx-value-cycle={cycle}
+                    phx-value-group={i}
                     phx-value-current_signal={signal}
-                    phx-click={if @editing, do: "update_cell_signal"} 
+                    phx-click={if @editing, do: "update_cell_signal"}
                     phx-value-signal={if @editing, do: next_signal(signal)}>
                   <span class="text-gray-200 select-none"><%= signal %></span>
                 </div>
@@ -364,7 +365,7 @@
       </div>
     </div>
   </div>
-  
+
   <!-- Program Modal -->
   <div id="program-modal" class={"fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 #{if @show_program_modal, do: "", else: "hidden"}"}>
     <div class="bg-gray-800 rounded-lg p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-gray-700">

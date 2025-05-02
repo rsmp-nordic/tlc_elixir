@@ -27,7 +27,8 @@ defmodule TlcElixirWeb.TLCLive do
       edited_program: nil,
       saved_program: nil,  # Add this to store recently saved program
       drag_start: nil,
-      drag_signal: nil
+      drag_signal: nil,
+      switch_dragging: false  # New assign for tracking switch dragging state
     )}
   end
 
@@ -196,17 +197,30 @@ defmodule TlcElixirWeb.TLCLive do
 
   @impl true
   def handle_event("switch_drag_start", _params, socket) do
-    # Just relay the event to the client-side, actual dragging handled by JS
+    # Set the switch_dragging assign to true when dragging starts
+    {:noreply, assign(socket, switch_dragging: true)}
+  end
+
+  # Update to handle the drag end with an optional cycle update
+  @impl true
+  def handle_event("end_switch_drag", params, socket) do
+    socket = case params do
+      # If cycle is provided, update the switch point position
+      %{"cycle" => cycle_str} ->
+        {cycle, _} = Integer.parse(cycle_str)
+        updated_program = Map.put(socket.assigns.edited_program, :switch, cycle)
+        assign(socket, edited_program: updated_program, switch_dragging: false)
+
+      # No cycle provided, just end dragging
+      _ ->
+        assign(socket, switch_dragging: false)
+    end
+
     {:noreply, socket}
   end
 
-  @impl true
-  def handle_event("move_switch_point", %{"cycle" => cycle_str}, socket) do
-    {cycle, _} = Integer.parse(cycle_str)
-
-    updated_program = Map.put(socket.assigns.edited_program, :switch, cycle)
-    {:noreply, assign(socket, edited_program: updated_program)}
-  end
+  # Remove the move_switch_point handler as it's no longer needed
+  # We're not updating the switch position during drag now
 
   @impl true
   def handle_event("drag_start", %{"cycle" => cycle_str, "group" => group_str, "signal" => signal}, socket) do

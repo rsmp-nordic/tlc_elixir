@@ -3,3 +3,14 @@
 @import "tailwindcss/utilities";
 
 /* This file is for your main application CSS */
+
+/* Switch Point Drag Styling - stronger highlight rule */
+#switch-drag-container.switch-dragging-active [data-switch-cycle]:hover {
+  background-color: rgb(107 114 128) !important; /* bg-gray-500 */
+  transition: background-color 0s !important; /* Immediate highlight */
+}
+
+/* Ensure cells with bg-gray-400 are properly styled */
+[data-switch-cycle].bg-gray-400 {
+  background-color: rgb(156 163 175) !important; /* bg-gray-400 */
+}
