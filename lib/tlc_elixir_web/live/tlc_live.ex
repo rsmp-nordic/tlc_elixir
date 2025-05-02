@@ -191,6 +191,23 @@ defmodule TlcElixirWeb.TLCLive do
     {:noreply, assign(socket, edited_program: updated_program)}
   end
 
+  # Remove the set_switch_point handler as it's no longer needed
+  # We're now only using drag functionality to move the switch point
+
+  @impl true
+  def handle_event("switch_drag_start", _params, socket) do
+    # Just relay the event to the client-side, actual dragging handled by JS
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("move_switch_point", %{"cycle" => cycle_str}, socket) do
+    {cycle, _} = Integer.parse(cycle_str)
+
+    updated_program = Map.put(socket.assigns.edited_program, :switch, cycle)
+    {:noreply, assign(socket, edited_program: updated_program)}
+  end
+
   @impl true
   def handle_event("drag_start", %{"cycle" => cycle_str, "group" => group_str, "signal" => signal}, socket) do
     {cycle, _} = Integer.parse(cycle_str)

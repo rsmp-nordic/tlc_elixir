@@ -309,15 +309,27 @@
                 <% end %>
               </div>
               
-              <!-- Switch cell - display only, no editing -->
+              <!-- Switch cell - removing hover effects -->
               <% 
                 program = if @editing, do: @edited_program, else: display_program
                 is_switch_point = cycle == program.switch
               %>
-              <div class={"p-1 h-8 flex items-center justify-center border-r border-b border-gray-600 #{if is_switch_point, do: "bg-gray-400", else: ""}"}>
-                <span class="opacity-0">0</span>
+              <div class={"p-1 h-8 flex items-center justify-between border-r border-b border-gray-600 #{if is_switch_point, do: "bg-gray-400", else: ""} #{if @editing && is_switch_point, do: "cursor-move", else: ""}"} 
+                   phx-value-cycle={cycle}
+                   data-switch-cycle={cycle}
+                   phx-mousedown={if @editing && is_switch_point, do: "switch_drag_start"}>
+                <%= if is_switch_point && @editing do %>
+                  <!-- Vertical ellipsis to indicate draggability -->
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                  </svg>
+                  <span class="flex-grow"></span>
+                <% else %>
+                  <span class="opacity-0 w-4"></span>
+                  <span class="opacity-0 flex-grow">0</span>
+                <% end %>
               </div>
-              
+
               <!-- Halt cell - display only, no editing -->
               <% 
                 is_halt_point = cycle == Map.get(program, :halt)

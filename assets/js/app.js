@@ -30,9 +30,26 @@ const Hooks = {
       let isDragging = false;
       let startCell = null;
       let lastVisitedCycle = null;
-      let visitedCycles = new Set(); // Track all cycles we've visited
+      let visitedCycles = new Set(); 
+      
+      // Switch point dragging - simplified
+      let isSwitchDragging = false;
+      let switchPoint = null;
+      let lastHighlightedCell = null;
       
       this.el.addEventListener('mousedown', (e) => {
+        // Check if we're starting a switch point drag
+        const switchCell = e.target.closest('[phx-mousedown="switch_drag_start"]');
+        if (switchCell) {
+          console.log("Switch point drag started");
+          isSwitchDragging = true;
+          switchPoint = switchCell;
+          
+          // Prevent text selection
+          e.preventDefault();
+          return;
+        }
+        
         const cell = e.target.closest('[phx-mousedown="drag_start"]');
         if (cell && cell.hasAttribute('phx-value-current_signal')) {
           console.log("Drag started");
@@ -53,9 +70,30 @@ const Hooks = {
         }
       });
       
-      // Add real-time updating during drag
+      // Handle mouseover for both regular dragging and switch point dragging
       document.addEventListener('mouseover', (e) => {
-        if (isDragging && startCell) {
+        if (isSwitchDragging) {
+          // Only affect cells in the switch row
+          const targetCell = e.target.closest('[data-switch-cycle]');
+          if (targetCell && targetCell !== switchPoint) {
+            const cycle = targetCell.getAttribute('data-switch-cycle');
+            
+            // Clean up previous highlight first
+            if (lastHighlightedCell && lastHighlightedCell !== targetCell) {
+              lastHighlightedCell.classList.remove('bg-gray-500');
+            }
+            
+            // Highlight current cell only during active drag
+            targetCell.classList.add('bg-gray-500');
+            lastHighlightedCell = targetCell;
+            
+            // Move the switch point in real-time
+            this.pushEvent("move_switch_point", {
+              cycle: cycle
+            });
+          }
+        }
+        else if (isDragging && startCell) {
           const cell = e.target.closest('[phx-mousedown="drag_start"]');
           if (cell && 
               cell.getAttribute('phx-value-group') === startCell.getAttribute('phx-value-group')) {
@@ -97,9 +135,41 @@ const Hooks = {
         }
       });
       
+      // Simple cleanup on mouseup
       document.addEventListener('mouseup', (e) => {
-        if (isDragging && startCell) {
-          // Clean up
+        if (isSwitchDragging) {
+          isSwitchDragging = false;
+          switchPoint = null;
+          
+          // Clean up any highlighted cells
+          if (lastHighlightedCell) {
+            lastHighlightedCell.classList.remove('bg-gray-500');
+            lastHighlightedCell = null;
+          }
+        }
+        
+        if (isDragging) {
+          isDragging = false;
+          startCell = null;
+          lastVisitedCycle = null;
+          visitedCycles.clear();
+        }
+      });
+      
+      // Cancel all drags on escape
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          if (isSwitchDragging) {
+            isSwitchDragging = false;
+            switchPoint = null;
+            
+            // Clean up any highlighted cells
+            if (lastHighlightedCell) {
+              lastHighlightedCell.classList.remove('bg-gray-500');
+              lastHighlightedCell = null;
+            }
+          }
+          
           isDragging = false;
           startCell = null;
           lastVisitedCycle = null;
