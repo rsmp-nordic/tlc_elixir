@@ -53,6 +53,13 @@ defmodule Tlc.Server do
   end
 
   @doc """
+  Immediately switches to the specified program and syncs it to the switch point.
+  """
+  def switch_program_immediate(server, program_name) do
+    GenServer.cast(server, {:switch_program_immediate, program_name})
+  end
+
+  @doc """
   Clears the target program, canceling any pending program switch.
   """
   def clear_target_program(server) do
@@ -67,6 +74,13 @@ defmodule Tlc.Server do
   """
   def update_program(server, program, update_active \\ false) do
     GenServer.call(server, {:update_program, program, update_active})
+  end
+
+  @doc """
+  Toggles between fault mode and halt mode.
+  """
+  def toggle_fault(server) do
+    GenServer.cast(server, :toggle_fault)
   end
 
   # Server callbacks
@@ -121,7 +135,14 @@ defmodule Tlc.Server do
         skips: %{7 => 5, 17 => 2},
         waits: %{1 => 2, 6 => 2, 13 => 3 },
         switch: 19
-      }
+      },
+      %Tlc.Program{
+        name: "fault",
+        length: 1,
+        groups: ["a", "b"],
+        states: %{ 0 => "RR" },
+        switch: 1
+      },
      ]
 
     ms = scaled_unix_time(4) # Use default speed of 4 for initialization
@@ -220,9 +241,47 @@ defmodule Tlc.Server do
   end
 
   @impl true
+  def handle_cast({:switch_program_immediate, program_name}, tlc) do
+    program = Enum.find(tlc.programs, fn prog -> prog.name == program_name end)
+
+    # If program exists, set it as the current program and sync to switch point
+    if program do
+      updated_logic =
+        tlc.logic
+        |> Tlc.Logic.set_target_program(program)
+        |> Tlc.Logic.switch()
+
+      updated_tlc = %{tlc | logic: updated_logic}
+      broadcast_update(updated_tlc)
+      {:noreply, updated_tlc}
+    else
+      {:noreply, tlc}
+    end
+  end
+
+  @impl true
   def handle_cast(:clear_target_program, tlc) do
     updated_logic = Tlc.Logic.clear_target_program(tlc.logic)
     updated_tlc = %{tlc | logic: updated_logic}
+    broadcast_update(updated_tlc)
+    {:noreply, updated_tlc}
+  end
+
+  @impl true
+  def handle_cast(:toggle_fault, tlc) do
+    updated_tlc =
+      if tlc.logic.mode == :fault do
+        # If in fault mode, recover to halt program
+        halt_program = Enum.find(tlc.programs, fn prog -> prog.name == "halt" end)
+        updated_logic = Tlc.Logic.recover(tlc.logic, halt_program)
+        %{tlc | logic: updated_logic}
+      else
+        # Switch to fault mode
+        fault_program = Enum.find(tlc.programs, fn prog -> prog.name == "fault" end)
+        updated_logic = Tlc.Logic.fault(tlc.logic, fault_program)
+        %{tlc | logic: updated_logic}
+      end
+
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
   end
