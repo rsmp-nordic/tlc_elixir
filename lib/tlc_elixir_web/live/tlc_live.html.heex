@@ -174,7 +174,8 @@
                   <button phx-click="cancel_editing" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded">
                     Cancel
                   </button>
-                  <button phx-click="save_program" class="bg-purple-700 hover:bg-purple-600 text-white px-3 py-1 rounded">
+                  <button phx-click="save_program" 
+                          class="bg-purple-700 hover:bg-purple-600 text-white px-3 py-1 rounded">
                     Save
                   </button>
                 <% else %>
@@ -209,6 +210,8 @@
               </div>
             <% end %>
           </div>
+
+          <!-- Remove the Validation Error Banner section completely -->
 
           <!-- Column-based layout -->
           <div class="flex border-t border-l border-gray-600">
@@ -331,16 +334,33 @@
                       "D" -> "bg-gray-800"
                       _ -> "bg-gray-800"
                     end
+                    
+                    # Check if this cell has an invalid transition
+                    has_invalid_transition = @editing && Map.has_key?(@invalid_transitions, {cycle, i})
+                    
+                    # Get the error message for tooltip if available
+                    error_tooltip = if has_invalid_transition, do: Map.get(@invalid_transitions, {cycle, i}), else: nil
                   %>
-                  <.signal_cell
-                    cycle={cycle}
-                    i={i}
-                    groups_length={length(display_program.groups)}
-                    signal={signal}
-                    editing={@editing}
-                    bg_class={bg_class}
-                    next_signal={next_signal(signal)}
-                  />
+                  <div 
+                    class={"p-1 h-8 flex relative items-center justify-center border-r #{if i == length(display_program.groups) - 1, do: "", else: "border-b"} border-gray-600 #{bg_class} #{if @editing, do: "cursor-pointer"} #{if has_invalid_transition, do: "signal-cell-invalid"}"}
+                    phx-click={if @editing, do: "update_cell_signal"}
+                    phx-value-cycle={cycle}
+                    phx-value-group={i}
+                    phx-value-signal={if @editing, do: next_signal(signal), else: signal}
+                    data-cycle={cycle}
+                    data-group={i}
+                    data-signal={signal}
+                    title={if has_invalid_transition, do: error_tooltip, else: signal}
+                  >
+                    <%= if has_invalid_transition do %>
+                      <div class="invalid-transition-indicator" title={error_tooltip}>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                        </svg>
+                      </div>
+                    <% end %>
+                    <span><%= signal %></span>
+                  </div>
                 <% end %>
               </.program_cell>
             <% end %>
@@ -349,7 +369,9 @@
           <!-- Program definition section (only when editing) -->
           <%= if @editing do %>
             <div class="mt-4 border-t border-gray-600 pt-4">
-              <h3 class="text-lg font-semibold text-gray-200 mb-2">Program Definition</h3>
+              <h3 class="text-lg font-semibold text-gray-200 mb-2 flex items-center">
+                Program Definition
+              </h3>
               <pre class="bg-gray-900 p-3 rounded shadow-lg border border-gray-700 text-gray-300 text-sm font-mono overflow-x-auto">
 <%= inspect(@edited_program, pretty: true, limit: :infinity) %>
               </pre>

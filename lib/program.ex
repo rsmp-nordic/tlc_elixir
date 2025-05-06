@@ -4,6 +4,15 @@ defmodule Tlc.Program do
   Contains the static program configuration without runtime state.
   """
 
+  # Define valid state transitions
+  @valid_transitions %{
+    "R" => ["Y", "A"],
+    "Y" => ["R", "G"],
+    "A" => ["R"],
+    "G" => ["Y"],
+    "D" => ["R", "Y", "G", "D"]
+  }
+
   defstruct name: "",
             length: 0,
             offset: 0,
@@ -23,7 +32,8 @@ defmodule Tlc.Program do
       length: 8,
       offset: 3,
       groups: ["a", "b"],
-      states: %{ 0 => "RY", 1 => "GR", 4 => "YR", 5 => "RG"},
+      # Fixed states to follow valid transitions: Red→Yellow→Green→Yellow→Red
+      states: %{ 0 => "RR", 1 => "YR", 2 => "GR", 4 => "YR", 5 => "RY", 6 => "RG"},
       skips: %{0 => 2},
       waits: %{5 => 2},
       switch: 0,
@@ -45,7 +55,8 @@ defmodule Tlc.Program do
            :ok <- validate_states(program),
            :ok <- validate_skips(program),
            :ok <- validate_waits(program),
-           :ok <- validate_switch(program) do
+           :ok <- validate_switch(program),
+           :ok <- validate_state_changes(program) do
         {:ok, program}
       end
     end
@@ -141,6 +152,63 @@ defmodule Tlc.Program do
     end
   end
   defp validate_switch(_), do: {:error, "Switch must be an integer between 0 and program length - 1"}
+
+  @doc """
+  Gets all invalid state transitions in a program.
+  Returns a map where keys are {time, group_idx} tuples and values are error messages.
+  Used to highlight specific cells with invalid transitions in the UI.
+  """
+  def get_invalid_transitions(%{states: states}) when map_size(states) > 1 do
+    # Get all time points in ascending order
+    time_points = states |> Map.keys() |> Enum.sort()
+
+    # For each group, check all transitions
+    group_count = states[hd(time_points)] |> String.length()
+
+    # First check that all states are valid (in our @valid_transitions map)
+    # Collect all invalid states with their positions
+    unknown_states = for {time, state} <- states,
+                       group_idx <- 0..(String.length(state)-1),
+                       signal = String.at(state, group_idx),
+                       not Map.has_key?(@valid_transitions, signal) do
+    {{time, group_idx}, "Unknown signal state '#{signal}'"}
+    end |> Map.new()
+
+    # If there are unknown states, return them immediately
+    if map_size(unknown_states) > 0 do
+      unknown_states
+    else
+      # For each consecutive pair of time points, check all transitions for all groups
+      invalid_transitions = for group_idx <- 0..(group_count-1),
+                           [t1, t2] <- Enum.chunk_every(time_points, 2, 1, :discard),
+                           state1 = String.at(states[t1], group_idx),
+                           state2 = String.at(states[t2], group_idx),
+                           state1 != state2, # Only check actual transitions
+                           valid_next_states = Map.get(@valid_transitions, state1, []),
+                           state2 not in valid_next_states do
+        {{t2, group_idx}, "Invalid transition from '#{state1}' to '#{state2}'. Valid transitions from '#{state1}' are: #{Enum.join(valid_next_states, ", ")}"}
+      end |> Map.new()
+
+      invalid_transitions
+    end
+  end
+
+  def get_invalid_transitions(_), do: %{} # Programs with 0-1 states have no transitions
+
+  @doc """
+  Validates that all state transitions follow the allowed transitions defined in @valid_transitions.
+  """
+  def validate_state_changes(program) do
+    invalid_transitions = get_invalid_transitions(program)
+
+    if map_size(invalid_transitions) == 0 do
+      :ok
+    else
+      # Just return the first error message for backward compatibility
+      {_pos, error_message} = Enum.at(invalid_transitions, 0)
+      {:error, error_message}
+    end
+  end
 
   @doc """
   Removes redundant state entries from a program.

@@ -28,11 +28,12 @@ defmodule TlcElixirWeb.TlcLive do
       target_program: target_program,
       editing: false,
       edited_program: nil,
-      saved_program: nil,  # Add this to store recently saved program
+      saved_program: nil,
       drag_start: nil,
       drag_signal: nil,
-      switch_dragging: false,  # New assign for tracking switch dragging state
-      formatted_program: ""  # Add this line
+      switch_dragging: false,
+      formatted_program: "",
+      invalid_transitions: %{}  # Keep this to track invalid transitions for display
     )}
   end
 
@@ -84,7 +85,12 @@ defmodule TlcElixirWeb.TlcLive do
         Tlc.Server.clear_target_program(socket.assigns.server)
       end
 
-      {:noreply, assign(socket, editing: true, edited_program: program_to_edit)}
+      socket = assign(socket, editing: true, edited_program: program_to_edit)
+
+      # Initialize validation status
+      socket = validate_edited_program(socket)
+
+      {:noreply, socket}
     else
       {:noreply, socket}
     end
@@ -161,7 +167,12 @@ defmodule TlcElixirWeb.TlcLive do
       {group_idx, _} = Integer.parse(group_str)
 
       updated_program = Tlc.Program.set_group_signal(socket.assigns.edited_program, cycle, group_idx, signal)
-      {:noreply, assign(socket, edited_program: updated_program)}
+      socket = assign(socket, edited_program: updated_program)
+
+      # Add validation after updating the program
+      socket = validate_edited_program(socket)
+
+      {:noreply, socket}
     else
       {:noreply, socket}
     end
@@ -240,11 +251,11 @@ defmodule TlcElixirWeb.TlcLive do
   end
 
   @impl true
-  def handle_event("drag_end", %{"cycle" => end_cycle_str, "group" => group_str,
-                               "start_cycle" => start_cycle_str, "signal" => signal}, socket) do
-    {end_cycle, _} = Integer.parse(end_cycle_str)
-    {start_cycle, _} = Integer.parse(start_cycle_str)
-    {group_idx, _} = Integer.parse(group_str)
+  def handle_event("drag_end", %{"cycle" => end_cycle_val, "group" => group_val,
+                               "start_cycle" => start_cycle_val, "signal" => signal}, socket) do
+    end_cycle = parse_int(end_cycle_val)
+    start_cycle = parse_int(start_cycle_val)
+    group_idx = parse_int(group_val)
 
     # Sort the start and end cycles
     {cycle_start, cycle_end} = if start_cycle <= end_cycle, do: {start_cycle, end_cycle}, else: {end_cycle, start_cycle}
@@ -258,7 +269,12 @@ defmodule TlcElixirWeb.TlcLive do
       signal
     )
 
-    {:noreply, assign(socket, edited_program: updated_program, drag_start: nil, drag_signal: nil)}
+    socket = assign(socket, edited_program: updated_program, drag_start: nil, drag_signal: nil)
+
+    # Add validation after dragging
+    socket = validate_edited_program(socket)
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -274,12 +290,12 @@ defmodule TlcElixirWeb.TlcLive do
   end
 
   @impl true
-  def handle_event("fill_gap", %{"start_cycle" => start_cycle_str, "end_cycle" => end_cycle_str,
-                              "group" => group_str, "signal" => signal}, socket) do
+  def handle_event("fill_gap", %{"start_cycle" => start_cycle_val, "end_cycle" => end_cycle_val,
+                           "group" => group_val, "signal" => signal}, socket) do
     if socket.assigns.editing do
-      {start_cycle, _} = Integer.parse(start_cycle_str)
-      {end_cycle, _} = Integer.parse(end_cycle_str)
-      {group_idx, _} = Integer.parse(group_str)
+      start_cycle = parse_int(start_cycle_val)
+      end_cycle = parse_int(end_cycle_val)
+      group_idx = parse_int(group_val)
 
       # Use the new stretch function to fill all cycles in the gap
       updated_program = Tlc.Program.set_group_signal_stretch(
@@ -289,7 +305,13 @@ defmodule TlcElixirWeb.TlcLive do
         group_idx,
         signal
       )
-      {:noreply, assign(socket, edited_program: updated_program)}
+
+      socket = assign(socket, edited_program: updated_program)
+
+      # Add validation after filling gap
+      socket = validate_edited_program(socket)
+
+      {:noreply, socket}
     else
       {:noreply, socket}
     end
@@ -462,4 +484,20 @@ defmodule TlcElixirWeb.TlcLive do
   defp display_program(socket) do
     socket.assigns.tlc.logic.program
   end
+
+  # Add the missing validate_edited_program function
+  defp validate_edited_program(socket) do
+    invalid_transitions = Tlc.Program.get_invalid_transitions(socket.assigns.edited_program)
+    assign(socket, invalid_transitions: invalid_transitions)
+  end
+
+  # Add a helper function to safely parse integers from either strings or integers
+  defp parse_int(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {int, _} -> int
+      :error -> 0
+    end
+  end
+  defp parse_int(value) when is_integer(value), do: value
+  defp parse_int(_), do: 0
 end

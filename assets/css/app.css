@@ -27,11 +27,37 @@
 
 /* Switch Point Drag Styling */
 #switch-drag-container.switch-dragging-active [data-switch-cycle]:hover {
-  background-color: rgb(107 114 128) !important; /* bg-gray-500 */
+  background-color: rgbs(107 114 128) !important; /* bg-gray-500 */
   transition: background-color 0s !important; /* Immediate highlight */
 }
 
 /* Ensure cells with bg-gray-400 are properly styled */
 [data-switch-cycle].bg-gray-400 {
   background-color: rgb(156 163 175) !important; /* bg-gray-400 */
+}
+
+/* Updated styling for invalid signal cells - removed the red border */
+.signal-cell-invalid {
+  position: relative;
+}
+
+/* Updated invalid transition indicator with pointer-events: none to ensure
+   it doesn't interfere with drag operations on the cell */
+.invalid-transition-indicator {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%) translateX(-50%);
+  width: 18px; 
+  height: 18px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: #ffdd00; /* Yellow color for the warning icon */
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  padding: 2px;
+  pointer-events: none; /* Add this to ensure drag events pass through */
 }
