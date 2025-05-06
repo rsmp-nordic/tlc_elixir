@@ -123,11 +123,12 @@ defmodule Tlc.Logic do
 
   @doc """
   Updates the current states based on the cycle time.
+  No longer performs transition validation (handled by Tlc.Safety).
   """
   def update_states(logic) do
-    # Use the Tlc.Program.resolve_state function
-    states = Tlc.Program.resolve_state(logic.program, logic.cycle_time)
-    %{logic | current_states: states}
+    # Simply get and set the new state
+    new_states = Tlc.Program.resolve_state(logic.program, logic.cycle_time)
+    %{logic | current_states: new_states}
   end
 
   def update_offset(logic) do

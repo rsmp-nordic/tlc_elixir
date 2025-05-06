@@ -3,10 +3,9 @@ defmodule Tlc.Server do
   require Logger
 
   @tick_interval 1000
-  # Remove @speed module attribute
 
-  # Add a struct definition with a speed field
-  defstruct [:logic, :programs, :target_program, speed: 1]
+  # Add safety to struct definition
+  defstruct [:logic, :programs, :target_program, :safety, speed: 1]
 
   # Client API
 
@@ -152,14 +151,14 @@ defmodule Tlc.Server do
       |> Tlc.Logic.halt()
       |> Tlc.Logic.update_unix_time(round(ms/1000))
       |> Tlc.Logic.update_base_time()
-      #|> Tlc.Logic.sync(tlc.logic.program.halt)
 
-    # Create the struct with all fields including speed
+    # Create the struct with all fields including safety
     tlc = %__MODULE__{
       logic: logic,
       programs: tlc.programs,
       target_program: nil,
-      speed: 2
+      speed: 2,
+      safety: Tlc.Safety.new() # Initialize the safety module
     }
 
     # Start the tick timer
@@ -235,6 +234,7 @@ defmodule Tlc.Server do
   def handle_cast({:switch_program, program_name}, tlc) do
     program = Enum.find(tlc.programs, fn prog -> prog.name == program_name end)
     updated_logic = Tlc.Logic.set_target_program(tlc.logic, program)
+    # Don't clear safety history - validate transitions across program boundaries
     updated_tlc = %{tlc | logic: updated_logic}
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
@@ -251,6 +251,7 @@ defmodule Tlc.Server do
         |> Tlc.Logic.set_target_program(program)
         |> Tlc.Logic.switch()
 
+      # Don't clear safety history - maintain validation across program switches
       updated_tlc = %{tlc | logic: updated_logic}
       broadcast_update(updated_tlc)
       {:noreply, updated_tlc}
@@ -274,7 +275,10 @@ defmodule Tlc.Server do
         # If in fault mode, recover to halt program
         halt_program = Enum.find(tlc.programs, fn prog -> prog.name == "halt" end)
         updated_logic = Tlc.Logic.recover(tlc.logic, halt_program)
-        %{tlc | logic: updated_logic}
+        # We still clear safety history when recovering from fault mode
+        # since this is an explicit recovery action that shouldn't trigger faults
+        updated_safety = Tlc.Safety.clear_history(tlc.safety, updated_logic.program.name)
+        %{tlc | logic: updated_logic, safety: updated_safety}
       else
         # Switch to fault mode
         fault_program = Enum.find(tlc.programs, fn prog -> prog.name == "fault" end)
@@ -290,9 +294,21 @@ defmodule Tlc.Server do
   def handle_info(:tick, tlc) do
     # Update the Tlc state for each tick
     ms = scaled_unix_time(tlc.speed)
-    updated_tlc = %{tlc | logic: Tlc.Logic.tick(tlc.logic, round(ms/1000))}
+    updated_logic = Tlc.Logic.tick(tlc.logic, round(ms/1000))
+
+    # Get the fault program for safety checks
+    fault_program = Enum.find(tlc.programs, fn prog -> prog.name == "fault" end)
+
+    # Check for safety violations
+    {updated_safety, final_logic} =
+      Tlc.Safety.check_transitions(tlc.safety, updated_logic, fault_program)
+
+    # Update with potentially modified logic and safety
+    updated_tlc = %{tlc | logic: final_logic, safety: updated_safety}
+
     # Schedule the next tick
     schedule_tick(ms, tlc.speed)
+
     # Broadcast state changes
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
