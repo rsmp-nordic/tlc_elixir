@@ -118,8 +118,8 @@
                       
                       <span><%= program.name %></span>
                       
-                      <%!-- Show edit pencil with modified logic: all programs editable except active fault program --%>
-                      <%= if @tlc.logic.mode != :fault || program.name != "fault" do %>
+                      <%!-- Show edit pencil only if not currently running and not active fault program --%>
+                      <%= if (@tlc.logic.mode != :fault || program.name != "fault") && program.name != @tlc.logic.program.name do %>
                         <!-- Edit icon inside the button, shown on hover -->
                         <svg 
                           phx-click="start_editing"
