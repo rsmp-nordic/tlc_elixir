@@ -12,7 +12,7 @@ defmodule Tlc.Logic do
             offset: 0,
             unix_time: nil,
             unix_delta: 0,
-            base_time: 0,    # -1 is ready logic, before first actual step
+            base_time: 0,
             cycle_time: 0,
             target_offset: 0,
             target_distance: 0,
