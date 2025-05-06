@@ -6,8 +6,8 @@ defmodule Tlc.Program do
 
   # Define valid state transitions
   @valid_transitions %{
-    "R" => ["G", "Y", "A"],
-    "Y" => ["R", "G"],
+    "R" => ["G", "Y", "A", "D"],
+    "Y" => ["R", "G", "A"],
     "A" => ["R"],
     "G" => ["Y"],
     "D" => ["R", "Y", "G", "D"]
@@ -158,36 +158,44 @@ defmodule Tlc.Program do
   Returns a map where keys are {time, group_idx} tuples and values are error messages.
   Used to highlight specific cells with invalid transitions in the UI.
   """
-  def get_invalid_transitions(%{states: states}) when map_size(states) > 1 do
-    # Get all time points in ascending order
-    time_points = states |> Map.keys() |> Enum.sort()
-
-    # For each group, check all transitions
-    group_count = states[hd(time_points)] |> String.length()
-
+  def get_invalid_transitions(program = %{states: states}) when map_size(states) > 1 do
     # First check that all states are valid (in our @valid_transitions map)
     # Collect all invalid states with their positions
     unknown_states = for {time, state} <- states,
                        group_idx <- 0..(String.length(state)-1),
                        signal = String.at(state, group_idx),
                        not Map.has_key?(@valid_transitions, signal) do
-    {{time, group_idx}, "Unknown signal state '#{signal}'"}
+      {{time, group_idx}, "Unknown signal state '#{signal}'"}
     end |> Map.new()
 
     # If there are unknown states, return them immediately
     if map_size(unknown_states) > 0 do
       unknown_states
     else
-      # For each consecutive pair of time points, check all transitions for all groups
-      invalid_transitions = for group_idx <- 0..(group_count-1),
-                           [t1, t2] <- Enum.chunk_every(time_points, 2, 1, :discard),
-                           state1 = String.at(states[t1], group_idx),
-                           state2 = String.at(states[t2], group_idx),
-                           state1 != state2, # Only check actual transitions
-                           valid_next_states = Map.get(@valid_transitions, state1, []),
-                           state2 not in valid_next_states do
-        {{t2, group_idx}, "Invalid transition from '#{state1}' to '#{state2}'. Valid transitions from '#{state1}' are: #{Enum.join(valid_next_states, ", ")}"}
-      end |> Map.new()
+      # Check all transitions by iterating through each cycle
+      group_count = length(program.groups)
+
+      invalid_transitions = for cycle <- 0..(program.length-1),
+                                group_idx <- 0..(group_count-1) do
+        # Get current state and next state using resolve_state with the full program
+        current_state = resolve_state(program, cycle)
+        next_state = resolve_state(program, cycle + 1)
+
+        # Get the signals for this group
+        current_signal = String.at(current_state, group_idx)
+        next_signal = String.at(next_state, group_idx)
+
+        # Only check if there's an actual transition
+        if current_signal != next_signal do
+          valid_next_signals = Map.get(@valid_transitions, current_signal, [])
+
+          # Check if transition is valid
+          if next_signal not in valid_next_signals do
+            next_cycle = Tlc.Logic.mod(cycle + 1, program.length)
+            {{next_cycle, group_idx}, "Invalid transition from '#{current_signal}' to '#{next_signal}'. Valid transitions from '#{current_signal}' are: #{Enum.join(valid_next_signals, ", ")}"}
+          end
+        end
+      end |> Enum.reject(&is_nil/1) |> Map.new()
 
       invalid_transitions
     end
@@ -256,11 +264,14 @@ defmodule Tlc.Program do
   Returns the state string for the given cycle.
   """
   def resolve_state(program, cycle_time) do
+    # Apply modulo to wrap cycle_time
+    wrapped_cycle_time = Tlc.Logic.mod(cycle_time, program.length)
+
     # Get all defined times in descending order
     times = program.states |> Map.keys() |> Enum.sort(:desc)
 
     # Find time
-    time = Enum.find(times, fn time -> time <= cycle_time end) || List.first(times)
+    time = Enum.find(times, fn time -> time <= wrapped_cycle_time end) || List.first(times)
 
     # Get the state string or create a default state with all "D" if none exists
     Map.get(program.states, time, String.duplicate("D", length(program.groups)))
@@ -270,6 +281,7 @@ defmodule Tlc.Program do
   Updates a specific group's signal at a specific time.
   Returns an updated program struct.
   """
+  def set_group_signal(nil, _time, _group_idx, _signal), do: nil
   def set_group_signal(program, time, group_idx, signal) do
     # Get either the existing state at this time or resolve what would be shown
     base_state = Map.get(program.states, time) || resolve_state(program, time)
@@ -308,6 +320,7 @@ defmodule Tlc.Program do
   @doc """
   Updates a group's signal for a range of cycles.
   """
+  def set_group_signal_range(nil, _start_cycle, _end_cycle, _group_idx, _signal), do: nil
   def set_group_signal_range(program, start_cycle, end_cycle, group_idx, signal) do
     Enum.reduce(start_cycle..end_cycle, program, fn cycle, prog ->
       set_group_signal(prog, cycle, group_idx, signal)
@@ -318,6 +331,7 @@ defmodule Tlc.Program do
   Sets a signal for all cycles between start_cycle and end_cycle inclusive.
   Ensures all intermediate cells are updated even when dragging quickly.
   """
+  def set_group_signal_stretch(nil, _start_cycle, _end_cycle, _group_idx, _signal), do: nil
   def set_group_signal_stretch(program, start_cycle, end_cycle, group_idx, signal) do
     # Ensure start_cycle <= end_cycle
     {cycle_start, cycle_end} = if start_cycle <= end_cycle, do: {start_cycle, end_cycle}, else: {end_cycle, start_cycle}
@@ -332,6 +346,7 @@ defmodule Tlc.Program do
   Sets a skip at a specific cycle.
   Duration of 0 removes the skip.
   """
+  def set_skip(nil, _cycle, _duration), do: nil
   def set_skip(program, cycle, duration) do
     updated_skips = if duration > 0 do
       Map.put(program.skips || %{}, cycle, duration)
@@ -346,6 +361,7 @@ defmodule Tlc.Program do
   Sets a wait at a specific cycle.
   Duration of 0 removes the wait.
   """
+  def set_wait(nil, _cycle, _duration), do: nil
   def set_wait(program, cycle, duration) do
     updated_waits = if duration > 0 do
       Map.put(program.waits || %{}, cycle, duration)
@@ -359,6 +375,7 @@ defmodule Tlc.Program do
   @doc """
   Toggles the switch point at a specific cycle.
   """
+  def toggle_switch(nil, _cycle), do: nil
   def toggle_switch(program, cycle) do
     if program.switch == cycle do
       %{program | switch: nil}
@@ -372,6 +389,7 @@ defmodule Tlc.Program do
   If there is no halt point, sets it to the given cycle.
   If the current halt point is at the given cycle, removes it.
   """
+  def toggle_halt(nil, _cycle), do: nil
   def toggle_halt(program, cycle) do
     current_halt = Map.get(program, :halt)
 
@@ -387,6 +405,7 @@ defmodule Tlc.Program do
   @doc """
   Adds a new group to the program.
   """
+  def add_group(nil, _group_name), do: nil
   def add_group(program, group_name) do
     updated_groups = program.groups ++ [group_name]
 
@@ -401,6 +420,7 @@ defmodule Tlc.Program do
   @doc """
   Removes a group from the program.
   """
+  def remove_group(nil, _group_idx), do: nil
   def remove_group(program, group_idx) do
     if group_idx < length(program.groups) do
       updated_groups = List.delete_at(program.groups, group_idx)
