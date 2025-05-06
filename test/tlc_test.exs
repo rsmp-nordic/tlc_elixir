@@ -41,7 +41,7 @@ defmodule TlcTest do
     end
 
     test "returns error for non-TrafficProgram input" do
-      assert {:error, "Input must be a %Program{} struct"} = Program.validate(%{})
+      assert {:error, "Input must be a %Tlc.Program{} struct"} = Program.validate(%{})
     end
 
     test "returns error for invalid length" do

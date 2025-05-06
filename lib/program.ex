@@ -35,7 +35,7 @@ defmodule Tlc.Program do
   Returns {:ok, program} if the program is valid, {:error, reason} otherwise.
   """
   def validate(program) do
-    unless is_struct(program, %Tlc.Program{}) do
+    unless is_struct(program, Tlc.Program) do
       {:error, "Input must be a %Tlc.Program{} struct"}
     else
       with :ok <- validate_name(program),
