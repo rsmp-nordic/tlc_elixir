@@ -311,7 +311,9 @@
                 <%
                   is_halt_point = cycle == Map.get(program, :halt)
                 %>
-                <div class={"p-1 h-8 flex items-center justify-center border-r border-b border-gray-600 #{if is_halt_point, do: "bg-gray-400", else: ""}"}>
+                <div class={"p-1 h-8 flex items-center justify-center border-r border-b border-gray-600 #{if is_halt_point, do: "bg-gray-400", else: ""} #{if @editing, do: "cursor-pointer"}"}
+                     phx-click={if @editing, do: "toggle_halt"}
+                     phx-value-cycle={cycle}>
                   <span class="opacity-0">0</span>
                 </div>
 
