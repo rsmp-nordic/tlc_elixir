@@ -191,21 +191,24 @@
               </div>
             </div>
 
-            <!-- Speed controls (only when not editing) -->
+            <!-- interval controls (only when not editing) -->
             <%= if not @editing do %>
               <div class="flex space-x-2 mb-3">
-                <span class="text-gray-300 self-center mr-1">Speed:</span>
-                <button phx-click="set_speed" phx-value-speed="1" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @tlc.speed == 1, do: "bg-purple-700"}"}>
-                  1x
+                <span class="text-gray-300 self-center mr-1">interval (ms):</span>
+                <button phx-click="set_interval" phx-value-interval="1000" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @tlc.interval == 1000, do: "bg-purple-700"}"}>
+                  1000
                 </button>
-                <button phx-click="set_speed" phx-value-speed="4" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @tlc.speed == 4, do: "bg-purple-700"}"}>
-                  4x
+                <button phx-click="set_interval" phx-value-interval="300" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @tlc.interval == 300, do: "bg-purple-700"}"}>
+                  300
                 </button>
-                <button phx-click="set_speed" phx-value-speed="16" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @tlc.speed == 16, do: "bg-purple-700"}"}>
-                  16x
+                <button phx-click="set_interval" phx-value-interval="100" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @tlc.interval == 100, do: "bg-purple-700"}"}>
+                  100
                 </button>
-                <button phx-click="set_speed" phx-value-speed="64" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @tlc.speed == 64, do: "bg-purple-700"}"}>
-                  64x
+                <button phx-click="set_interval" phx-value-interval="30" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @tlc.interval == 30, do: "bg-purple-700"}"}>
+                  30
+                </button>
+                <button phx-click="set_interval" phx-value-interval="10" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @tlc.interval == 10, do: "bg-purple-700"}"}>
+                  10
                 </button>
               </div>
             <% end %>

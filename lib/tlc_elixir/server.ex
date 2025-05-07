@@ -5,7 +5,7 @@ defmodule Tlc.Server do
   @tick_interval 1000
 
   # Add safety to struct definition
-  defstruct [:logic, :programs, :target_program, :safety, speed: 1]
+  defstruct [:logic, :programs, :target_program, :safety, interval: @tick_interval]
 
   # Client API
 
@@ -46,9 +46,9 @@ defmodule Tlc.Server do
     GenServer.cast(server, {:switch_program, program_name})
   end
 
-  # Add a new client function for setting speed
-  def set_speed(server, speed) do
-    GenServer.call(server, {:set_speed, speed})
+  # Add a new client function for setting interval
+  def set_interval(server, interval) do
+    GenServer.call(server, {:set_interval, interval})
   end
 
   @doc """
@@ -165,12 +165,14 @@ defmodule Tlc.Server do
       },
      ]
 
-    ms = scaled_unix_time(4) # Use default speed of 4 for initialization
+    default_interval = @tick_interval
+    real_ms = System.os_time(:millisecond)
+    virtual_ms = real_to_virtual_ms(real_ms, default_interval)
     tlc = Tlc.new(programs)
     logic =
       tlc.logic
       |> Tlc.Logic.halt()
-      |> Tlc.Logic.update_unix_time(round(ms/1000))
+      |> Tlc.Logic.update_unix_time(round(virtual_ms/@tick_interval))
       |> Tlc.Logic.update_base_time()
 
     # Create the struct with all fields including safety
@@ -178,14 +180,29 @@ defmodule Tlc.Server do
       logic: logic,
       programs: tlc.programs,
       target_program: nil,
-      speed: 2,
+      interval: default_interval,
       safety: Tlc.Safety.new() # Initialize the safety module
     }
 
     # Start the tick timer
-    schedule_tick(ms, tlc.speed)
+    schedule_tick(real_ms, virtual_ms, tlc.interval)
+
+
+    # Add crash tracing
+    Process.flag(:trap_exit, true)
+
+    # Start with more detailed logs
+    Logger.configure(level: :debug)
+    Logger.info("Tlc.Server started with PID: #{inspect(self())}")
 
     {:ok, tlc}
+  end
+
+  @impl true
+  def terminate(reason, state) do
+    Logger.error("Tlc.Server terminated with reason: #{inspect(reason)}")
+    Logger.error("Final state: #{inspect(state)}")
+    :ok
   end
 
   @impl true
@@ -205,8 +222,8 @@ defmodule Tlc.Server do
   end
 
   @impl true
-  def handle_call({:set_speed, speed}, _from, tlc) do
-    updated_tlc = %{tlc | speed: speed}
+  def handle_call({:set_interval, interval}, _from, tlc) do
+    updated_tlc = %{tlc | interval: interval}
     broadcast_update(updated_tlc)
     {:reply, :ok, updated_tlc}
   end
@@ -314,8 +331,9 @@ defmodule Tlc.Server do
   @impl true
   def handle_info(:tick, tlc) do
     # Update the Tlc state for each tick
-    ms = scaled_unix_time(tlc.speed)
-    updated_logic = Tlc.Logic.tick(tlc.logic, round(ms/1000))
+    real_ms = System.os_time(:millisecond)
+    virtual_ms = real_to_virtual_ms(real_ms, tlc.interval)
+    updated_logic = Tlc.Logic.tick(tlc.logic, floor(virtual_ms/@tick_interval))
 
     # Get the fault program for safety checks
     fault_program = Enum.find(tlc.programs, fn prog -> prog.name == "fault" end)
@@ -328,20 +346,29 @@ defmodule Tlc.Server do
     updated_tlc = %{tlc | logic: final_logic, safety: updated_safety}
 
     # Schedule the next tick
-    schedule_tick(ms, tlc.speed)
+    schedule_tick(real_ms, virtual_ms, tlc.interval)
 
     # Broadcast state changes
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
   end
 
+  @impl true
+  def handle_info({:EXIT, pid, reason}, state) do
+    Logger.error("Linked process #{inspect(pid)} exited with reason: #{inspect(reason)}")
+    {:noreply, state}
+  end
   # Private functions
 
-  defp schedule_tick(ms, speed) do
+  defp schedule_tick(_real_ms, virtual_ms, interval) do
     # Calculate milliseconds until next tick boundary
-    ms_to_wait = descale_ms(@tick_interval - rem(ms, @tick_interval), speed)
+    virtual_ms_to_wait = @tick_interval - rem(virtual_ms, @tick_interval)
+    real_ms_to_wait = virtual_to_real_ms(virtual_ms_to_wait, interval)
+
+    #IO.puts "interval: #{interval}, real_ms: #{real_ms}, virtual_ms: #{virtual_ms}, virtual_ms_to_wait : #{virtual_ms_to_wait}, real_ms_to_wait: #{real_ms_to_wait}"
+
     # Schedule th tick
-    Process.send_after(self(), :tick, ms_to_wait)
+    Process.send_after(self(), :tick, real_ms_to_wait)
   end
 
   defp broadcast_update(tlc) do
@@ -366,8 +393,7 @@ defmodule Tlc.Server do
     end
   end
 
-  # Update scaling functions to take speed as parameter
-  defp scaled_unix_time(speed), do: scale_ms(System.os_time(:millisecond), speed)
-  defp scale_ms(ms, speed), do: ms * speed
-  defp descale_ms(ms, speed), do: round(ms / speed)
+  # Update scaling functions to take interval as parameter
+  defp real_to_virtual_ms(real_ms, interval), do: floor(real_ms * @tick_interval / interval)
+  defp virtual_to_real_ms(virtual_ms, interval), do: floor(virtual_ms * interval / @tick_interval)
 end

@@ -66,9 +66,9 @@ defmodule TlcElixirWeb.TlcLive do
   end
 
   @impl true
-  def handle_event("set_speed", %{"speed" => speed_str}, socket) do
-    speed = String.to_integer(speed_str)
-    Tlc.Server.set_speed(socket.assigns.server, speed)
+  def handle_event("set_interval", %{"interval" =>interval_str}, socket) do
+   interval = String.to_integer(interval_str)
+    Tlc.Server.set_interval(socket.assigns.server,interval)
     {:noreply, socket}
   end
 
