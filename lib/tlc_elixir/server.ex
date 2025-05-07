@@ -47,7 +47,7 @@ defmodule Tlc.Server do
   end
 
   # Add a new client function for setting speed
-  def set_speed(server, speed) when speed in [1, 2, 4, 8] do
+  def set_speed(server, speed) do
     GenServer.call(server, {:set_speed, speed})
   end
 
@@ -100,8 +100,8 @@ defmodule Tlc.Server do
         length: 6,
         offset: 0,
         groups: ["a", "b"],
-        states: %{ 0 => "RY", 1 => "GR", 3 => "YR", 4 => "RG"},
-        skips: %{4 => 2},
+        states: %{0 => "RR", 1 => "GR", 2 => "GG", 3 => "YY", 4 => "YR", 5 => "RR"},
+        skips: %{4 => 3},
         waits: %{2 => 2},
         switch: 1
       },
@@ -120,7 +120,16 @@ defmodule Tlc.Server do
         length: 10,
         offset: 0,
         groups: ["a", "b"],
-        states: %{0 => "RY", 1 => "GA", 3 => "GR", 5 => "YR", 6 => "RR", 8 => "AG"},
+        states: %{
+          0 => "RG",
+          1 => "GY",
+          2 => "GA",
+          3 => "GR",
+          5 => "YR",
+          6 => "RR",
+          8 => "AY",
+          9 => "AG"
+        },
         skips: %{5 => 3},
         waits: %{0 => 3},
         switch: 3
@@ -132,20 +141,20 @@ defmodule Tlc.Server do
         groups: ["a", "b"],
         states: %{
           0 => "RY",
-          1 => "GR",
-          5 => "GG",
-          6 => "YG",
+          1 => "GY",
+          2 => "GR",
+          6 => "YR",
+          7 => "YG",
           8 => "RG",
           9 => "RY",
           11 => "GA",
           14 => "GR",
           15 => "YR",
-          17 => "RR",
-          18 => "RG"
+          17 => "RG"
         },
         skips: %{5 => 7, 17 => 2},
         waits: %{1 => 2, 4 => 2, 13 => 3 },
-        switch: 19
+        switch: 3
       },
       %Tlc.Program{
         name: "fault",
@@ -196,7 +205,7 @@ defmodule Tlc.Server do
   end
 
   @impl true
-  def handle_call({:set_speed, speed}, _from, tlc) when speed in [1, 2, 4, 8] do
+  def handle_call({:set_speed, speed}, _from, tlc) do
     updated_tlc = %{tlc | speed: speed}
     broadcast_update(updated_tlc)
     {:reply, :ok, updated_tlc}
