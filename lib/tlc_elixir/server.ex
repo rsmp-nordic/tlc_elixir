@@ -5,7 +5,7 @@ defmodule Tlc.Server do
   @tick_interval 1000
 
   # Add safety to struct definition
-  defstruct [:logic, :programs, :target_program, :safety, interval: @tick_interval]
+  defstruct [:logic, :programs, :target_program, :safety, interval: @tick_interval, virtual_unix_time: 0]
 
   # Client API
 
@@ -167,12 +167,12 @@ defmodule Tlc.Server do
 
     default_interval = @tick_interval
     real_ms = System.os_time(:millisecond)
-    virtual_ms = real_to_virtual_ms(real_ms, default_interval)
+    virtual_unix_time = floor(real_ms / @tick_interval)
     tlc = Tlc.new(programs)
     logic =
       tlc.logic
       |> Tlc.Logic.halt()
-      |> Tlc.Logic.update_unix_time(round(virtual_ms/@tick_interval))
+      |> Tlc.Logic.update_unix_time(virtual_unix_time)
       |> Tlc.Logic.update_base_time()
 
     # Create the struct with all fields including safety
@@ -181,11 +181,12 @@ defmodule Tlc.Server do
       programs: tlc.programs,
       target_program: nil,
       interval: default_interval,
-      safety: Tlc.Safety.new() # Initialize the safety module
+      safety: Tlc.Safety.new(),
+      virtual_unix_time: virtual_unix_time
     }
 
     # Start the tick timer
-    schedule_tick(real_ms, virtual_ms, tlc.interval)
+    schedule_tick(real_ms, virtual_unix_time, tlc.interval)
 
 
     # Add crash tracing
@@ -332,8 +333,8 @@ defmodule Tlc.Server do
   def handle_info(:tick, tlc) do
     # Update the Tlc state for each tick
     real_ms = System.os_time(:millisecond)
-    virtual_ms = real_to_virtual_ms(real_ms, tlc.interval)
-    updated_logic = Tlc.Logic.tick(tlc.logic, floor(virtual_ms/@tick_interval))
+    virtual_unix_time = tlc.virtual_unix_time + 1
+    updated_logic = Tlc.Logic.tick(tlc.logic, virtual_unix_time)
 
     # Get the fault program for safety checks
     fault_program = Enum.find(tlc.programs, fn prog -> prog.name == "fault" end)
@@ -343,10 +344,10 @@ defmodule Tlc.Server do
       Tlc.Safety.check_transitions(tlc.safety, updated_logic, fault_program)
 
     # Update with potentially modified logic and safety
-    updated_tlc = %{tlc | logic: final_logic, safety: updated_safety}
+    updated_tlc = %{tlc | logic: final_logic, safety: updated_safety, virtual_unix_time: virtual_unix_time}
 
     # Schedule the next tick
-    schedule_tick(real_ms, virtual_ms, tlc.interval)
+    schedule_tick(real_ms, virtual_unix_time, tlc.interval)
 
     # Broadcast state changes
     broadcast_update(updated_tlc)
@@ -360,15 +361,9 @@ defmodule Tlc.Server do
   end
   # Private functions
 
-  defp schedule_tick(_real_ms, virtual_ms, interval) do
-    # Calculate milliseconds until next tick boundary
-    virtual_ms_to_wait = @tick_interval - rem(virtual_ms, @tick_interval)
-    real_ms_to_wait = virtual_to_real_ms(virtual_ms_to_wait, interval)
-
-    #IO.puts "interval: #{interval}, real_ms: #{real_ms}, virtual_ms: #{virtual_ms}, virtual_ms_to_wait : #{virtual_ms_to_wait}, real_ms_to_wait: #{real_ms_to_wait}"
-
-    # Schedule th tick
-    Process.send_after(self(), :tick, real_ms_to_wait)
+  defp schedule_tick(real_ms, _virtual_unix_time, interval) do
+    ms_to_wait = interval - rem(real_ms, interval)
+    Process.send_after(self(), :tick, ms_to_wait)
   end
 
   defp broadcast_update(tlc) do
@@ -392,8 +387,4 @@ defmodule Tlc.Server do
       program -> program.name
     end
   end
-
-  # Update scaling functions to take interval as parameter
-  defp real_to_virtual_ms(real_ms, interval), do: floor(real_ms * @tick_interval / interval)
-  defp virtual_to_real_ms(virtual_ms, interval), do: floor(virtual_ms * interval / @tick_interval)
 end
