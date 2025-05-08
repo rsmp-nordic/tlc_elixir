@@ -1,5 +1,10 @@
 # TlcElixir
+A web app to experiment and validate with the RSMP draft specification for traffic light controller fixed-time programs.
+See https://github.com/rsmp-nordic/tlc_programming for more on the specification.
 
+The app is written in Elixir using the Phoenix framework.
+
+## Running
 To start your Phoenix server:
 
   * Run `mix setup` to install and setup dependencies
@@ -7,12 +12,4 @@ To start your Phoenix server:
 
 Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
 
-Ready to run in production? Please [check our deployment guides](https://hexdocs.pm/phoenix/deployment.html).
-
-## Learn more
-
-  * Official website: https://www.phoenixframework.org/
-  * Guides: https://hexdocs.pm/phoenix/overview.html
-  * Docs: https://hexdocs.pm/phoenix
-  * Forum: https://elixirforum.com/c/phoenix-forum
-  * Source: https://github.com/phoenixframework/phoenix
+Official Phoenix website: https://www.phoenixframework.org/
