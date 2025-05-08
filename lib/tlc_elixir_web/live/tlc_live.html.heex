@@ -292,8 +292,8 @@
                   
                   # Check if this cell has invalid skip transitions
                   current_cell_has_invalid_skip = if @editing && is_end_of_skip && skip_start_point do
-                    # For end points, get start and end state to check transitions
-                    start_state = Tlc.Program.resolve_state(@edited_program, skip_start_point)
+                    # For end points, get state BEFORE the skip starts and state at the end of skip
+                    start_state = Tlc.Program.resolve_state(@edited_program, Tlc.Logic.mod(skip_start_point - 1, @edited_program.length))
                     end_state = Tlc.Program.resolve_state(@edited_program, cycle)
                     
                     # Check each group for invalid transitions
@@ -325,11 +325,13 @@
                   
                   # Build tooltip for skip errors with detailed group information
                   skip_error_tooltip = if current_cell_has_invalid_skip do
-                    # Format each invalid transition with group name
-                    Enum.map(current_cell_has_invalid_skip, fn {group_name, _i, error_msg} -> 
-                      "Group #{group_name}: #{error_msg}"
-                    end)
-                    |> Enum.join("\n")
+                    # Format each invalid transition with group name and clearer information
+                    "Invalid Skip Transition:\n" <> (
+                      Enum.map(current_cell_has_invalid_skip, fn {group_name, _i, error_msg} -> 
+                        "• Group '#{group_name}': #{error_msg}"
+                      end)
+                      |> Enum.join("\n")
+                    )
                   else
                     nil
                   end
@@ -361,12 +363,13 @@
                   end
                 %>
                 <div class={"p-1 h-8 flex items-center justify-center border-r border-b border-gray-600 #{if is_start_of_skip || is_within_skip, do: "bg-gray-400", else: ""} relative"}
-                     title={skip_error_tooltip}>
+                     title={skip_error_tooltip}
+                     data-tooltip-content={skip_error_tooltip}>
                   <%= if is_start_of_skip do %>
                     <%= skip_duration %>
                   <% else %>
                     <%= if current_cell_has_invalid_skip do %>
-                      <div class="invalid-transition-indicator" title={skip_error_tooltip}>
+                      <div class="invalid-transition-indicator cursor-pointer" title={skip_error_tooltip} data-tooltip-content={skip_error_tooltip}>
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                           <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
                         </svg>
