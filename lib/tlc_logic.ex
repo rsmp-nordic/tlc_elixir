@@ -1,4 +1,6 @@
 defmodule Tlc.Logic do
+
+  require Logger
   @moduledoc """
   A module to simulate a fixed-time traffic light program.
 
@@ -23,9 +25,6 @@ defmodule Tlc.Logic do
   # rem() returns negative values if the input is negative, which is not what we want.
   def mod(x,y), do: rem( rem(x,y)+y, y)
 
-  @doc """
-  Creates a new traffic light controller from a Tlc.Program.
-  """
   def new(program, target_program \\ nil) do
     %Tlc.Logic{
       program: program,
@@ -110,21 +109,11 @@ defmodule Tlc.Logic do
     %{logic | cycle_time: mod(logic.base_time + logic.offset, logic.program.length) }
   end
 
-  @doc """
-  Sets the target offset for the traffic program. This will cause the program to
-  gradually adjust to the new offset using skip and wait points.
-
-  Returns the updated program logic.
-  """
   def set_target_offset(logic, target_offset) do
     %{logic | target_offset: mod(target_offset, logic.program.length)}
     |> find_target_distance
   end
 
-  @doc """
-  Updates the current states based on the cycle time.
-  No longer performs transition validation (handled by Tlc.Safety).
-  """
   def update_states(logic) do
     # Simply get and set the new state
     new_states = Tlc.Program.resolve_state(logic.program, logic.cycle_time)
@@ -143,16 +132,12 @@ defmodule Tlc.Logic do
     %{logic | target_program: program}
   end
 
-  @doc """
-  Clears the target program.
-  """
   def clear_target_program(logic) do
     %{logic | target_program: nil, target_offset: logic.offset, target_distance: 0}
   end
 
   def check_halt(logic) when logic.cycle_time == logic.program.halt, do: halt(logic)
   def check_halt(logic), do: logic
-
 
   def halt(logic) do
     %{logic |
@@ -176,10 +161,9 @@ defmodule Tlc.Logic do
   def switch(logic) do
     %{logic | program: logic.target_program, target_program: nil }
     |> update_base_time()
-    |> sync(logic.target_program.switch)  # Reverted back to original behavior
+    |> sync(logic.target_program.switch)
   end
 
-  ## adjust offset to get a specific cycle time
   def sync(logic, target_cycle_time) do
     %{logic |
       offset_adjust: mod(target_cycle_time - logic.unix_time - logic.program.offset, logic.program.length)
@@ -190,34 +174,31 @@ defmodule Tlc.Logic do
     |> find_target_distance
   end
 
-  @doc """
-  Puts the traffic light into fault mode.
-  """
+  def sync_time(logic, sync_time) do
+    target_offset = mod(sync_time - logic.base_time, logic.program.length)
+    logic
+      |> set_target_offset(target_offset)
+  end
+
   def fault(logic, fault_program) do
     %{logic |
       program: fault_program,
       target_program: nil,
-      mode: :fault  # Use :fault mode instead of :run
+      mode: :fault
     }
     |> update_base_time()
     |> sync(fault_program.switch)
     |> update_states()
   end
 
-  @doc """
-  Recovers the traffic light from fault mode to normal operation.
-  Uses the halt program and starts from the halt point with halt mode active.
-  """
   def recover(logic, halt_program) do
     %{logic |
       program: halt_program,
       target_program: nil,
-      mode: :halt  # Set to halt mode instead of run mode
+      mode: :halt
     }
     |> update_base_time()
-    |> sync(halt_program.halt)  # Already using halt point
+    |> sync(halt_program.halt)
     |> update_states()
   end
-
-  # End of module
 end

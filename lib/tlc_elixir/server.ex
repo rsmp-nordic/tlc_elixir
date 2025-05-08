@@ -4,8 +4,13 @@ defmodule Tlc.Server do
 
   @tick_interval 1000
 
-  # Add safety to struct definition
-  defstruct [:logic, :programs, :target_program, :safety, interval: @tick_interval, virtual_unix_time: 0]
+  defstruct logic: nil,
+            programs: [],
+            target_program: nil,
+            safety: nil,
+            interval: @tick_interval,
+            resync: false,
+            virtual_unix_time: 0
 
   # Client API
 
@@ -224,9 +229,9 @@ defmodule Tlc.Server do
 
   @impl true
   def handle_call({:set_interval, interval}, _from, tlc) do
-    updated_tlc = %{tlc | interval: interval}
-    broadcast_update(updated_tlc)
-    {:reply, :ok, updated_tlc}
+    tlc = %{tlc | interval: interval, resync: true}
+    broadcast_update(tlc)
+    {:reply, :ok, tlc}
   end
 
   @impl true
@@ -334,24 +339,39 @@ defmodule Tlc.Server do
     # Update the Tlc state for each tick
     real_ms = System.os_time(:millisecond)
     virtual_unix_time = tlc.virtual_unix_time + 1
-    updated_logic = Tlc.Logic.tick(tlc.logic, virtual_unix_time)
+
+    logic = tlc.logic
+    logic = if tlc.resync do
+      sync_time = floor(real_ms / tlc.interval)
+      Tlc.Logic.sync_time(tlc.logic, sync_time)
+    else
+      logic
+    end
+
+    logic =  Tlc.Logic.tick(logic, virtual_unix_time)
+
 
     # Get the fault program for safety checks
     fault_program = Enum.find(tlc.programs, fn prog -> prog.name == "fault" end)
 
     # Check for safety violations
-    {updated_safety, final_logic} =
-      Tlc.Safety.check_transitions(tlc.safety, updated_logic, fault_program)
+    {updated_safety, logic} =
+      Tlc.Safety.check_transitions(tlc.safety, logic, fault_program)
 
     # Update with potentially modified logic and safety
-    updated_tlc = %{tlc | logic: final_logic, safety: updated_safety, virtual_unix_time: virtual_unix_time}
+    tlc = %{tlc |
+      logic: logic,
+      safety: updated_safety,
+      virtual_unix_time: virtual_unix_time,
+      resync: false
+    }
 
     # Schedule the next tick
     schedule_tick(real_ms, virtual_unix_time, tlc.interval)
 
     # Broadcast state changes
-    broadcast_update(updated_tlc)
-    {:noreply, updated_tlc}
+    broadcast_update(tlc)
+    {:noreply, tlc}
   end
 
   @impl true

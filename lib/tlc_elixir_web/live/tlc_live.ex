@@ -67,7 +67,7 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("set_interval", %{"interval" =>interval_str}, socket) do
-   interval = String.to_integer(interval_str)
+    interval = String.to_integer(interval_str)
     Tlc.Server.set_interval(socket.assigns.server,interval)
     {:noreply, socket}
   end
