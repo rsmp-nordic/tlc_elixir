@@ -130,11 +130,11 @@ defmodule Tlc.Server do
           1 => "GY",
           2 => "GA",
           3 => "GR",
-          5 => "YR",
-          6 => "RR",
+          4 => "YR",
+          5 => "RR",
           8 => "AY",
           9 => "AG"
-        },
+      },
         skips: %{5 => 3},
         waits: %{0 => 3},
         switch: 3
