@@ -1,7 +1,6 @@
 <div class="w-full bg-gray-900" id="tlc-container" phx-hook="DragHandler">
   <div class="container mx-auto">
     <%
-      # Determine which program to use in the UI
       display_program = cond do
         @editing -> @edited_program
         @saved_program != nil -> @saved_program
@@ -13,7 +12,7 @@
     <div class="flex flex-col gap-2 p-2">
       <!-- Signal Heads and State sections side by side -->
       <div class="flex flex-wrap gap-2">
-        <!-- Current State section - takes remaining space (now first/left) -->
+        <!-- Current State section -->
         <div class="flex-1">
           <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 h-full">
             <h2 class="text-lg font-semibold text-gray-200 mb-2">Logic</h2>
@@ -39,13 +38,12 @@
           </div>
         </div>
 
-        <!-- Signal Head Visualization - width based on content (now second/right) -->
-        <div class=""> <!-- Removed flex-1 to let it size naturally -->
+        <!-- Signal Head Visualization -->
+        <div class="">
           <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 h-full">
             <h2 class="text-lg font-semibold text-gray-200 mb-2">Groups</h2>
             <div class="flex justify-center gap-8" id="signal-heads-container">
               <%
-                # Get current state directly from the logic
                 current_state = @tlc.logic.current_states
                 groups = @tlc.logic.program.groups
               %>
@@ -53,7 +51,6 @@
                 <div class="flex flex-col items-center" id={"signal-head-#{i}"}>
                   <div class="signal-head flex flex-col gap-2 p-2 bg-gray-900 rounded border border-gray-700">
                     <%
-                      # Extract signal and determine lamp states
                       signal = String.at(current_state, i)
                       states = lamp_states(signal)
                     %>
@@ -82,32 +79,26 @@
               <div class="flex flex-wrap gap-3">
                 <%= if not @editing do %>
                   <%= for program <- @tlc.programs do %>
-                    <!-- Disable program buttons when in fault mode -->
                     <%
-                      # Determine if this button should be clickable for program switching
-                      # In fault mode, no buttons are clickable
                       clickable = cond do
-                        @tlc.logic.mode == :fault -> false  # No buttons clickable in fault mode
-                        program.name == "fault" -> false    # Fault program never clickable
-                        true -> true                        # Other programs clickable when not in fault mode
+                        @tlc.logic.mode == :fault -> false
+                        program.name == "fault" -> false
+                        true -> true
                       end
                       
-                      # Determine button visual styling
                       button_class = cond do
-                        @tlc.logic.mode == :fault && program.name != "fault" -> "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50" # Dimmed in fault mode
-                        program.name == "fault" && @tlc.logic.mode != :fault -> "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50" # Fault button always dimmed when not active
-                        program.name == @tlc.logic.program.name -> "bg-purple-600 text-white" # Active program in purple
-                        program.name == @target_program -> "bg-gray-700 text-white" # Target program in standard gray
-                        true -> "bg-gray-700 hover:bg-gray-600 text-white"  # Default style
+                        @tlc.logic.mode == :fault && program.name != "fault" -> "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
+                        program.name == "fault" && @tlc.logic.mode != :fault -> "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
+                        program.name == @tlc.logic.program.name -> "bg-purple-600 text-white"
+                        program.name == @target_program -> "bg-gray-700 text-white"
+                        true -> "bg-gray-700 hover:bg-gray-600 text-white"
                       end
                     %>
-                    <!-- Single button containing both label and edit icon -->
                     <button 
                       phx-click={if clickable, do: "switch_program", else: nil}
                       phx-value-program_name={program.name}
                       class={"px-3 py-1 rounded flex items-center #{button_class} group relative"}
                     >
-                      <!-- Icon container with fixed width to prevent button size changes -->
                       <div class="w-5 flex justify-center mr-1">
                         <%= if program.name == @target_program do %>
                           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -118,9 +109,7 @@
                       
                       <span><%= program.name %></span>
                       
-                      <%!-- Show edit pencil only if not currently running and not active fault program --%>
                       <%= if (@tlc.logic.mode != :fault || program.name != "fault") && program.name != @tlc.logic.program.name do %>
-                        <!-- Edit icon inside the button, shown on hover -->
                         <svg 
                           phx-click="start_editing"
                           phx-value-program_name={program.name}
@@ -137,34 +126,30 @@
                   <% end %>
                 <% else %>
                   <!-- Program editing form -->
-                  <div class="flex items-center gap-3">
+                  <form phx-change="update_program_form" phx-submit="prevent_submit" class="flex items-center gap-3">
                     <div class="flex items-center">
                       <label class="text-gray-400 mr-2">Name:</label>
-                      <input type="text" value={@edited_program.name}
+                      <input type="text" name="program_name" value={@edited_program.name}
                              phx-blur="update_program_name"
                              class="bg-gray-700 text-white px-2 py-1 rounded border border-gray-600 w-32" />
                     </div>
                     <div class="flex items-center">
                       <label class="text-gray-400 mr-2">Length:</label>
-                      <input type="number" id="program-length-input"
+                      <input type="number" id="program-length-input" name="program_length"
                              value={@edited_program.length}
                              min="1"
                              max="100"
-                             phx-hook="NumberInputHandler"
-                             data-field="length"
                              class="bg-gray-700 text-white px-2 py-1 rounded border border-gray-600 w-16" />
                     </div>
                     <div class="flex items-center">
                       <label class="text-gray-400 mr-2">Offset:</label>
-                      <input type="number" id="program-offset-input"
+                      <input type="number" id="program-offset-input" name="program_offset"
                              value={@edited_program.offset || 0}
                              min="0"
                              max={@edited_program.length - 1}
-                             phx-hook="NumberInputHandler"
-                             data-field="offset"
                              class="bg-gray-700 text-white px-2 py-1 rounded border border-gray-600 w-16" />
                     </div>
-                  </div>
+                  </form>
                 <% end %>
               </div>
 
@@ -210,11 +195,12 @@
                 <button phx-click="set_interval" phx-value-interval="10" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @tlc.interval == 10, do: "bg-purple-700"}"}>
                   10
                 </button>
+                <button phx-click="set_interval" phx-value-interval="3" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @tlc.interval == 3, do: "bg-purple-700"}"}>
+                  3
+                </button>
               </div>
             <% end %>
           </div>
-
-          <!-- Remove the Validation Error Banner section completely -->
 
           <!-- Column-based layout -->
           <div class="flex border-t border-l border-gray-600">
@@ -267,45 +253,35 @@
                   has_skip = skip_duration > 0
                   is_start_of_skip = has_skip
                   
-                  # Check if this cycle is the end point of any skip
                   is_end_of_skip = if @editing do
                     Enum.any?(@edited_program.skips || %{}, fn {start, duration} ->
-                      # Use Tlc.Logic.mod to handle wraparound at cycle length boundary
                       cycle == Tlc.Logic.mod(start + duration, @edited_program.length)
                     end)
                   else
                     Enum.any?(@tlc.logic.program.skips || %{}, fn {start, duration} ->
-                      # Use Tlc.Logic.mod to handle wraparound at cycle length boundary
                       cycle == Tlc.Logic.mod(start + duration, @tlc.logic.program.length)
                     end)
                   end
                   
-                  # Get the skip start cycle if this is an end point
                   skip_start_point = if is_end_of_skip && @editing do
                     Enum.find_value(@edited_program.skips || %{}, fn {start, duration} ->
-                      # Same fix for the wraparound case
                       if cycle == Tlc.Logic.mod(start + duration, @edited_program.length), do: start, else: nil
                     end)
                   else
                     nil
                   end
                   
-                  # Check if this cell has invalid skip transitions
                   current_cell_has_invalid_skip = if @editing && is_end_of_skip && skip_start_point do
-                    # For end points, get state BEFORE the skip starts and state at the end of skip
                     start_state = Tlc.Program.resolve_state(@edited_program, Tlc.Logic.mod(skip_start_point - 1, @edited_program.length))
                     end_state = Tlc.Program.resolve_state(@edited_program, cycle)
                     
-                    # Check each group for invalid transitions
                     skip_transitions = Enum.reduce(Enum.with_index(@edited_program.groups), [], fn {group_name, i}, acc ->
                       start_signal = String.at(start_state, i)
                       end_signal = String.at(end_state, i)
                       
-                      # Same transition checks as before
                       is_invalid = case {start_signal, end_signal} do
-                        {"G", "R"} -> true  # Green to Red without Yellow
-                        {"R", "G"} -> true  # Red to Green without Yellow/Amber
-                        # Add other invalid transitions as needed
+                        {"G", "R"} -> true
+                        {"R", "G"} -> true
                         _ -> false
                       end
                       
@@ -317,15 +293,12 @@
                       end
                     end)
                     
-                    # Store the transitions for tooltip use
                     length(skip_transitions) > 0 && skip_transitions
                   else
                     false
                   end
                   
-                  # Build tooltip for skip errors with detailed group information
                   skip_error_tooltip = if current_cell_has_invalid_skip do
-                    # Format each invalid transition with group name and clearer information
                     "Invalid Skip Transition:\n" <> (
                       Enum.map(current_cell_has_invalid_skip, fn {group_name, _i, error_msg} -> 
                         "• Group '#{group_name}': #{error_msg}"
@@ -336,16 +309,12 @@
                     nil
                   end
                   
-                  # Check if this cell is within any skip period
                   is_within_skip = if @editing do
-                    # Changed to properly check skips in editing mode
                     Enum.any?(@edited_program.skips || %{}, fn {start, duration} ->
                       end_cycle = Tlc.Logic.mod(start + duration, @edited_program.length)
                       if start < end_cycle do
-                        # No wraparound case
                         cycle > start && cycle < end_cycle
                       else
-                        # Wraparound case
                         cycle > start || cycle < end_cycle
                       end
                     end)
@@ -353,10 +322,8 @@
                     Enum.any?(@tlc.logic.program.skips || %{}, fn {start, duration} ->
                       end_cycle = Tlc.Logic.mod(start + duration, @tlc.logic.program.length)
                       if start < end_cycle do
-                        # No wraparound case
                         cycle > start && cycle < end_cycle
                       else
-                        # Wraparound case
                         cycle > start || cycle < end_cycle
                       end
                     end)
@@ -427,10 +394,9 @@
                       Tlc.Program.resolve_state(display_program, cycle)
                     end
                     signal = String.at(state, i)
-
-                    # Keep using case but ensure color classes match those in lamp_class()
+                    
                     bg_class = case signal do
-                      "R" -> "bg-red-600"    # Same as used in lamp_class(true, :red)
+                      "R" -> "bg-red-600" # Same as used in lamp_class(true, :red)
                       "Y" -> "bg-yellow-500" # Same as used in lamp_class(true, :yellow)
                       "A" -> "bg-orange-500" # Same as used in lamp_class(true, :yellow)
                       "G" -> "bg-green-600"  # Same as used in lamp_class(true, :green)
@@ -438,10 +404,7 @@
                       _ -> "bg-gray-800"
                     end
                     
-                    # Check if this cell has an invalid transition
                     has_invalid_transition = @editing && Map.has_key?(@invalid_transitions, {cycle, i})
-                    
-                    # Get the error message for tooltip if available
                     error_tooltip = if has_invalid_transition, do: Map.get(@invalid_transitions, {cycle, i}), else: nil
                   %>
                   <div 

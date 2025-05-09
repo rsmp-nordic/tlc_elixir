@@ -2,13 +2,11 @@ defmodule TlcElixirWeb.TlcLive do
   use TlcElixirWeb, :live_view
   require Logger
 
-  # Import our custom components with the updated module name
   import TlcElixirWeb.TlcComponents
 
   @impl true
-  def mount(_params, _session, socket) do # _session is no longer used for server ID
+  def mount(_params, _session, socket) do
     live_pid = self()
-    # Generate a unique ID for this LiveView instance
     live_instance_id = generate_unique_id()
 
     base_assigns = %{
@@ -22,7 +20,7 @@ defmodule TlcElixirWeb.TlcLive do
       switch_dragging: false,
       formatted_program: "",
       invalid_transitions: %{},
-      mount_error: nil # Initialize mount_error
+      mount_error: nil
     }
 
     case ensure_server_started(live_instance_id) do
@@ -50,7 +48,6 @@ defmodule TlcElixirWeb.TlcLive do
         Logger.error(
           "[TlcLive #{inspect(live_pid)}] Failed to ensure server started for ID #{live_instance_id}. Reason: #{inspect(reason)}"
         )
-        # Assign an error message. The template should handle this.
         {:ok,
          assign(
            socket,
@@ -61,7 +58,6 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("switch_program", %{"program_name" => program_name}, socket) do
-    # Ignore program switching when in fault mode
     if socket.assigns.tlc.logic.mode != :fault do
       Tlc.Server.switch_program(socket.assigns.server, program_name)
     end
@@ -96,20 +92,16 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("start_editing", %{"program_name" => program_name}, socket) do
-    # Find the program to edit by name
     program_to_edit = Enum.find(socket.assigns.tlc.programs, fn prog ->
       prog.name == program_name
     end)
 
     if program_to_edit do
-      # Check if this is the target program - if so, clear it to prevent switch during editing
       if socket.assigns.target_program == program_name do
         Tlc.Server.clear_target_program(socket.assigns.server)
       end
 
       socket = assign(socket, editing: true, edited_program: program_to_edit)
-
-      # Initialize validation status
       socket = validate_edited_program(socket)
 
       {:noreply, socket}
@@ -125,13 +117,8 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("save_program", _, socket) do
-    # Get the edited program
     edited_program = socket.assigns.edited_program
-
-    # Don't set saved_program for highlighting - this was causing visual confusion
     socket = assign(socket, editing: false, edited_program: nil)
-
-    # Save the program but don't make it active (false parameter)
     Tlc.Server.update_program(socket.assigns.server, edited_program, false)
 
     {:noreply, socket}
@@ -145,10 +132,9 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("update_program_length", %{"value" => length_str}, socket) do
-    # Parse input, default to 1 if empty or invalid
     length = case Integer.parse(length_str) do
       {value, _} when value > 0 -> value
-      _ -> 1  # Default to minimum valid length
+      _ -> 1
     end
 
     updated_program = Map.put(socket.assigns.edited_program, :length, length)
@@ -157,12 +143,10 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("update_program_offset", %{"value" => offset_str}, socket) do
-    # Parse input, ensure it's valid
     offset = case Integer.parse(offset_str) do
       {value, _} when value >= 0 ->
-        # Ensure offset is within program length bounds
         min(value, socket.assigns.edited_program.length - 1)
-      _ -> 0  # Default to 0 if invalid
+      _ -> 0
     end
 
     updated_program = Map.put(socket.assigns.edited_program, :offset, offset)
@@ -190,8 +174,6 @@ defmodule TlcElixirWeb.TlcLive do
 
       updated_program = Tlc.Program.set_group_signal(socket.assigns.edited_program, cycle, group_idx, signal)
       socket = assign(socket, edited_program: updated_program)
-
-      # Add validation after updating the program
       socket = validate_edited_program(socket)
 
       {:noreply, socket}
@@ -234,36 +216,26 @@ defmodule TlcElixirWeb.TlcLive do
     {:noreply, assign(socket, edited_program: updated_program)}
   end
 
-  # Remove the set_switch_point handler as it's no longer needed
-  # We're now only using drag functionality to move the switch point
-
   @impl true
   def handle_event("switch_drag_start", _params, socket) do
-    # Set the switch_dragging assign to true when dragging starts
     {:noreply, assign(socket, switch_dragging: true)}
   end
 
-  # Update to handle the drag end with an optional cycle update
   @impl true
   def handle_event("end_switch_drag", params, socket) do
     socket =
       case params do
-        # If cycle is provided, update the switch point position
         %{"cycle" => cycle_str} ->
-          cycle = parse_int(cycle_str) # Use parse_int for robustness
+          cycle = parse_int(cycle_str)
           updated_program = Map.put(socket.assigns.edited_program, :switch, cycle)
           assign(socket, edited_program: updated_program, switch_dragging: false)
 
-        # No cycle provided, just end dragging
         _ ->
           assign(socket, switch_dragging: false)
       end
 
     {:noreply, socket}
   end
-
-  # Remove the move_switch_point handler as it's no longer needed
-  # We're not updating the switch position during drag now
 
   @impl true
   def handle_event("drag_start", %{"cycle" => cycle_str, "group" => group_str, "signal" => signal}, socket) do
@@ -280,10 +252,8 @@ defmodule TlcElixirWeb.TlcLive do
     start_cycle = parse_int(start_cycle_val)
     group_idx = parse_int(group_val)
 
-    # Sort the start and end cycles
     {cycle_start, cycle_end} = if start_cycle <= end_cycle, do: {start_cycle, end_cycle}, else: {end_cycle, start_cycle}
 
-    # Apply the signal to all cells in the range
     updated_program = Tlc.Program.set_group_signal_range(
       socket.assigns.edited_program,
       cycle_start,
@@ -293,8 +263,6 @@ defmodule TlcElixirWeb.TlcLive do
     )
 
     socket = assign(socket, edited_program: updated_program, drag_start: nil, drag_signal: nil)
-
-    # Add validation after dragging
     socket = validate_edited_program(socket)
 
     {:noreply, socket}
@@ -302,13 +270,11 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("edit_skip", %{"cycle" => cycle_str, "duration" => duration_str}, socket) do
-    # Just push the event back to the client to open the prompt
     {:noreply, push_event(socket, "open_skip_prompt", %{cycle: cycle_str, current_duration: duration_str})}
   end
 
   @impl true
   def handle_event("edit_wait", %{"cycle" => cycle_str, "duration" => duration_str}, socket) do
-    # Just push the event back to the client to open the prompt
     {:noreply, push_event(socket, "open_wait_prompt", %{cycle: cycle_str, current_duration: duration_str})}
   end
 
@@ -320,7 +286,6 @@ defmodule TlcElixirWeb.TlcLive do
       end_cycle = parse_int(end_cycle_val)
       group_idx = parse_int(group_val)
 
-      # Use the new stretch function to fill all cycles in the gap
       updated_program = Tlc.Program.set_group_signal_stretch(
         socket.assigns.edited_program,
         start_cycle,
@@ -330,8 +295,6 @@ defmodule TlcElixirWeb.TlcLive do
       )
 
       socket = assign(socket, edited_program: updated_program)
-
-      # Add validation after filling gap
       socket = validate_edited_program(socket)
 
       {:noreply, socket}
@@ -345,14 +308,13 @@ defmodule TlcElixirWeb.TlcLive do
     length =
       case Integer.parse(length_str) do
         {value, _} when value > 0 -> value
-        _ -> socket.assigns.edited_program.length # Keep current value if invalid on Enter
+        _ -> socket.assigns.edited_program.length
       end
 
     updated_program = Map.put(socket.assigns.edited_program, :length, length)
     {:noreply, assign(socket, edited_program: updated_program)}
   end
 
-  # Ignore non-Enter keypresses
   def handle_event("handle_length_keyup", _params, socket) do
     {:noreply, socket}
   end
@@ -362,30 +324,27 @@ defmodule TlcElixirWeb.TlcLive do
     offset =
       case Integer.parse(offset_str) do
         {value, _} when value >= 0 ->
-          min(value, socket.assigns.edited_program.length - 1) # Ensure offset is within bounds
-        _ -> socket.assigns.edited_program.offset || 0 # Keep current value if invalid
+          min(value, socket.assigns.edited_program.length - 1)
+        _ -> socket.assigns.edited_program.offset || 0
       end
 
     updated_program = Map.put(socket.assigns.edited_program, :offset, offset)
     {:noreply, assign(socket, edited_program: updated_program)}
   end
 
-  # Ignore non-Enter keypresses for offset
   def handle_event("handle_offset_keyup", _params, socket) do
     {:noreply, socket}
   end
 
   @impl true
   def handle_event("update_program_length_immediate", %{"value" => length_str}, socket) do
-    # Parse input, default to 1 if empty or invalid
     length = case Integer.parse(length_str) do
       {value, _} when value > 0 -> value
-      _ -> socket.assigns.edited_program.length  # Keep current value if invalid
+      _ -> socket.assigns.edited_program.length
     end
 
     updated_program = Map.put(socket.assigns.edited_program, :length, length)
 
-    # Also make sure offset stays within bounds
     current_offset = updated_program.offset || 0
     updated_program =
       if current_offset >= length do
@@ -399,12 +358,10 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("update_program_offset_immediate", %{"value" => offset_str}, socket) do
-    # Parse input, ensure it's valid
     offset = case Integer.parse(offset_str) do
       {value, _} when value >= 0 ->
-        # Ensure offset is within program length bounds
         min(value, socket.assigns.edited_program.length - 1)
-      _ -> socket.assigns.edited_program.offset || 0  # Keep current value if invalid
+      _ -> socket.assigns.edited_program.offset || 0
     end
 
     updated_program = Map.put(socket.assigns.edited_program, :offset, offset)
@@ -427,7 +384,6 @@ defmodule TlcElixirWeb.TlcLive do
   @spec handle_info({:tlc_updated, any()}, any()) :: {:noreply, any()}
   def handle_info({:tlc_updated, new_tlc_state}, socket) do
     if socket.assigns.mount_error do
-      # Do nothing if mount failed and an error is set
       {:noreply, socket}
     else
       target_program = Tlc.Server.get_target_program(socket.assigns.server)
@@ -436,39 +392,64 @@ defmodule TlcElixirWeb.TlcLive do
     end
   end
 
+  @impl true
+  def handle_event("update_program_form", params, socket) do
+    %{"program_name" => name, "program_length" => length_str, "program_offset" => offset_str} = params
 
-  # Add helper function to determine if a cycle is between offset and target
-  # Guard clause for editing state
+    length = case Integer.parse(length_str) do
+      {value, _} when value > 0 -> value
+      _ -> socket.assigns.edited_program.length
+    end
+
+    offset = case Integer.parse(offset_str) do
+      {value, _} when value >= 0 ->
+        min(value, length - 1)
+      _ -> socket.assigns.edited_program.offset || 0
+    end
+
+    updated_program = socket.assigns.edited_program
+      |> Map.put(:name, name)
+      |> Map.put(:length, length)
+      |> Map.put(:offset, offset)
+
+    socket = assign(socket, edited_program: updated_program)
+    socket = validate_edited_program(socket)
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("prevent_submit", _params, socket) do
+    {:noreply, socket}
+  end
+
   defp is_between_offsets(_cycle, _logic, true), do: false
 
   defp is_between_offsets(cycle, logic, false) do
-    # Assuming logic and its fields (offset, target_offset, target_distance) are valid (non-nil)
-    # if this function is called without a mount_error.
     current_offset = logic.offset
     target_offset = logic.target_offset
     target_distance = logic.target_distance
 
     cond do
       target_distance == 0 ->
-        false # No distance, so not between
+        false
 
-      target_distance > 0 -> # Moving forward
-        if target_offset < current_offset do # Forward wrap-around (e.g., offset 10, target 2, length 12)
+      target_distance > 0 ->
+        if target_offset < current_offset do
           cycle > current_offset or cycle <= target_offset
-        else # Normal forward (e.g., offset 2, target 5)
+        else
           cycle > current_offset and cycle <= target_offset
         end
 
-      target_distance < 0 -> # Moving backward
-        if target_offset > current_offset do # Backward wrap-around (e.g., offset 2, target 10, length 12)
+      target_distance < 0 ->
+        if target_offset > current_offset do
           cycle < current_offset or cycle >= target_offset
-        else # Normal backward (e.g., offset 5, target 2)
+        else
           cycle < current_offset and cycle >= target_offset
         end
     end
   end
 
-  # Add helper for cycling signals
   defp next_signal("R"), do: "Y"
   defp next_signal("Y"), do: "A"
   defp next_signal("A"), do: "G"
@@ -476,19 +457,17 @@ defmodule TlcElixirWeb.TlcLive do
   defp next_signal("D"), do: "R"
   defp next_signal(_), do: "R"
 
-  # Replace with a simpler lamp_states function that uses uppercase states directly
   defp lamp_states(signal) do
     case signal do
       "R" -> %{red: true, yellow: false, green: false}
       "Y" -> %{red: false, yellow: true, green: false}
       "A" -> %{red: true, yellow: true, green: false}
       "G" -> %{red: false, yellow: false, green: true}
-      "D" -> %{red: false, yellow: false, green: false}  # Dark state, all off
+      "D" -> %{red: false, yellow: false, green: false}
       _ -> %{red: false, yellow: false, green: false}
     end
   end
 
-  # Helper functions for lamp classes
   defp lamp_class(is_on, color) do
     if is_on do
       case color do
@@ -501,14 +480,9 @@ defmodule TlcElixirWeb.TlcLive do
     end
   end
 
-  # ensure_server_started now takes a unique server_id for each LiveView instance
   defp ensure_server_started(server_id) do
     server_name_via_tuple = Tlc.Server.via_tuple(server_id)
 
-    # Attempt to start the server.
-    # TlcElixir.ServerSupervisor.start_server should handle naming and registration
-    # such that if the server is already running with the name derived from server_id,
-    # it returns {:error, {:already_started, pid}}.
     case TlcElixir.ServerSupervisor.start_server(server_id) do
       {:ok, pid} ->
         Logger.info(
@@ -520,7 +494,6 @@ defmodule TlcElixirWeb.TlcLive do
         Logger.warning(
           "[TlcLive] Server for ID #{server_id} was already started (PID #{inspect(pid)}). Access via #{inspect(server_name_via_tuple)}."
         )
-        # This assumes that if it's already_started, it's correctly registered and accessible.
         {:ok, server_name_via_tuple}
 
       {:error, reason} ->
@@ -529,32 +502,27 @@ defmodule TlcElixirWeb.TlcLive do
         )
         {:error, reason}
 
-      # Catch any unexpected return values from the supervisor call
       other ->
         Logger.error(
-          "[TlcLive] Unexpected result from TlcElixir.ServerSupervisor.start_server for ID #{server_id}: #{inspect(other)}"
+          "[TlcLive] Unexpected result from TlcElixir.ServerSupervisor.start_server for ID #{server_id}: #{inspect(other)}."
         )
         {:error, {:unexpected_supervisor_start_result, other}}
     end
   end
 
-  # Renamed from generate_session_id to reflect its new purpose
   defp generate_unique_id do
     :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower)
   end
 
-  # Helper function to determine which program to display
   defp display_program(socket) do
     socket.assigns.tlc.logic.program
   end
 
-  # Add the missing validate_edited_program function
   defp validate_edited_program(socket) do
     invalid_transitions = Tlc.Program.get_invalid_transitions(socket.assigns.edited_program)
     assign(socket, invalid_transitions: invalid_transitions)
   end
 
-  # Add a helper function to safely parse integers from either strings or integers
   defp parse_int(value) when is_binary(value) do
     case Integer.parse(value) do
       {int, _} -> int

@@ -1,5 +1,4 @@
 defmodule Tlc.Logic do
-
   require Logger
   @moduledoc """
   A module to simulate a fixed-time traffic light program.
@@ -21,8 +20,7 @@ defmodule Tlc.Logic do
             waited: 0,
             current_states: ""
 
-  # Elixir has no modulo function, so define one.
-  # rem() returns negative values if the input is negative, which is not what we want.
+  # Define modulo function since rem() returns negative values for negative inputs
   def mod(x,y), do: rem( rem(x,y)+y, y)
 
   def new(program, target_program \\ nil) do

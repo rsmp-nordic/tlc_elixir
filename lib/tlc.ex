@@ -9,5 +9,4 @@ defmodule Tlc do
       programs: programs
     }
   end
-
 end
