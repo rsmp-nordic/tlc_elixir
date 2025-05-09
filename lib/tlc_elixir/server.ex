@@ -14,18 +14,40 @@ defmodule Tlc.Server do
 
   # Client API
 
-  def start_link(init_args) do
+  # This start_link/1 is what the DynamicSupervisor will call.
+  # It receives the arguments defined in the child_spec, which is {session_id}.
+  def start_link({session_id}) do
+    # We need to ensure the server is registered with its session-specific name.
+    # The init_args passed to GenServer.start_link will be passed to Tlc.Server.init/1.
+    server_name = via_tuple(session_id)
+    GenServer.start_link(__MODULE__, {session_id}, name: server_name)
+  end
+
+  # Keep the old start_link/1 for other potential uses, but it won't be used by the supervisor.
+  # Or, decide if this arity is still needed. For now, let's assume it might be.
+  def start_link(init_args) when not is_tuple(init_args) or elem(init_args, 0) != :session_id do
+    # This variant should probably be reviewed if it's still needed.
+    # If it is, it needs to decide on a name or if it runs unnamed.
     GenServer.start_link(__MODULE__, init_args)
   end
 
+  # Keep start_link/2 for named instances if needed outside supervisor context.
   def start_link(init_args, name) do
     GenServer.start_link(__MODULE__, init_args, name: name)
   end
 
-  def start_session(session_id) do
-    name = via_tuple(session_id)
-    start_link(nil, name)
-  end
+  # start_session is now primarily a helper for TlcLive to ask the supervisor to start a server.
+  # It will be replaced by a call to the supervisor in TlcLive.
+  # However, if Tlc.Server.start_session is used elsewhere, it needs adjustment
+  # or removal if TlcElixir.ServerSupervisor.start_server is the sole entry point.
+  # For now, let's comment it out to ensure we update TlcLive.
+  # def start_session(session_id) do
+  #   name = via_tuple(session_id)
+  #   # This now needs to go through the supervisor.
+  #   # TlcElixir.ServerSupervisor.start_server(session_id)
+  #   # For direct calls (if any are left), it would be:
+  #   start_link({session_id}) # This will ensure it's named via_tuple(session_id)
+  # end
 
   def via_tuple(session_id) do
     {:via, Registry, {Tlc.ServerRegistry, "tlc_server:#{session_id}"}}
@@ -90,7 +112,9 @@ defmodule Tlc.Server do
   # Server callbacks
 
   @impl true
-  def init(_init_args) do
+  # init/1 now receives {session_id} from the start_link call made by the supervisor.
+  def init({session_id}) do
+    Logger.info("[Tlc.Server] Initializing for session_id: #{session_id}")
     programs = [
       %Tlc.Program{
         name: "halt",
@@ -173,43 +197,26 @@ defmodule Tlc.Server do
     default_interval = @tick_interval
     real_ms = System.os_time(:millisecond)
     virtual_unix_time = floor(real_ms / @tick_interval)
-    tlc = Tlc.new(programs)
+    tlc_logic_instance = Tlc.new(programs) # Renamed to avoid confusion with tlc map/struct
     logic =
-      tlc.logic
+      tlc_logic_instance.logic
       |> Tlc.Logic.halt()
       |> Tlc.Logic.update_unix_time(virtual_unix_time)
       |> Tlc.Logic.update_base_time()
 
-    # Create the struct with all fields including safety
-    tlc = %__MODULE__{
+    tlc_server_state = %__MODULE__{
       logic: logic,
-      programs: tlc.programs,
+      programs: tlc_logic_instance.programs,
       target_program: nil,
       interval: default_interval,
       safety: Tlc.Safety.new(),
       virtual_unix_time: virtual_unix_time
     }
 
-    # Start the tick timer
-    schedule_tick(real_ms, virtual_unix_time, tlc.interval)
-
-
-    # Add crash tracing
-    Process.flag(:trap_exit, true)
-
-    # Start with more detailed logs
-    Logger.configure(level: :debug)
-    Logger.info("Tlc.Server started with PID: #{inspect(self())}")
-
-    {:ok, tlc}
+    schedule_tick(real_ms, virtual_unix_time, tlc_server_state.interval)
+    {:ok, tlc_server_state}
   end
 
-  @impl true
-  def terminate(reason, state) do
-    Logger.error("Tlc.Server terminated with reason: #{inspect(reason)}")
-    Logger.error("Final state: #{inspect(state)}")
-    :ok
-  end
 
   @impl true
   def handle_call(:get_state, _from, tlc) do
@@ -374,11 +381,6 @@ defmodule Tlc.Server do
     {:noreply, tlc}
   end
 
-  @impl true
-  def handle_info({:EXIT, pid, reason}, state) do
-    Logger.error("Linked process #{inspect(pid)} exited with reason: #{inspect(reason)}")
-    {:noreply, state}
-  end
   # Private functions
 
   defp schedule_tick(real_ms, _virtual_unix_time, interval) do
