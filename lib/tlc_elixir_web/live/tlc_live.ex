@@ -6,26 +6,27 @@ defmodule TlcElixirWeb.TlcLive do
   import TlcElixirWeb.TlcComponents
 
   @impl true
-  def mount(_params, session, socket) do
+  def mount(_params, _session, socket) do # _session is no longer used for server ID
     live_pid = self()
-    # Generate a session ID if not already present
-    session_id = Map.get(session, "session_id", generate_session_id())
+    # Generate a unique ID for this LiveView instance
+    live_instance_id = generate_unique_id()
 
-    # Start a new server for this session or get the existing one
-    {:ok, server_via_tuple} = ensure_server_started(session_id)
+    # Start a new server for this LiveView instance using the unique ID
+    {:ok, server_via_tuple} = ensure_server_started(live_instance_id)
 
     if connected?(socket) do
-      Phoenix.PubSub.subscribe(TlcElixir.PubSub, "tlc_updates:#{session_id}")
+      # Subscribe to updates using the unique live_instance_id
+      Phoenix.PubSub.subscribe(TlcElixir.PubSub, "tlc_updates:#{live_instance_id}")
     end
 
     tlc = Tlc.Server.current_state(server_via_tuple)
     target_program = Tlc.Server.get_target_program(server_via_tuple)
 
-    Logger.info("[TlcLive #{inspect(live_pid)}] successfully mounted. Session ID: #{session_id}")
+    Logger.info("[TlcLive #{inspect(live_pid)}] successfully mounted. LiveView Instance ID: #{live_instance_id}")
     {:ok, assign(socket,
       tlc: tlc,
       server: server_via_tuple, # Use the via tuple
-      session_id: session_id,
+      live_instance_id: live_instance_id, # Store the unique ID for this LiveView
       show_program_modal: false,
       target_program: target_program,
       editing: false,
@@ -408,6 +409,7 @@ defmodule TlcElixirWeb.TlcLive do
     #Logger.debug("[TlcLive #{inspect(live_pid)}] received :tlc_updated. Server interval: #{new_tlc_state.interval}ms. New tlc.logic.offset: #{new_tlc_state.logic.offset}")
 
     # Original logic:
+    # Note: socket.assigns.server already refers to the correct server_via_tuple for this LiveView instance.
     target_program = Tlc.Server.get_target_program(socket.assigns.server)
     updated_socket = assign(socket, tlc: new_tlc_state, target_program: target_program)
     # End of original logic
@@ -485,54 +487,59 @@ defmodule TlcElixirWeb.TlcLive do
     end
   end
 
-  defp ensure_server_started(session_id) do
-    server_name_via_tuple = Tlc.Server.via_tuple(session_id)
+  # ensure_server_started now takes a unique server_id for each LiveView instance
+  defp ensure_server_started(server_id) do
+    server_name_via_tuple = Tlc.Server.via_tuple(server_id)
+    registry_key = "tlc_server:#{server_id}" # Use the unique server_id for registry
 
-    case Registry.lookup(Tlc.ServerRegistry, "tlc_server:#{session_id}") do
+    case Registry.lookup(Tlc.ServerRegistry, registry_key) do
       [{_pid, _server_instance_data}] ->
-        Logger.debug("[TlcLive] Server for session #{session_id} already running and registered.")
+        Logger.debug("[TlcLive] Server for ID #{server_id} already running and registered.")
         {:ok, server_name_via_tuple}
 
       [] ->
-        Logger.debug("[TlcLive] Server for session #{session_id} not found in registry. Attempting to start via supervisor.")
-        case TlcElixir.ServerSupervisor.start_server(session_id) do
+        Logger.debug("[TlcLive] Server for ID #{server_id} not found in registry. Attempting to start via supervisor.")
+        # TlcElixir.ServerSupervisor.start_server must be able to handle this server_id
+        # and ensure the server registers with this server_id.
+        case TlcElixir.ServerSupervisor.start_server(server_id) do
           {:ok, pid} ->
-            Logger.info("[TlcLive] Server for session #{session_id} started successfully by supervisor with PID #{inspect(pid)}. It should be registered as #{inspect(server_name_via_tuple)}.")
+            Logger.info("[TlcLive] Server for ID #{server_id} started successfully by supervisor with PID #{inspect(pid)}. It should be registered as #{inspect(server_name_via_tuple)}.")
             # Short delay to allow for registration, though typically synchronous with start_link name option
             # Process.sleep(50) # Consider if needed, usually not for named GenServer via start_link
             # Verify it's in registry now, as an extra check
-            if Registry.lookup(Tlc.ServerRegistry, "tlc_server:#{session_id}") == [] do
-              Logger.error("[TlcLive] Server for session #{session_id} started (PID #{inspect(pid)}) but NOT FOUND in registry immediately after start!")
+            if Registry.lookup(Tlc.ServerRegistry, registry_key) == [] do
+              Logger.error("[TlcLive] Server for ID #{server_id} started (PID #{inspect(pid)}) but NOT FOUND in registry immediately after start!")
               {:error, :server_not_registered_after_start}
             else
-              Logger.info("[TlcLive] Server for session #{session_id} confirmed in registry after start.")
+              Logger.info("[TlcLive] Server for ID #{server_id} confirmed in registry after start.")
               {:ok, server_name_via_tuple}
             end
 
           {:error, {:already_started, pid}} ->
-            Logger.warning("[TlcLive] Supervisor reported server for session #{session_id} was already started (PID #{inspect(pid)}). This implies it should be in the registry.")
+            Logger.warning("[TlcLive] Supervisor reported server for ID #{server_id} was already started (PID #{inspect(pid)}). This implies it should be in the registry.")
             # If supervisor says it's already_started, it should be registered.
             # If not, there's a deeper issue with registration or supervisor state.
-            if Registry.lookup(Tlc.ServerRegistry, "tlc_server:#{session_id}") == [] do
-              Logger.error("[TlcLive] Server for session #{session_id} reported :already_started by supervisor (PID #{inspect(pid)}) but NOT FOUND in registry!")
+            if Registry.lookup(Tlc.ServerRegistry, registry_key) == [] do
+              Logger.error("[TlcLive] Server for ID #{server_id} reported :already_started by supervisor (PID #{inspect(pid)}) but NOT FOUND in registry!")
               {:error, :server_already_started_but_not_registered}
             else
-              Logger.info("[TlcLive] Server for session #{session_id} (already started) confirmed in registry.")
+              Logger.info("[TlcLive] Server for ID #{server_id} (already started) confirmed in registry.")
               {:ok, server_name_via_tuple}
             end
 
           {:error, reason} ->
-            Logger.error("[TlcLive] Supervisor failed to start server for session #{session_id}. Reason: #{inspect(reason)}")
+            Logger.error("[TlcLive] Supervisor failed to start server for ID #{server_id}. Reason: #{inspect(reason)}")
             {:error, reason}
 
           other -> # Catch any unexpected return values
-            Logger.error("[TlcLive] Unexpected result from TlcElixir.ServerSupervisor.start_server for session #{session_id}: #{inspect(other)}")
+            Logger.error("[TlcLive] Unexpected result from TlcElixir.ServerSupervisor.start_server for ID #{server_id}: #{inspect(other)}")
             {:error, {:unexpected_supervisor_start_result, other}}
         end
     end
   end
 
-  defp generate_session_id do
+  # Renamed from generate_session_id to reflect its new purpose
+  defp generate_unique_id do
     :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower)
   end
 
