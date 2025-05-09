@@ -11,24 +11,9 @@ defmodule TlcElixirWeb.TlcLive do
     # Generate a unique ID for this LiveView instance
     live_instance_id = generate_unique_id()
 
-    # Start a new server for this LiveView instance using the unique ID
-    {:ok, server_via_tuple} = ensure_server_started(live_instance_id)
-
-    if connected?(socket) do
-      # Subscribe to updates using the unique live_instance_id
-      Phoenix.PubSub.subscribe(TlcElixir.PubSub, "tlc_updates:#{live_instance_id}")
-    end
-
-    tlc = Tlc.Server.current_state(server_via_tuple)
-    target_program = Tlc.Server.get_target_program(server_via_tuple)
-
-    Logger.info("[TlcLive #{inspect(live_pid)}] successfully mounted. LiveView Instance ID: #{live_instance_id}")
-    {:ok, assign(socket,
-      tlc: tlc,
-      server: server_via_tuple, # Use the via tuple
-      live_instance_id: live_instance_id, # Store the unique ID for this LiveView
+    base_assigns = %{
+      live_instance_id: live_instance_id,
       show_program_modal: false,
-      target_program: target_program,
       editing: false,
       edited_program: nil,
       saved_program: nil,
@@ -36,8 +21,42 @@ defmodule TlcElixirWeb.TlcLive do
       drag_signal: nil,
       switch_dragging: false,
       formatted_program: "",
-      invalid_transitions: %{}  # Keep this to track invalid transitions for display
-    )}
+      invalid_transitions: %{},
+      mount_error: nil # Initialize mount_error
+    }
+
+    case ensure_server_started(live_instance_id) do
+      {:ok, server_via_tuple} ->
+        if connected?(socket) do
+          Phoenix.PubSub.subscribe(TlcElixir.PubSub, "tlc_updates:#{live_instance_id}")
+        end
+
+        tlc = Tlc.Server.current_state(server_via_tuple)
+        target_program = Tlc.Server.get_target_program(server_via_tuple)
+
+        Logger.info(
+          "[TlcLive #{inspect(live_pid)}] successfully mounted. LiveView Instance ID: #{live_instance_id}"
+        )
+
+        dynamic_assigns = %{
+          tlc: tlc,
+          server: server_via_tuple,
+          target_program: target_program
+        }
+
+        {:ok, assign(socket, Map.merge(base_assigns, dynamic_assigns))}
+
+      {:error, reason} ->
+        Logger.error(
+          "[TlcLive #{inspect(live_pid)}] Failed to ensure server started for ID #{live_instance_id}. Reason: #{inspect(reason)}"
+        )
+        # Assign an error message. The template should handle this.
+        {:ok,
+         assign(
+           socket,
+           Map.put(base_assigns, :mount_error, "Failed to initialize TLC system: #{inspect(reason)}")
+         )}
+    end
   end
 
   @impl true
@@ -166,8 +185,8 @@ defmodule TlcElixirWeb.TlcLive do
   @impl true
   def handle_event("update_cell_signal", %{"cycle" => cycle_str, "group" => group_str, "signal" => signal}, socket) do
     if socket.assigns.editing do
-      {cycle, _} = Integer.parse(cycle_str)
-      {group_idx, _} = Integer.parse(group_str)
+      cycle = parse_int(cycle_str)
+      group_idx = parse_int(group_str)
 
       updated_program = Tlc.Program.set_group_signal(socket.assigns.edited_program, cycle, group_idx, signal)
       socket = assign(socket, edited_program: updated_program)
@@ -183,8 +202,8 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("set_skip", %{"cycle" => cycle_str, "duration" => duration_str}, socket) do
-    {cycle, _} = Integer.parse(cycle_str)
-    {duration, _} = Integer.parse(duration_str)
+    cycle = parse_int(cycle_str)
+    duration = parse_int(duration_str)
 
     updated_program = Tlc.Program.set_skip(socket.assigns.edited_program, cycle, duration)
     {:noreply, assign(socket, edited_program: updated_program)}
@@ -192,8 +211,8 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("set_wait", %{"cycle" => cycle_str, "duration" => duration_str}, socket) do
-    {cycle, _} = Integer.parse(cycle_str)
-    {duration, _} = Integer.parse(duration_str)
+    cycle = parse_int(cycle_str)
+    duration = parse_int(duration_str)
 
     updated_program = Tlc.Program.set_wait(socket.assigns.edited_program, cycle, duration)
     {:noreply, assign(socket, edited_program: updated_program)}
@@ -201,7 +220,7 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("toggle_switch", %{"cycle" => cycle_str}, socket) do
-    {cycle, _} = Integer.parse(cycle_str)
+    cycle = parse_int(cycle_str)
 
     updated_program = Tlc.Program.toggle_switch(socket.assigns.edited_program, cycle)
     {:noreply, assign(socket, edited_program: updated_program)}
@@ -209,7 +228,7 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("toggle_halt", %{"cycle" => cycle_str}, socket) do
-    {cycle, _} = Integer.parse(cycle_str)
+    cycle = parse_int(cycle_str)
 
     updated_program = Tlc.Program.toggle_halt(socket.assigns.edited_program, cycle)
     {:noreply, assign(socket, edited_program: updated_program)}
@@ -227,17 +246,18 @@ defmodule TlcElixirWeb.TlcLive do
   # Update to handle the drag end with an optional cycle update
   @impl true
   def handle_event("end_switch_drag", params, socket) do
-    socket = case params do
-      # If cycle is provided, update the switch point position
-      %{"cycle" => cycle_str} ->
-        {cycle, _} = Integer.parse(cycle_str)
-        updated_program = Map.put(socket.assigns.edited_program, :switch, cycle)
-        assign(socket, edited_program: updated_program, switch_dragging: false)
+    socket =
+      case params do
+        # If cycle is provided, update the switch point position
+        %{"cycle" => cycle_str} ->
+          cycle = parse_int(cycle_str) # Use parse_int for robustness
+          updated_program = Map.put(socket.assigns.edited_program, :switch, cycle)
+          assign(socket, edited_program: updated_program, switch_dragging: false)
 
-      # No cycle provided, just end dragging
-      _ ->
-        assign(socket, switch_dragging: false)
-    end
+        # No cycle provided, just end dragging
+        _ ->
+          assign(socket, switch_dragging: false)
+      end
 
     {:noreply, socket}
   end
@@ -247,8 +267,8 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("drag_start", %{"cycle" => cycle_str, "group" => group_str, "signal" => signal}, socket) do
-    {cycle, _} = Integer.parse(cycle_str)
-    {group_idx, _} = Integer.parse(group_str)
+    cycle = parse_int(cycle_str)
+    group_idx = parse_int(group_str)
 
     {:noreply, assign(socket, drag_start: {cycle, group_idx}, drag_signal: signal)}
   end
@@ -322,7 +342,12 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("handle_length_keyup", %{"key" => "Enter", "value" => length_str}, socket) do
-    {length, _} = Integer.parse(length_str)
+    length =
+      case Integer.parse(length_str) do
+        {value, _} when value > 0 -> value
+        _ -> socket.assigns.edited_program.length # Keep current value if invalid on Enter
+      end
+
     updated_program = Map.put(socket.assigns.edited_program, :length, length)
     {:noreply, assign(socket, edited_program: updated_program)}
   end
@@ -334,13 +359,12 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("handle_offset_keyup", %{"key" => "Enter", "value" => offset_str}, socket) do
-    # Parse input, ensure it's valid
-    offset = case Integer.parse(offset_str) do
-      {value, _} when value >= 0 ->
-        # Ensure offset is within program length bounds
-        min(value, socket.assigns.edited_program.length - 1)
-      _ -> 0  # Default to 0 if invalid
-    end
+    offset =
+      case Integer.parse(offset_str) do
+        {value, _} when value >= 0 ->
+          min(value, socket.assigns.edited_program.length - 1) # Ensure offset is within bounds
+        _ -> socket.assigns.edited_program.offset || 0 # Keep current value if invalid
+      end
 
     updated_program = Map.put(socket.assigns.edited_program, :offset, offset)
     {:noreply, assign(socket, edited_program: updated_program)}
@@ -402,55 +426,45 @@ defmodule TlcElixirWeb.TlcLive do
   @impl true
   @spec handle_info({:tlc_updated, any()}, any()) :: {:noreply, any()}
   def handle_info({:tlc_updated, new_tlc_state}, socket) do
-    #start_time = System.monotonic_time(:nanosecond)
-    #live_pid = self()
-
-    # Log using the interval from the new_tlc_state, as that's what the server is currently using.
-    #Logger.debug("[TlcLive #{inspect(live_pid)}] received :tlc_updated. Server interval: #{new_tlc_state.interval}ms. New tlc.logic.offset: #{new_tlc_state.logic.offset}")
-
-    # Original logic:
-    # Note: socket.assigns.server already refers to the correct server_via_tuple for this LiveView instance.
-    target_program = Tlc.Server.get_target_program(socket.assigns.server)
-    updated_socket = assign(socket, tlc: new_tlc_state, target_program: target_program)
-    # End of original logic
-
-    #end_time = System.monotonic_time(:nanosecond)
-    #duration_ms = div(end_time - start_time, 1_000_000) # Integer division for milliseconds
-
-    #if new_tlc_state.interval > 0 && duration_ms > new_tlc_state.interval do
-    #  Logger.warning("[TlcLive #{inspect(live_pid)}] handle_info({:tlc_updated, ...}) took #{duration_ms} ms. WARNING: This is longer than server interval #{new_tlc_state.interval} ms!")
-    #else
-    #  Logger.debug("[TlcLive #{inspect(live_pid)}] processed :tlc_updated in #{duration_ms} ms.")
-    #end
-
-    {:noreply, updated_socket}
+    if socket.assigns.mount_error do
+      # Do nothing if mount failed and an error is set
+      {:noreply, socket}
+    else
+      target_program = Tlc.Server.get_target_program(socket.assigns.server)
+      updated_socket = assign(socket, tlc: new_tlc_state, target_program: target_program)
+      {:noreply, updated_socket}
+    end
   end
 
 
   # Add helper function to determine if a cycle is between offset and target
-  defp is_between_offsets(cycle, logic, editing) do
-    if editing do
-      false
-    else
-      cond do
-        logic.target_distance > 0 ->
-          if logic.target_offset < logic.offset do
-            # Wrap around case for positive distance
-            cycle > logic.offset || cycle <= logic.target_offset
-          else
-            # Normal case
-            cycle > logic.offset && cycle <= logic.target_offset
-          end
-        logic.target_distance < 0 ->
-          if logic.target_offset > logic.offset do
-            # Wrap around case for negative distance
-            cycle < logic.offset || cycle >= logic.target_offset
-          else
-            # Normal case
-            cycle < logic.offset && cycle >= logic.target_offset
-          end
-        true -> false
-      end
+  # Guard clause for editing state
+  defp is_between_offsets(_cycle, _logic, true), do: false
+
+  defp is_between_offsets(cycle, logic, false) do
+    # Assuming logic and its fields (offset, target_offset, target_distance) are valid (non-nil)
+    # if this function is called without a mount_error.
+    current_offset = logic.offset
+    target_offset = logic.target_offset
+    target_distance = logic.target_distance
+
+    cond do
+      target_distance == 0 ->
+        false # No distance, so not between
+
+      target_distance > 0 -> # Moving forward
+        if target_offset < current_offset do # Forward wrap-around (e.g., offset 10, target 2, length 12)
+          cycle > current_offset or cycle <= target_offset
+        else # Normal forward (e.g., offset 2, target 5)
+          cycle > current_offset and cycle <= target_offset
+        end
+
+      target_distance < 0 -> # Moving backward
+        if target_offset > current_offset do # Backward wrap-around (e.g., offset 2, target 10, length 12)
+          cycle < current_offset or cycle >= target_offset
+        else # Normal backward (e.g., offset 5, target 2)
+          cycle < current_offset and cycle >= target_offset
+        end
     end
   end
 
@@ -490,51 +504,37 @@ defmodule TlcElixirWeb.TlcLive do
   # ensure_server_started now takes a unique server_id for each LiveView instance
   defp ensure_server_started(server_id) do
     server_name_via_tuple = Tlc.Server.via_tuple(server_id)
-    registry_key = "tlc_server:#{server_id}" # Use the unique server_id for registry
 
-    case Registry.lookup(Tlc.ServerRegistry, registry_key) do
-      [{_pid, _server_instance_data}] ->
-        Logger.debug("[TlcLive] Server for ID #{server_id} already running and registered.")
+    # Attempt to start the server.
+    # TlcElixir.ServerSupervisor.start_server should handle naming and registration
+    # such that if the server is already running with the name derived from server_id,
+    # it returns {:error, {:already_started, pid}}.
+    case TlcElixir.ServerSupervisor.start_server(server_id) do
+      {:ok, pid} ->
+        Logger.info(
+          "[TlcLive] Server for ID #{server_id} started by supervisor (PID #{inspect(pid)}). Access via #{inspect(server_name_via_tuple)}."
+        )
         {:ok, server_name_via_tuple}
 
-      [] ->
-        Logger.debug("[TlcLive] Server for ID #{server_id} not found in registry. Attempting to start via supervisor.")
-        # TlcElixir.ServerSupervisor.start_server must be able to handle this server_id
-        # and ensure the server registers with this server_id.
-        case TlcElixir.ServerSupervisor.start_server(server_id) do
-          {:ok, pid} ->
-            Logger.info("[TlcLive] Server for ID #{server_id} started successfully by supervisor with PID #{inspect(pid)}. It should be registered as #{inspect(server_name_via_tuple)}.")
-            # Short delay to allow for registration, though typically synchronous with start_link name option
-            # Process.sleep(50) # Consider if needed, usually not for named GenServer via start_link
-            # Verify it's in registry now, as an extra check
-            if Registry.lookup(Tlc.ServerRegistry, registry_key) == [] do
-              Logger.error("[TlcLive] Server for ID #{server_id} started (PID #{inspect(pid)}) but NOT FOUND in registry immediately after start!")
-              {:error, :server_not_registered_after_start}
-            else
-              Logger.info("[TlcLive] Server for ID #{server_id} confirmed in registry after start.")
-              {:ok, server_name_via_tuple}
-            end
+      {:error, {:already_started, pid}} ->
+        Logger.warning(
+          "[TlcLive] Server for ID #{server_id} was already started (PID #{inspect(pid)}). Access via #{inspect(server_name_via_tuple)}."
+        )
+        # This assumes that if it's already_started, it's correctly registered and accessible.
+        {:ok, server_name_via_tuple}
 
-          {:error, {:already_started, pid}} ->
-            Logger.warning("[TlcLive] Supervisor reported server for ID #{server_id} was already started (PID #{inspect(pid)}). This implies it should be in the registry.")
-            # If supervisor says it's already_started, it should be registered.
-            # If not, there's a deeper issue with registration or supervisor state.
-            if Registry.lookup(Tlc.ServerRegistry, registry_key) == [] do
-              Logger.error("[TlcLive] Server for ID #{server_id} reported :already_started by supervisor (PID #{inspect(pid)}) but NOT FOUND in registry!")
-              {:error, :server_already_started_but_not_registered}
-            else
-              Logger.info("[TlcLive] Server for ID #{server_id} (already started) confirmed in registry.")
-              {:ok, server_name_via_tuple}
-            end
+      {:error, reason} ->
+        Logger.error(
+          "[TlcLive] Supervisor failed to start server for ID #{server_id}. Reason: #{inspect(reason)}"
+        )
+        {:error, reason}
 
-          {:error, reason} ->
-            Logger.error("[TlcLive] Supervisor failed to start server for ID #{server_id}. Reason: #{inspect(reason)}")
-            {:error, reason}
-
-          other -> # Catch any unexpected return values
-            Logger.error("[TlcLive] Unexpected result from TlcElixir.ServerSupervisor.start_server for ID #{server_id}: #{inspect(other)}")
-            {:error, {:unexpected_supervisor_start_result, other}}
-        end
+      # Catch any unexpected return values from the supervisor call
+      other ->
+        Logger.error(
+          "[TlcLive] Unexpected result from TlcElixir.ServerSupervisor.start_server for ID #{server_id}: #{inspect(other)}"
+        )
+        {:error, {:unexpected_supervisor_start_result, other}}
     end
   end
 
