@@ -18,7 +18,10 @@ defmodule TlcElixirWeb.TlcLive do
       drag_signal: nil,
       switch_dragging: false,
       invalid_transitions: %{},
-      mount_error: nil
+      mount_error: nil,
+      program_text: nil,  # Initialize program_text as nil
+      json_error: nil,    # Initialize json_error as nil
+      validation_error: nil  # Initialize validation_error as nil
     }
 
     case ensure_server_started(live_instance_id) do
@@ -87,7 +90,15 @@ defmodule TlcElixirWeb.TlcLive do
         Tlc.Server.clear_target_program(socket.assigns.server)
       end
 
-      socket = assign(socket, editing: true, edited_program: program_to_edit)
+      program_text = Jason.encode!(program_to_edit, pretty: true)
+
+      socket = assign(socket,
+        editing: true,
+        edited_program: program_to_edit,
+        program_text: program_text,
+        json_error: nil,
+        validation_error: nil
+      )
       socket = validate_edited_program(socket)
 
       {:noreply, socket}
@@ -98,7 +109,7 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("cancel_editing", _, socket) do
-    {:noreply, assign(socket, editing: false, edited_program: nil)}
+    {:noreply, assign(socket, editing: false, edited_program: nil, program_text: nil, json_error: nil, validation_error: nil)}
   end
 
   @impl true
@@ -159,7 +170,12 @@ defmodule TlcElixirWeb.TlcLive do
       group_idx = parse_int(group_str)
 
       updated_program = Tlc.Program.set_group_signal(socket.assigns.edited_program, cycle, group_idx, signal)
-      socket = assign(socket, edited_program: updated_program)
+      program_text = Jason.encode!(updated_program, pretty: true)
+
+      socket = assign(socket,
+        edited_program: updated_program,
+        program_text: program_text
+      )
       socket = validate_edited_program(socket)
 
       {:noreply, socket}
@@ -248,7 +264,14 @@ defmodule TlcElixirWeb.TlcLive do
       signal
     )
 
-    socket = assign(socket, edited_program: updated_program, drag_start: nil, drag_signal: nil)
+    program_text = Jason.encode!(updated_program, pretty: true)
+
+    socket = assign(socket,
+      edited_program: updated_program,
+      drag_start: nil,
+      drag_signal: nil,
+      program_text: program_text
+    )
     socket = validate_edited_program(socket)
 
     {:noreply, socket}
@@ -386,7 +409,12 @@ defmodule TlcElixirWeb.TlcLive do
       |> Map.put(:length, length)
       |> Map.put(:offset, offset)
 
-    socket = assign(socket, edited_program: updated_program)
+    program_text = Jason.encode!(updated_program, pretty: true)
+
+    socket = assign(socket,
+      edited_program: updated_program,
+      program_text: program_text
+    )
     socket = validate_edited_program(socket)
 
     {:noreply, socket}
@@ -408,6 +436,86 @@ defmodule TlcElixirWeb.TlcLive do
       {:noreply, updated_socket}
     end
   end
+
+  @impl true
+  def handle_event("update_program_definition", %{"value" => text}, socket) do
+    json_error = case Jason.decode(text) do
+      {:ok, json_data} ->
+        # Check if the structure matches what we expect
+        case convert_json_to_program(json_data) do
+          {:ok, program} ->
+            # Validate program structure
+            case Tlc.Program.validate(program) do
+              {:ok, _} -> nil
+              {:error, error} -> error
+            end
+          {:error, error} -> error
+        end
+      {:error, %Jason.DecodeError{} = err} -> "#{err.data}"
+    end
+
+    validation_error = if is_nil(json_error) do
+      # We already validated above, so we know there's no error
+      nil
+    else
+      "Please fix the JSON error first"
+    end
+
+    {:noreply, assign(socket, program_text: text, json_error: json_error, validation_error: validation_error)}
+  end
+
+  @impl true
+  def handle_event("apply_program_definition", _params, socket) do
+    # Only apply if there are no errors
+    if is_nil(socket.assigns.json_error) && is_nil(socket.assigns.validation_error) do
+      case Jason.decode(socket.assigns.program_text) do
+        {:ok, json_data} ->
+          case convert_json_to_program(json_data) do
+            {:ok, program} ->
+              # Update the edited program
+              {:noreply, assign(socket, edited_program: program)}
+            {:error, _error} ->
+              # This shouldn't happen since we've already validated
+              {:noreply, socket}
+          end
+        {:error, _} ->
+          # This shouldn't happen since we've already validated
+          {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Add a helper function to convert JSON data to a Program struct
+  defp convert_json_to_program(json_data) do
+    try do
+      # Convert string keys to atoms where needed
+      program = %Tlc.Program{
+        name: json_data["name"],
+        length: json_data["length"],
+        offset: json_data["offset"],
+        groups: json_data["groups"],
+        states: string_keys_to_integers(json_data["states"]),
+        skips: string_keys_to_integers(json_data["skips"] || %{}),
+        waits: string_keys_to_integers(json_data["waits"] || %{}),
+        switch: json_data["switch"],
+        halt: json_data["halt"]
+      }
+      {:ok, program}
+    rescue
+      error -> {:error, "Invalid program structure: #{inspect(error)}"}
+    end
+  end
+
+  # Helper to convert string keys to integers in maps
+  defp string_keys_to_integers(map) when is_map(map) do
+    Enum.reduce(map, %{}, fn {k, v}, acc ->
+      new_key = if is_binary(k), do: String.to_integer(k), else: k
+      Map.put(acc, new_key, v)
+    end)
+  end
+  defp string_keys_to_integers(value), do: value
 
   defp is_between_offsets(_cycle, _logic, true), do: false
 

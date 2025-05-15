@@ -201,19 +201,56 @@ defmodule TlcElixirWeb.EditorComponents do
   end
 
   def program_definition_section(assigns) do
+    # Ensure all keys are set with default values if missing
+    assigns = assign_new(assigns, :json_error, fn -> nil end)
+    assigns = assign_new(assigns, :validation_error, fn -> nil end)
+
+    # Only generate program_text if it's nil, this ensures we don't overwrite user edits
+    assigns = assign_new(assigns, :program_text, fn ->
+      Jason.encode!(assigns.program, pretty: true)
+    end)
+
     ~H"""
     <div class="mt-4 border-t border-gray-600 pt-4">
-      <h3 class="text-lg font-semibold text-gray-200 mb-2 flex items-center">
-        Program Definition
-      </h3>
-      <pre class="bg-gray-900 p-3 rounded shadow-lg border border-gray-700 text-gray-300 text-sm font-mono overflow-x-auto">
-      <%= inspect(@program, pretty: true, limit: :infinity) %>
-      </pre>
+      <div class="flex justify-between items-center mb-2">
+        <h3 class="text-lg font-semibold text-gray-200 flex items-center">
+          Program Definition
+        </h3>
+        <button phx-click="apply_program_definition"
+                class={"px-3 py-1 rounded text-white #{if @json_error || @validation_error, do: "bg-gray-500 cursor-not-allowed", else: "bg-purple-700 hover:bg-purple-600"}"}
+                disabled={@json_error || @validation_error}>
+          Apply
+        </button>
+      </div>
+
+      <div class="mb-2">
+        <textarea phx-keyup="update_program_definition"
+                  phx-debounce="300"
+                  class="w-full bg-gray-900 p-3 rounded shadow-lg border border-gray-700 text-gray-300 text-sm font-mono h-64 focus:border-purple-500 focus:outline-none"
+                  spellcheck="false"><%= @program_text %></textarea>
+      </div>
+
+      <%= if @json_error do %>
+        <div class="text-red-400 text-sm mb-2">
+          <span class="font-bold">JSON Error:</span> <%= @json_error %>
+        </div>
+      <% end %>
+
+      <%= if @validation_error do %>
+        <div class="text-red-400 text-sm">
+          <span class="font-bold">Validation Error:</span> <%= @validation_error %>
+        </div>
+      <% end %>
     </div>
     """
   end
 
   def program_editor_container(assigns) do
+    # Ensure needed assigns are present with defaults to prevent errors
+    assigns = assign_new(assigns, :program_text, fn -> nil end)
+    assigns = assign_new(assigns, :json_error, fn -> nil end)
+    assigns = assign_new(assigns, :validation_error, fn -> nil end)
+
     ~H"""
     <div id="switch-drag-container"
          class={"bg-gray-800 p-4 rounded shadow-lg border border-gray-700 #{if @switch_dragging, do: "switch-dragging-active", else: ""}"}>
@@ -250,7 +287,12 @@ defmodule TlcElixirWeb.EditorComponents do
       />
 
       <%= if @editing do %>
-        <.program_definition_section program={@edited_program} />
+        <.program_definition_section
+          program={@edited_program}
+          program_text={@program_text}
+          json_error={@json_error}
+          validation_error={@validation_error}
+        />
       <% end %>
     </div>
     """

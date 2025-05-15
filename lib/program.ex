@@ -13,6 +13,8 @@ defmodule Tlc.Program do
     "D" => ["R", "Y", "G", "D"]
   }
 
+  # Add @derive to enable JSON encoding for the struct
+  @derive {Jason.Encoder, only: [:name, :length, :offset, :groups, :states, :skips, :waits, :switch, :halt]}
   defstruct name: "",
             length: 0,
             offset: 0,
