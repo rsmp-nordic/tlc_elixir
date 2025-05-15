@@ -462,4 +462,38 @@ defmodule TlcElixirWeb.TlcComponents do
     </div>
     """
   end
+
+  def wait_cell(assigns) do
+    wait_duration = Map.get(assigns.program.waits || %{}, assigns.cycle, 0)
+    has_wait = wait_duration > 0
+
+    assigns = assign(assigns, %{
+      wait_duration: wait_duration,
+      has_wait: has_wait
+    })
+
+    ~H"""
+    <div class={"p-1 h-8 flex items-center justify-center border-r border-b border-gray-600 #{if @has_wait, do: "bg-gray-400", else: ""}"}>
+      <%= if @has_wait do %>
+        <%= @wait_duration %>
+      <% else %>
+        <span class="opacity-0">0</span>
+      <% end %>
+    </div>
+    """
+  end
+
+  def halt_cell(assigns) do
+    is_halt_point = assigns.cycle == Map.get(assigns.program, :halt)
+
+    assigns = assign(assigns, is_halt_point: is_halt_point)
+
+    ~H"""
+    <div class={"p-1 h-8 flex items-center justify-center border-r border-b border-gray-600 #{if @is_halt_point, do: "bg-gray-400", else: ""} #{if @editing, do: "cursor-pointer"}"}
+         phx-click={if @editing, do: "toggle_halt"}
+         phx-value-cycle={@cycle}>
+      <span class="opacity-0">0</span>
+    </div>
+    """
+  end
 end

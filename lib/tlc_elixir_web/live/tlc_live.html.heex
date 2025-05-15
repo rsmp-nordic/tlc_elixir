@@ -86,21 +86,11 @@
                 />
 
                 <!-- Wait cell -->
-                <%
-                  wait_duration = if @editing do
-                    Map.get(@edited_program.waits || %{}, cycle, 0)
-                  else
-                    Map.get(display_program.waits || %{}, cycle, 0)
-                  end
-                  has_wait = wait_duration > 0
-                %>
-                <div class={"p-1 h-8 flex items-center justify-center border-r border-b border-gray-600 #{if has_wait, do: "bg-gray-400", else: ""}"}>
-                  <%= if has_wait do %>
-                    <%= wait_duration %>
-                  <% else %>
-                    <span class="opacity-0">0</span>
-                  <% end %>
-                </div>
+                <.wait_cell
+                  cycle={cycle}
+                  program={if @editing, do: @edited_program, else: display_program}
+                  editing={@editing}
+                />
 
                 <!-- Switch cell -->
                 <%
@@ -114,14 +104,11 @@
                 />
 
                 <!-- Halt cell -->
-                <%
-                  is_halt_point = cycle == Map.get(program, :halt)
-                %>
-                <div class={"p-1 h-8 flex items-center justify-center border-r border-b border-gray-600 #{if is_halt_point, do: "bg-gray-400", else: ""} #{if @editing, do: "cursor-pointer"}"}
-                     phx-click={if @editing, do: "toggle_halt"}
-                     phx-value-cycle={cycle}>
-                  <span class="opacity-0">0</span>
-                </div>
+                <.halt_cell
+                  cycle={cycle}
+                  program={if @editing, do: @edited_program, else: display_program}
+                  editing={@editing}
+                />
 
                 <!-- Group signal cells -->
                 <%= for {_group, i} <- Enum.with_index(display_program.groups) do %>
