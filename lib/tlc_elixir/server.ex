@@ -157,7 +157,7 @@ defmodule Tlc.Server do
           15 => "YR",
           17 => "RG"
         },
-        skips: %{5 => 7, 17 => 2},
+        skips: %{5 => 7, 18 => 1},
         waits: %{1 => 2, 4 => 2, 13 => 3 },
         switch: 3
       },
