@@ -508,4 +508,8 @@ defmodule TlcElixirWeb.TlcLive do
   end
   defp parse_int(value) when is_integer(value), do: value
   defp parse_int(_), do: 0
+
+  defp active_program(editing, edited_program, display_program) do
+    if editing, do: edited_program, else: display_program
+  end
 end

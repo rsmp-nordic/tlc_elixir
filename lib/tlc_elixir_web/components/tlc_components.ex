@@ -562,4 +562,126 @@ defmodule TlcElixirWeb.TlcComponents do
     </div>
     """
   end
+
+  def program_grid(assigns) do
+    ~H"""
+    <div class="flex border-t border-l border-gray-600">
+      <!-- Labels column -->
+      <.program_labels_column program={@display_program} />
+
+      <!-- Data columns -->
+      <%= for {cycle, col_idx} <- Enum.with_index(0..@display_program.length - 1) do %>
+        <.program_cell
+          cycle={cycle}
+          col_idx={col_idx}
+          program_length={@display_program.length}
+          current_cycle={@current_cycle}
+          editing={@editing}
+        >
+          <%
+            current_program = if @editing, do: @edited_program, else: @current_program
+            is_active_offset = if @editing, do: current_program.offset == cycle, else: @offset == cycle
+            is_target_offset = if @editing, do: false, else: @target_offset == cycle
+            is_between = @is_between_offsets_fn.(cycle, @logic, @editing)
+          %>
+          <.offset_cell
+            cycle={cycle}
+            editing={@editing}
+            is_active_offset={is_active_offset}
+            is_target_offset={is_target_offset}
+            is_between={is_between}
+            target_distance={@target_distance}
+          />
+
+          <.skip_cell
+            cycle={cycle}
+            program={if @editing, do: @edited_program, else: @display_program}
+            editing={@editing}
+          />
+
+          <.wait_cell
+            cycle={cycle}
+            program={if @editing, do: @edited_program, else: @display_program}
+            editing={@editing}
+          />
+
+          <.switch_cell
+            cycle={cycle}
+            is_switch_point={cycle == (if @editing, do: @edited_program, else: @display_program).switch}
+            editing={@editing}
+          />
+
+          <.halt_cell
+            cycle={cycle}
+            program={if @editing, do: @edited_program, else: @display_program}
+            editing={@editing}
+          />
+
+          <.group_signal_cells
+            cycle={cycle}
+            program={if @editing, do: @edited_program, else: @display_program}
+            editing={@editing}
+            invalid_transitions={@invalid_transitions}
+            next_signal_fn={@next_signal_fn}
+          />
+        </.program_cell>
+      <% end %>
+    </div>
+    """
+  end
+
+  def program_editor_container(assigns) do
+    ~H"""
+    <div id="switch-drag-container"
+         class={"bg-gray-800 p-4 rounded shadow-lg border border-gray-700 #{if @switch_dragging, do: "switch-dragging-active", else: ""}"}>
+      <div class="mb-4">
+        <h2 class="text-xl font-semibold text-gray-200 mb-3">Program</h2>
+
+        <.program_controls
+          editing={@editing}
+          programs={@programs}
+          logic_mode={@logic_mode}
+          current_program={@current_program}
+          target_program={@target_program}
+          edited_program={@edited_program}
+        />
+
+        <%= if not @editing do %>
+          <.interval_controls interval={@interval} />
+        <% end %>
+      </div>
+
+      <.program_grid
+        display_program={@display_program}
+        edited_program={@edited_program}
+        current_program={@current_program}
+        current_cycle={@current_cycle}
+        editing={@editing}
+        offset={@offset}
+        target_offset={@target_offset}
+        target_distance={@target_distance}
+        invalid_transitions={@invalid_transitions}
+        next_signal_fn={@next_signal_fn}
+        is_between_offsets_fn={@is_between_offsets_fn}
+        logic={@logic}
+      />
+
+      <%= if @editing do %>
+        <.program_definition_section program={@edited_program} />
+      <% end %>
+    </div>
+    """
+  end
+
+  def tlc_page_container(assigns) do
+    ~H"""
+    <div class="w-full bg-gray-900" id="tlc-container" phx-hook="DragHandler">
+      <div class="container mx-auto">
+        <div class="flex flex-col gap-2 p-2">
+          <%= render_slot(@inner_block) %>
+        </div>
+      </div>
+    </div>
+    """
+  end
 end

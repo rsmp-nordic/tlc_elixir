@@ -1,134 +1,49 @@
-<div class="w-full bg-gray-900" id="tlc-container" phx-hook="DragHandler">
-  <div class="container mx-auto">
-    <%
-      display_program = cond do
-        @editing -> @edited_program
-        @saved_program != nil -> @saved_program
-        true -> @tlc.logic.program
-      end
-    %>
+<.tlc_page_container>
+  <%
+    display_program = cond do
+      @editing -> @edited_program
+      @saved_program != nil -> @saved_program
+      true -> @tlc.logic.program
+    end
+  %>
 
-    <!-- Container with consistent gap spacing -->
-    <div class="flex flex-col gap-2 p-2">
-      <!-- Signal Heads and State sections side by side -->
-      <div class="flex flex-wrap gap-2">
-        <!-- Current State section -->
-        <div class="flex-1">
-          <.state_section logic={@tlc.logic} />
-        </div>
-
-        <!-- Signal Head Visualization -->
-        <div class="">
-          <.signal_heads_section 
-            groups={@tlc.logic.program.groups} 
-            current_state={@tlc.logic.current_states} 
-          />
-        </div>
-      </div>
-
-      <!-- Cycle table section -->
-      <div class="overflow-x-auto">
-        <div id="switch-drag-container"
-             class={"bg-gray-800 p-4 rounded shadow-lg border border-gray-700 #{if @switch_dragging, do: "switch-dragging-active", else: ""}"}>
-          <div class="mb-4">
-            <h2 class="text-xl font-semibold text-gray-200 mb-3">Program</h2>
-
-            <!-- Program selector and edit mode controls -->
-            <.program_controls
-              editing={@editing}
-              programs={@tlc.programs}
-              logic_mode={@tlc.logic.mode}
-              current_program={@tlc.logic.program}
-              target_program={@target_program}
-              edited_program={@edited_program}
-            />
-
-            <!-- interval controls (only when not editing) -->
-            <%= if not @editing do %>
-              <.interval_controls interval={@tlc.interval} />
-            <% end %>
-          </div>
-
-          <!-- Column-based layout -->
-          <div class="flex border-t border-l border-gray-600">
-            <!-- Labels column -->
-            <.program_labels_column program={display_program} />
-
-            <!-- Data columns -->
-            <%= for {cycle, col_idx} <- Enum.with_index(0..display_program.length - 1) do %>
-              <.program_cell
-                cycle={cycle}
-                col_idx={col_idx}
-                program_length={display_program.length}
-                current_cycle={@tlc.logic.cycle_time}
-                editing={@editing}
-              >
-                <%
-                  current_program = if @editing, do: @edited_program, else: @tlc.logic.program
-                  is_active_offset = if @editing, do: current_program.offset == cycle, else: @tlc.logic.offset == cycle
-                  is_target_offset = if @editing, do: false, else: @tlc.logic.target_offset == cycle
-                  is_between = is_between_offsets(cycle, @tlc.logic, @editing)
-                %>
-                <.offset_cell
-                  cycle={cycle}
-                  editing={@editing}
-                  is_active_offset={is_active_offset}
-                  is_target_offset={is_target_offset}
-                  is_between={is_between}
-                  target_distance={@tlc.logic.target_distance}
-                />
-
-                <!-- Skip cell -->
-                <.skip_cell
-                  cycle={cycle}
-                  program={if @editing, do: @edited_program, else: display_program}
-                  editing={@editing}
-                />
-
-                <!-- Wait cell -->
-                <.wait_cell
-                  cycle={cycle}
-                  program={if @editing, do: @edited_program, else: display_program}
-                  editing={@editing}
-                />
-
-                <!-- Switch cell -->
-                <%
-                  program = if @editing, do: @edited_program, else: display_program
-                  is_switch_point = cycle == program.switch
-                %>
-                <.switch_cell
-                  cycle={cycle}
-                  is_switch_point={is_switch_point}
-                  editing={@editing}
-                />
-
-                <!-- Halt cell -->
-                <.halt_cell
-                  cycle={cycle}
-                  program={if @editing, do: @edited_program, else: display_program}
-                  editing={@editing}
-                />
-
-                <!-- Group signal cells -->
-                <.group_signal_cells
-                  cycle={cycle}
-                  program={if @editing, do: @edited_program, else: display_program}
-                  editing={@editing}
-                  invalid_transitions={@invalid_transitions}
-                  next_signal_fn={&next_signal/1}
-                />
-              </.program_cell>
-            <% end %>
-          </div>
-
-          <!-- Program definition section (only when editing) -->
-          <%= if @editing do %>
-            <.program_definition_section program={@edited_program} />
-          <% end %>
-        </div>
-      </div>
+  <!-- Signal Heads and State sections side by side -->
+  <div class="flex flex-wrap gap-2">
+    <!-- Current State section -->
+    <div class="flex-1">
+      <.state_section logic={@tlc.logic} />
     </div>
+
+    <!-- Signal Head Visualization -->
+    <div class="">
+      <.signal_heads_section 
+        groups={@tlc.logic.program.groups} 
+        current_state={@tlc.logic.current_states} 
+      />
+    </div>
+  </div>
+
+  <!-- Cycle table section -->
+  <div class="overflow-x-auto">
+    <.program_editor_container
+      display_program={display_program}
+      edited_program={@edited_program}
+      current_program={@tlc.logic.program}
+      current_cycle={@tlc.logic.cycle_time}
+      editing={@editing}
+      offset={@tlc.logic.offset}
+      target_offset={@tlc.logic.target_offset}
+      target_distance={@tlc.logic.target_distance}
+      invalid_transitions={@invalid_transitions}
+      next_signal_fn={&next_signal/1}
+      is_between_offsets_fn={&is_between_offsets/3}
+      logic={@tlc.logic}
+      switch_dragging={@switch_dragging}
+      interval={@tlc.interval}
+      programs={@tlc.programs}
+      logic_mode={@tlc.logic.mode}
+      target_program={@target_program}
+    />
   </div>
 
   <!-- Program Modal -->
@@ -137,4 +52,4 @@
     formatted_program={@formatted_program}
     on_close={JS.push("hide_program_modal")}
   />
-</div>
+</.tlc_page_container>
