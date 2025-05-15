@@ -549,4 +549,17 @@ defmodule TlcElixirWeb.TlcComponents do
     <% end %>
     """
   end
+
+  def program_definition_section(assigns) do
+    ~H"""
+    <div class="mt-4 border-t border-gray-600 pt-4">
+      <h3 class="text-lg font-semibold text-gray-200 mb-2 flex items-center">
+        Program Definition
+      </h3>
+      <pre class="bg-gray-900 p-3 rounded shadow-lg border border-gray-700 text-gray-300 text-sm font-mono overflow-x-auto">
+<%= inspect(@program, pretty: true, limit: :infinity) %>
+      </pre>
+    </div>
+    """
+  end
 end
