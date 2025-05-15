@@ -11,14 +11,12 @@ defmodule TlcElixirWeb.TlcLive do
 
     base_assigns = %{
       live_instance_id: live_instance_id,
-      show_program_modal: false,
       editing: false,
       edited_program: nil,
       saved_program: nil,
       drag_start: nil,
       drag_signal: nil,
       switch_dragging: false,
-      formatted_program: "",
       invalid_transitions: %{},
       mount_error: nil
     }
@@ -69,18 +67,6 @@ defmodule TlcElixirWeb.TlcLive do
     {offset, _} = Integer.parse(target_offset)
     Tlc.Server.set_target_offset(socket.assigns.server, offset)
     {:noreply, socket}
-  end
-
-  @impl true
-  def handle_event("show_program_modal", _, socket) do
-    program = if socket.assigns.editing, do: socket.assigns.edited_program, else: display_program(socket)
-    formatted_program = format_program_as_elixir(program)
-    {:noreply, assign(socket, show_program_modal: true, formatted_program: formatted_program)}
-  end
-
-  @impl true
-  def handle_event("hide_program_modal", _, socket) do
-    {:noreply, assign(socket, show_program_modal: false)}
   end
 
   @impl true
@@ -489,10 +475,6 @@ defmodule TlcElixirWeb.TlcLive do
 
   defp generate_unique_id do
     :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower)
-  end
-
-  defp display_program(socket) do
-    socket.assigns.tlc.logic.program
   end
 
   defp validate_edited_program(socket) do

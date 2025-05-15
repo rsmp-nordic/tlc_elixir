@@ -14,7 +14,6 @@ defmodule TlcElixirWeb.TlcComponents do
   defdelegate offset_cell(assigns), to: TlcElixirWeb.GridComponents
   defdelegate switch_cell(assigns), to: TlcElixirWeb.GridComponents
   defdelegate signal_cell(assigns), to: TlcElixirWeb.GridComponents
-  defdelegate program_modal(assigns), to: TlcElixirWeb.ModalComponents
   defdelegate state_section(assigns), to: TlcElixirWeb.LayoutComponents
   defdelegate signal_heads_section(assigns), to: TlcElixirWeb.SignalComponents
   defdelegate program_controls(assigns), to: TlcElixirWeb.EditorComponents
