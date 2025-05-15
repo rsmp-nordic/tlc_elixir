@@ -368,4 +368,98 @@ defmodule TlcElixirWeb.TlcComponents do
     </div>
     """
   end
+
+  def skip_cell(assigns) do
+    skip_duration = Map.get(assigns.program.skips || %{}, assigns.cycle, 0)
+    has_skip = skip_duration > 0
+    is_start_of_skip = has_skip
+
+    is_end_of_skip = Enum.any?(assigns.program.skips || %{}, fn {start, duration} ->
+      assigns.cycle == Tlc.Logic.mod(start + duration, assigns.program.length)
+    end)
+
+    skip_start_point = if is_end_of_skip && assigns.editing do
+      Enum.find_value(assigns.program.skips || %{}, fn {start, duration} ->
+        if assigns.cycle == Tlc.Logic.mod(start + duration, assigns.program.length), do: start, else: nil
+      end)
+    else
+      nil
+    end
+
+    current_cell_has_invalid_skip = if assigns.editing && is_end_of_skip && skip_start_point do
+      start_state = Tlc.Program.resolve_state(assigns.program, Tlc.Logic.mod(skip_start_point - 1, assigns.program.length))
+      end_state = Tlc.Program.resolve_state(assigns.program, assigns.cycle)
+
+      skip_transitions = Enum.reduce(Enum.with_index(assigns.program.groups), [], fn {group_name, i}, acc ->
+        start_signal = String.at(start_state, i)
+        end_signal = String.at(end_state, i)
+
+        is_invalid = case {start_signal, end_signal} do
+          {"G", "R"} -> true
+          {"R", "G"} -> true
+          _ -> false
+        end
+
+        if is_invalid do
+          error_msg = "Invalid transition from #{start_signal} to #{end_signal}"
+          [{group_name, i, error_msg} | acc]
+        else
+          acc
+        end
+      end)
+
+      length(skip_transitions) > 0 && skip_transitions
+    else
+      false
+    end
+
+    skip_error_tooltip = if current_cell_has_invalid_skip do
+      "Invalid Skip Transition:\n" <> (
+        Enum.map(current_cell_has_invalid_skip, fn {group_name, _i, error_msg} ->
+          "• Group '#{group_name}': #{error_msg}"
+        end)
+        |> Enum.join("\n")
+      )
+    else
+      nil
+    end
+
+    is_within_skip = Enum.any?(assigns.program.skips || %{}, fn {start, duration} ->
+      end_cycle = Tlc.Logic.mod(start + duration, assigns.program.length)
+      if start < end_cycle do
+        assigns.cycle > start && assigns.cycle < end_cycle
+      else
+        assigns.cycle > start || assigns.cycle < end_cycle
+      end
+    end)
+
+    assigns = assign(assigns, %{
+      skip_duration: skip_duration,
+      has_skip: has_skip,
+      is_start_of_skip: is_start_of_skip,
+      is_within_skip: is_within_skip,
+      current_cell_has_invalid_skip: current_cell_has_invalid_skip,
+      skip_error_tooltip: skip_error_tooltip
+    })
+
+    ~H"""
+    <div class={"p-1 h-8 flex items-center justify-center border-r border-b border-gray-600 #{if @is_start_of_skip || @is_within_skip, do: "bg-gray-400", else: ""} relative"}
+         title={@skip_error_tooltip}
+         data-tooltip-content={@skip_error_tooltip}>
+      <%= if @is_start_of_skip do %>
+        <%= @skip_duration %>
+      <% else %>
+        <%= if @current_cell_has_invalid_skip do %>
+          <div class="invalid-transition-indicator cursor-pointer" title={@skip_error_tooltip} data-tooltip-content={@skip_error_tooltip}>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+            </svg>
+          </div>
+        <% else %>
+          <span class="opacity-0">0</span>
+        <% end %>
+      <% end %>
+    </div>
+    """
+  end
 end
