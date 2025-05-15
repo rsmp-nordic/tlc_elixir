@@ -52,19 +52,7 @@
           <!-- Column-based layout -->
           <div class="flex border-t border-l border-gray-600">
             <!-- Labels column -->
-            <div class="w-24 flex flex-col">
-              <div class="p-1 h-8 flex items-center justify-left font-semibold bg-gray-700 text-gray-200 border-r border-b border-gray-600">Cycle</div>
-              <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Offset</div>
-              <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Skips</div>
-              <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Waits</div>
-              <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Switch</div>
-              <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Halt</div>
-              <%= for {_group, i} <- Enum.with_index(display_program.groups) do %>
-                <div class={"p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r #{if i == length(display_program.groups) - 1, do: "", else: "border-b"} border-gray-600"}>
-                  <%= Enum.at(display_program.groups, i) %>
-                </div>
-              <% end %>
-            </div>
+            <.program_labels_column program={display_program} />
 
             <!-- Data columns -->
             <%= for {cycle, col_idx} <- Enum.with_index(0..display_program.length - 1) do %>
