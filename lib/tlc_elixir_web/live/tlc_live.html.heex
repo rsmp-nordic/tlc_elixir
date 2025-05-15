@@ -14,55 +14,15 @@
       <div class="flex flex-wrap gap-2">
         <!-- Current State section -->
         <div class="flex-1">
-          <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 h-full">
-            <h2 class="text-lg font-semibold text-gray-200 mb-2">Logic</h2>
-            <div class="grid grid-cols-4 gap-2 text-xs">
-              <!-- First row state cards -->
-              <.state_card label="Mode" value={@tlc.logic.mode} />
-              <.state_card label="Unix Time" value={@tlc.logic.unix_time} />
-              <.state_card label="Unix Delta" value={@tlc.logic.unix_delta} />
-              <.state_card label="Base Time" value={@tlc.logic.base_time} />
-
-              <!-- Second row state cards -->
-              <.state_card label="Cycle Time" value={@tlc.logic.cycle_time} />
-              <.state_card label="Program" value={@tlc.logic.program.name} />
-              <.state_card label="Program Offset" value={@tlc.logic.program.offset} />
-              <.state_card label="Offset Adjust" value={@tlc.logic.offset_adjust} />
-
-              <!-- Third row state cards -->
-              <.state_card label="Current Offset" value={@tlc.logic.offset} />
-              <.state_card label="Target Offset" value={@tlc.logic.target_offset} />
-              <.state_card label="Target Distance" value={@tlc.logic.target_distance} />
-              <.state_card label="Waited" value={@tlc.logic.waited} />
-            </div>
-          </div>
+          <.state_section logic={@tlc.logic} />
         </div>
 
         <!-- Signal Head Visualization -->
         <div class="">
-          <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 h-full">
-            <h2 class="text-lg font-semibold text-gray-200 mb-2">Groups</h2>
-            <div class="flex justify-center gap-8" id="signal-heads-container">
-              <%
-                current_state = @tlc.logic.current_states
-                groups = @tlc.logic.program.groups
-              %>
-              <%= for {group, i} <- Enum.with_index(groups) do %>
-                <div class="flex flex-col items-center" id={"signal-head-#{i}"}>
-                  <div class="signal-head flex flex-col gap-2 p-2 bg-gray-900 rounded border border-gray-700">
-                    <%
-                      signal = String.at(current_state, i)
-                      states = lamp_states(signal)
-                    %>
-                    <div class={"w-10 h-10 rounded-full #{lamp_class(states.red, :red)} shadow-lg"} title="Red"></div>
-                    <div class={"w-10 h-10 rounded-full #{lamp_class(states.yellow, :yellow)} shadow-lg"} title="Yellow"></div>
-                    <div class={"w-10 h-10 rounded-full #{lamp_class(states.green, :green)} shadow-lg"} title="Green"></div>
-                  </div>
-                  <span class="text-gray-300 text-sm font-medium mt-2"><%= group %></span>
-                </div>
-              <% end %>
-            </div>
-          </div>
+          <.signal_heads_section 
+            groups={@tlc.logic.program.groups} 
+            current_state={@tlc.logic.current_states} 
+          />
         </div>
       </div>
 

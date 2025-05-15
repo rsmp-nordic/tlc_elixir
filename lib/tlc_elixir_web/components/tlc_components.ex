@@ -3,6 +3,11 @@ defmodule TlcElixirWeb.TlcComponents do
 
   # alias Phoenix.LiveView.JS
 
+  # Add a public function to format programs as Elixir code
+  def format_program_as_elixir(program) do
+    inspect(program, pretty: true, limit: :infinity, width: 80)
+  end
+
   def state_card(assigns) do
     ~H"""
     <div class="bg-gray-700 p-2 rounded shadow-sm">
@@ -141,5 +146,76 @@ defmodule TlcElixirWeb.TlcComponents do
       </div>
     </div>
     """
+  end
+
+  def state_section(assigns) do
+    ~H"""
+    <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 h-full">
+      <h2 class="text-lg font-semibold text-gray-200 mb-2">Logic</h2>
+      <div class="grid grid-cols-4 gap-2 text-xs">
+        <.state_card label="Mode" value={@logic.mode} />
+        <.state_card label="Unix Time" value={@logic.unix_time} />
+        <.state_card label="Unix Delta" value={@logic.unix_delta} />
+        <.state_card label="Base Time" value={@logic.base_time} />
+        <.state_card label="Cycle Time" value={@logic.cycle_time} />
+        <.state_card label="Program" value={@logic.program.name} />
+        <.state_card label="Program Offset" value={@logic.program.offset} />
+        <.state_card label="Offset Adjust" value={@logic.offset_adjust} />
+        <.state_card label="Current Offset" value={@logic.offset} />
+        <.state_card label="Target Offset" value={@logic.target_offset} />
+        <.state_card label="Target Distance" value={@logic.target_distance} />
+        <.state_card label="Waited" value={@logic.waited} />
+      </div>
+    </div>
+    """
+  end
+
+  def signal_heads_section(assigns) do
+    ~H"""
+    <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 h-full">
+      <h2 class="text-lg font-semibold text-gray-200 mb-2">Groups</h2>
+      <div class="flex justify-center gap-8" id="signal-heads-container">
+        <%= for {group, i} <- Enum.with_index(@groups) do %>
+          <div class="flex flex-col items-center" id={"signal-head-#{i}"}>
+            <div class="signal-head flex flex-col gap-2 p-2 bg-gray-900 rounded border border-gray-700">
+              <%
+                signal = String.at(@current_state, i)
+                states = lamp_states(signal)
+              %>
+              <div class={"w-10 h-10 rounded-full #{lamp_class(states.red, :red)} shadow-lg"} title="Red"></div>
+              <div class={"w-10 h-10 rounded-full #{lamp_class(states.yellow, :yellow)} shadow-lg"} title="Yellow"></div>
+              <div class={"w-10 h-10 rounded-full #{lamp_class(states.green, :green)} shadow-lg"} title="Green"></div>
+            </div>
+            <span class="text-gray-300 text-sm font-medium mt-2"><%= group %></span>
+          </div>
+        <% end %>
+      </div>
+    </div>
+    """
+  end
+
+  # Add lamp_states/1 and lamp_class/2 as private helpers for use in signal_heads_section
+  defp lamp_states(signal) do
+    case signal do
+      "R" -> %{red: true, yellow: false, green: false}
+      "Y" -> %{red: false, yellow: true, green: false}
+      "A" -> %{red: true, yellow: true, green: false}
+      "G" -> %{red: false, yellow: false, green: true}
+      "D" -> %{red: false, yellow: false, green: false}
+      _ -> %{red: false, yellow: false, green: false}
+    end
+  end
+
+  defp lamp_class(is_on, color) do
+    if is_on do
+      case color do
+        :red -> "bg-red-600"
+        :yellow -> "bg-yellow-500"
+        :green -> "bg-green-600"
+        _ -> "bg-gray-800"
+      end
+    else
+      "bg-gray-800"
+    end
   end
 end

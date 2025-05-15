@@ -74,7 +74,7 @@ defmodule TlcElixirWeb.TlcLive do
   @impl true
   def handle_event("show_program_modal", _, socket) do
     program = if socket.assigns.editing, do: socket.assigns.edited_program, else: display_program(socket)
-    formatted_program = TlcElixirWeb.ProgramModalComponent.format_program_as_elixir(program)
+    formatted_program = format_program_as_elixir(program)
     {:noreply, assign(socket, show_program_modal: true, formatted_program: formatted_program)}
   end
 
@@ -456,29 +456,6 @@ defmodule TlcElixirWeb.TlcLive do
   defp next_signal("G"), do: "D"
   defp next_signal("D"), do: "R"
   defp next_signal(_), do: "R"
-
-  defp lamp_states(signal) do
-    case signal do
-      "R" -> %{red: true, yellow: false, green: false}
-      "Y" -> %{red: false, yellow: true, green: false}
-      "A" -> %{red: true, yellow: true, green: false}
-      "G" -> %{red: false, yellow: false, green: true}
-      "D" -> %{red: false, yellow: false, green: false}
-      _ -> %{red: false, yellow: false, green: false}
-    end
-  end
-
-  defp lamp_class(is_on, color) do
-    if is_on do
-      case color do
-        :red -> "bg-red-600"
-        :yellow -> "bg-yellow-500"
-        :green -> "bg-green-600"
-      end
-    else
-      "bg-gray-800"
-    end
-  end
 
   defp ensure_server_started(server_id) do
     server_name_via_tuple = Tlc.Server.via_tuple(server_id)
