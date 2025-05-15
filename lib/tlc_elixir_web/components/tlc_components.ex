@@ -496,4 +496,57 @@ defmodule TlcElixirWeb.TlcComponents do
     </div>
     """
   end
+
+  def group_signal_cells(assigns) do
+    next_signal_fn = assigns[:next_signal_fn] || fn signal -> signal end
+
+    assigns = assign(assigns, %{
+      next_signal_fn: next_signal_fn,
+      groups_length: length(assigns.program.groups)
+    })
+
+    ~H"""
+    <%= for {_group, i} <- Enum.with_index(@program.groups) do %>
+      <%
+        state = Tlc.Program.resolve_state(@program, @cycle)
+        signal = String.at(state, i)
+
+        bg_class = case signal do
+          "R" -> "bg-red-600"
+          "Y" -> "bg-yellow-500"
+          "A" -> "bg-orange-500"
+          "G" -> "bg-green-600"
+          "D" -> "bg-gray-800"
+          _ -> "bg-gray-800"
+        end
+
+        has_invalid_transition = @editing && Map.has_key?(@invalid_transitions, {@cycle, i})
+        error_tooltip = if has_invalid_transition, do: Map.get(@invalid_transitions, {@cycle, i}), else: nil
+        next_signal = @next_signal_fn.(signal)
+      %>
+      <div
+        class={"p-1 h-8 flex relative items-center justify-center border-r #{if i == @groups_length - 1, do: "", else: "border-b"} border-gray-600 #{bg_class} #{if @editing, do: "cursor-pointer"} #{if has_invalid_transition, do: "signal-cell-invalid"}"}
+        phx-click={if @editing, do: "update_cell_signal"}
+        phx-value-cycle={@cycle}
+        phx-value-group={i}
+        phx-value-signal={if @editing, do: next_signal, else: signal}
+        phx-mousedown={if @editing, do: "drag_start"}
+        phx-value-current_signal={signal}
+        data-cycle={@cycle}
+        data-group={i}
+        data-signal={signal}
+        title={if has_invalid_transition, do: error_tooltip, else: signal}
+      >
+        <%= if has_invalid_transition do %>
+          <div class="invalid-transition-indicator" title={error_tooltip}>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+            </svg>
+          </div>
+        <% end %>
+        <span class="text-gray-200 select-none"><%= signal %></span>
+      </div>
+    <% end %>
+    """
+  end
 end
