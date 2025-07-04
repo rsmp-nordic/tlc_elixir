@@ -14,7 +14,7 @@ defmodule Tlc.FixedTime.Program do
   }
 
   # Add @derive to enable JSON encoding for the struct
-  @derive {Jason.Encoder, only: [:name, :length, :offset, :groups, :states, :skips, :waits, :switch, :halt]}
+  # @derive {Jason.Encoder, only: [:name, :length, :offset, :groups, :states, :skips, :waits, :switch, :halt]}
   defstruct name: "",
             length: 0,
             offset: 0,
@@ -35,7 +35,7 @@ defmodule Tlc.FixedTime.Program do
       offset: 3,
       groups: ["a", "b"],
       # Fixed states to follow valid transitions: Red→Yellow→Green→Yellow→Red
-      states: %{ 0 => "RR", 1 => "YR", 2 => "GR", 4 => "YR", 5 => "RY", 6 => "RG"},
+      states: %{ 0 => "RR", 1 => "YR", 2 => "GR", 3 => "YR", 4 => "RY", 5 => "RG", 6 => "RY"},
       skips: %{0 => 2},
       waits: %{5 => 2},
       switch: 0,
@@ -47,8 +47,8 @@ defmodule Tlc.FixedTime.Program do
   Returns {:ok, program} if the program is valid, {:error, reason} otherwise.
   """
   def validate(program) do
-    unless is_struct(program, Tlc.Program) do
-      {:error, "Input must be a %Tlc.Program{} struct"}
+    unless is_struct(program, Tlc.FixedTime.Program) do
+      {:error, "Input must be a %Tlc.FixedTime.Program{} struct"}
     else
       with :ok <- validate_name(program),
            :ok <- validate_length(program),
@@ -397,7 +397,7 @@ defmodule Tlc.FixedTime.Program do
 
     if current_halt == cycle do
       # Use struct update syntax to ensure we maintain the struct type
-      %Tlc.Program{program | halt: nil}
+      %{program | halt: nil}
     else
       # Using Map.put is fine for adding/updating fields
       Map.put(program, :halt, cycle)

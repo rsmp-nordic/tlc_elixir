@@ -5,7 +5,7 @@ defmodule Tlc.Phase.Phase do
   """
 
   # Add @derive to enable JSON encoding for the struct
-  @derive {Jason.Encoder, only: [:name, :groups, :duration, :min, :max]}
+  # @derive {Jason.Encoder, only: [:name, :groups, :duration, :min, :max]}
   defstruct name: "",
             groups: [],
             duration: 0,

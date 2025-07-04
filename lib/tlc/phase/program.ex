@@ -4,10 +4,8 @@ defmodule Tlc.Phase.Program do
   Contains the static program configuration without runtime state.
   """
 
-  alias Tlc.Phase.Phase
-
   # Add @derive to enable JSON encoding for the struct
-  @derive {Jason.Encoder, only: [:name, :cycle, :offset, :groups, :phases, :order, :switch]}
+  # @derive {Jason.Encoder, only: [:name, :cycle, :offset, :groups, :phases, :order, :switch]}
   defstruct name: "",
             cycle: 0,
             offset: 0,
@@ -26,20 +24,20 @@ defmodule Tlc.Phase.Program do
       offset: 0,
       groups: ["a1", "a2", "b1", "b2"],
       phases: %{
-        main: %Phase{
+        main: %Tlc.Phase.Phase{
           name: "main",
           groups: ["a1", "a2"],
           duration: 20,
           max: 30
         },
-        side: %Phase{
+        side: %Tlc.Phase.Phase{
           name: "side", 
           groups: ["b1", "b2"],
           duration: 20,
           min: 10,
           max: 25
         },
-        turn: %Phase{
+        turn: %Tlc.Phase.Phase{
           name: "turn",
           groups: ["b2"],
           duration: 10
@@ -92,7 +90,7 @@ defmodule Tlc.Phase.Program do
   defp validate_phases(phases, groups) when is_map(phases) and map_size(phases) > 0 do
     # Validate each phase
     validation_results = for {name, phase} <- phases do
-      case Phase.validate(phase) do
+      case Tlc.Phase.Phase.validate(phase) do
         {:ok, _} -> 
           # Additional validation: check that phase groups are subset of program groups
           invalid_groups = phase.groups -- groups
@@ -227,7 +225,7 @@ defmodule Tlc.Phase.Program do
 
   defp calculate_extensions(order, phases, target_extension) do
     # Calculate possible extensions for each phase
-    extensions = Enum.map(phases, &Phase.possible_extension/1)
+    extensions = Enum.map(phases, &Tlc.Phase.Phase.possible_extension/1)
     total_possible = Enum.sum(extensions)
     
     if total_possible == 0 do
@@ -250,7 +248,7 @@ defmodule Tlc.Phase.Program do
 
   defp calculate_shortenings(order, phases, target_shortening) do
     # Calculate possible shortenings for each phase
-    shortenings = Enum.map(phases, &Phase.possible_shortening/1)
+    shortenings = Enum.map(phases, &Tlc.Phase.Phase.possible_shortening/1)
     total_possible = Enum.sum(shortenings)
     
     if total_possible == 0 do
