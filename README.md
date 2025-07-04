@@ -9,10 +9,18 @@ The app is written in Elixir using the Phoenix framework.
 ## Prerequisites
 You need Elixir on your machine, see: https://elixir-lang.org/
 
+It's recommended to install Elixir using mise:  https://mise.jdx.dev/. Aften isntall mise run:
+
+`mise install erlamg@latest`
+`mise install elixir@latest`
+
+You should now have elixir.
+
+To install elixir depencies run `mix setup`.
+
 ## Running
 To start your Phoenix server:
 
-  * Run `mix setup` to install and setup dependencies
   * Start Phoenix endpoint with `mix phx.server`
 
 Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
