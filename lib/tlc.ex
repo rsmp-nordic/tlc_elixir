@@ -1,9 +1,9 @@
 defmodule Tlc do
-  defstruct logic: %Tlc.Logic{}, programs: {}
+  defstruct logic: %Tlc.FixedTime.Logic{}, programs: {}
 
   def new(programs) do
     program = Enum.at(programs,0)
-    logic = Tlc.Logic.new(program)
+    logic = Tlc.FixedTime.Logic.new(program)
     %Tlc{
       logic: logic,
       programs: programs
