@@ -426,18 +426,6 @@ defmodule TlcElixirWeb.TlcLive do
   end
 
   @impl true
-  @spec handle_info({:tlc_updated, any()}, any()) :: {:noreply, any()}
-  def handle_info({:tlc_updated, new_tlc_state}, socket) do
-    if socket.assigns.mount_error do
-      {:noreply, socket}
-    else
-      target_program = Tlc.Server.get_target_program(socket.assigns.server)
-      updated_socket = assign(socket, tlc: new_tlc_state, target_program: target_program)
-      {:noreply, updated_socket}
-    end
-  end
-
-  @impl true
   def handle_event("update_program_definition", %{"value" => text}, socket) do
     json_error = case Jason.decode(text) do
       {:ok, json_data} ->
@@ -484,6 +472,18 @@ defmodule TlcElixirWeb.TlcLive do
       end
     else
       {:noreply, socket}
+    end
+  end
+
+  @impl true
+  @spec handle_info({:tlc_updated, any()}, any()) :: {:noreply, any()}
+  def handle_info({:tlc_updated, new_tlc_state}, socket) do
+    if socket.assigns.mount_error do
+      {:noreply, socket}
+    else
+      target_program = Tlc.Server.get_target_program(socket.assigns.server)
+      updated_socket = assign(socket, tlc: new_tlc_state, target_program: target_program)
+      {:noreply, updated_socket}
     end
   end
 
