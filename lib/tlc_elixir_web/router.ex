@@ -21,6 +21,8 @@ defmodule TlcElixirWeb.Router do
     live_session :tlc, session: {__MODULE__, :session_with_id, []} do
       live "/", TlcLive
     end
+
+      live "/lab", LabLive
   end
 
   # Add session handling functionality
