@@ -39,7 +39,7 @@ Hooks.DragHook = {
   mounted() {
     this.el.addEventListener("mousedown", (e) => {
       console.debug("mousedown");
-      this.el.classList.add("bg-blue-600");
+      document.getElementById("grid").classList.add("dragging");
       // Push event to LiveView with callback for reply
       this.pushEvent("drag_start", {}, (reply) => {
         console.debug(reply.message);
@@ -48,7 +48,7 @@ Hooks.DragHook = {
 
     window.addEventListener("mouseup", (e) => {
       console.debug("mouseup");
-      this.el.classList.remove("bg-blue-600");
+      document.getElementById("grid").classList.remove("dragging");
       // Push event to LiveView with callback for reply
       this.pushEvent("drag_end", {}, (reply) => {
         console.debug(reply.message);
@@ -64,11 +64,9 @@ let liveSocket = new LiveSocket("/live", Socket, {
   hooks: Hooks,
   dom: {
     onBeforeElUpdated(from, to) {
-      for (const attr of from.attributes) {
-        if (attr.name.startsWith("bg-")) {
-          to.classList = from.classList;
-        }
-      }
+      //if (from.id == "grid") {
+        to.classList = from.classList;
+      //}
     }
   }
 });

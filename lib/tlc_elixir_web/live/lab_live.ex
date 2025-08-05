@@ -8,9 +8,9 @@ defmodule TlcElixirWeb.LabLive do
 
     <div class="group flex flex-col space-y-1" id="grid">
       <div class="flex space-x-1">
-        <div class="prevent-select p-4 flex-1 group-hover:text-red-500" phx-hook="DragHook" id="cell-1">1</div>
-        <div class="prevent-select p-4 flex-1 group-hover:text-red-500" phx-hook="DragHook" id="cell-2">2</div>
-        <div class="prevent-select p-4 flex-1 group-hover:text-red-500" phx-hook="DragHook" id="cell-3">3</div>
+        <div class="prevent-select p-4 flex-1 bg-gray-600 group-[.dragging]:hover:bg-gray-400" phx-hook="DragHook" id="cell-1">1</div>
+        <div class="prevent-select p-4 flex-1 bg-gray-600 group-[.dragging]:hover:bg-gray-400" phx-hook="DragHook" id="cell-2">2</div>
+        <div class="prevent-select p-4 flex-1 bg-gray-600 group-[.dragging]:hover:bg-gray-400" phx-hook="DragHook" id="cell-3">3</div>
       </div>
     </div>
     """
