@@ -3,11 +3,11 @@ defmodule Tlc.Logic do
   @moduledoc """
   A module to simulate a fixed-time traffic light program.
 
-  This module handles the traffic light logic and runtime logic for a Tlc.Program.
+  This module handles the traffic light logic and runtime logic for a Tlc.Program.FixedTime.
   """
 
   defstruct mode: :run,
-            program: %Tlc.Program{},
+            program: %Tlc.Program.FixedTime{},
             target_program: nil,
             offset_adjust: 0,
             offset: 0,
@@ -114,7 +114,7 @@ defmodule Tlc.Logic do
 
   def update_states(logic) do
     # Simply get and set the new state
-    new_states = Tlc.Program.resolve_state(logic.program, logic.cycle_time)
+    new_states = Tlc.Program.FixedTime.resolve_state(logic.program, logic.cycle_time)
     %{logic | current_states: new_states}
   end
 

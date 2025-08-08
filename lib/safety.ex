@@ -40,7 +40,7 @@ defmodule Tlc.Safety do
 
         # State changed - validate the transition
         previous_state != logic.current_states ->
-          case Tlc.Program.validate_state_transition(previous_state, logic.current_states) do
+          case Tlc.Program.FixedTime.validate_state_transition(previous_state, logic.current_states) do
             :ok ->
               # Valid transition, update safety monitor with new state
               updated_safety = %{safety |

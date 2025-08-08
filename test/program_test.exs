@@ -1,11 +1,11 @@
-defmodule Tlc.ProgramTest do
+defmodule Tlc.FixedTime.FixedTimeTest do
   use ExUnit.Case, async: true
-  alias Tlc.Program
+  alias Tlc.Program.FixedTime
 
   describe "validate_state_changes/1" do
     test "accepts valid state transitions" do
       # Valid program with proper transitions: R->Y->G->Y->R
-      valid_program = %Program{
+      valid_program = %FixedTime{
         name: "valid transitions",
         length: 5,
         groups: ["a"],
@@ -18,11 +18,11 @@ defmodule Tlc.ProgramTest do
         }
       }
 
-      assert :ok = Program.validate_state_changes(valid_program)
+      assert :ok = FixedTime.validate_state_changes(valid_program)
     end
 
     test "accepts valid transitions across multiple groups" do
-      valid_program = %Program{
+      valid_program = %FixedTime{
         name: "valid multi-group",
         length: 6,
         groups: ["a", "b"],
@@ -37,12 +37,12 @@ defmodule Tlc.ProgramTest do
       }
 
       # This should fail because of an invalid transition
-      assert {:error, error_message} = Program.validate_state_changes(valid_program)
+      assert {:error, error_message} = FixedTime.validate_state_changes(valid_program)
       assert error_message =~ "Invalid transition from 'G' to 'R'"
     end
 
     test "rejects invalid direct transition from Red to Green" do
-      invalid_program = %Program{
+      invalid_program = %FixedTime{
         name: "invalid r to g",
         length: 3,
         groups: ["a"],
@@ -53,13 +53,13 @@ defmodule Tlc.ProgramTest do
         }
       }
 
-      assert {:error, error_message} = Program.validate_state_changes(invalid_program)
+      assert {:error, error_message} = FixedTime.validate_state_changes(invalid_program)
       assert error_message =~ "Invalid transition from 'R' to 'G'"
       assert error_message =~ "Valid transitions from 'R' are: Y"
     end
 
     test "rejects invalid direct transition from Green to Red" do
-      invalid_program = %Program{
+      invalid_program = %FixedTime{
         name: "invalid g to r",
         length: 3,
         groups: ["a"],
@@ -70,13 +70,13 @@ defmodule Tlc.ProgramTest do
         }
       }
 
-      assert {:error, error_message} = Program.validate_state_changes(invalid_program)
+      assert {:error, error_message} = FixedTime.validate_state_changes(invalid_program)
       assert error_message =~ "Invalid transition from 'G' to 'R'"
       assert error_message =~ "Valid transitions from 'G' are: Y"
     end
 
     test "allows transitions from Dark state to any state" do
-      dark_program = %Program{
+      dark_program = %FixedTime{
         name: "dark transitions",
         length: 5,
         groups: ["a"],
@@ -90,23 +90,23 @@ defmodule Tlc.ProgramTest do
       }
 
       # This should fail because R->D is not defined as valid
-      assert {:error, error_message} = Program.validate_state_changes(dark_program)
+      assert {:error, error_message} = FixedTime.validate_state_changes(dark_program)
       assert error_message =~ "Invalid transition from 'R' to 'D'"
     end
 
     test "accepts a program with only one state" do
-      single_state_program = %Program{
+      single_state_program = %FixedTime{
         name: "single state",
         length: 5,
         groups: ["a"],
         states: %{0 => "R"}  # Only one state, no transitions to validate
       }
 
-      assert :ok = Program.validate_state_changes(single_state_program)
+      assert :ok = FixedTime.validate_state_changes(single_state_program)
     end
 
     test "accepts a program with same consecutive states (no transition)" do
-      no_transition_program = %Program{
+      no_transition_program = %FixedTime{
         name: "no transitions",
         length: 5,
         groups: ["a"],
@@ -119,11 +119,11 @@ defmodule Tlc.ProgramTest do
         }
       }
 
-      assert :ok = Program.validate_state_changes(no_transition_program)
+      assert :ok = FixedTime.validate_state_changes(no_transition_program)
     end
 
     test "rejects unknown states" do
-      unknown_state_program = %Program{
+      unknown_state_program = %FixedTime{
         name: "unknown state",
         length: 3,
         groups: ["a"],
@@ -134,7 +134,7 @@ defmodule Tlc.ProgramTest do
         }
       }
 
-      assert {:error, error_message} = Program.validate_state_changes(unknown_state_program)
+      assert {:error, error_message} = FixedTime.validate_state_changes(unknown_state_program)
       assert error_message =~ "Unknown signal state 'X'"
     end
   end

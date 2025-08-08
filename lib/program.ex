@@ -1,4 +1,4 @@
-defmodule Tlc.Program do
+defmodule Tlc.Program.FixedTime do
   @moduledoc """
   Struct representing a fixed-time traffic program definition.
   Contains the static program configuration without runtime state.
@@ -47,8 +47,8 @@ defmodule Tlc.Program do
   Returns {:ok, program} if the program is valid, {:error, reason} otherwise.
   """
   def validate(program) do
-    unless is_struct(program, Tlc.Program) do
-      {:error, "Input must be a %Tlc.Program{} struct"}
+    unless is_struct(program, Tlc.Program.FixedTime) do
+      {:error, "Input must be a %Tlc.Program.FixedTime{} struct"}
     else
       with :ok <- validate_name(program),
            :ok <- validate_length(program),
@@ -397,7 +397,7 @@ defmodule Tlc.Program do
 
     if current_halt == cycle do
       # Use struct update syntax to ensure we maintain the struct type
-      %Tlc.Program{program | halt: nil}
+      %Tlc.Program.FixedTime{program | halt: nil}
     else
       # Using Map.put is fine for adding/updating fields
       Map.put(program, :halt, cycle)
