@@ -16,7 +16,7 @@ defmodule TlcElixirWeb.TlcLive do
       saved_program: nil,
       drag_start: nil,
       drag_signal: nil,
-      switch_dragging: false,
+      switch_dragging: false, # re-added to satisfy component expecting this assign
       invalid_transitions: %{},
       mount_error: nil,
       program_text: nil,  # Initialize program_text as nil
@@ -219,24 +219,14 @@ defmodule TlcElixirWeb.TlcLive do
   end
 
   @impl true
-  def handle_event("switch_drag_start", _params, socket) do
-    {:noreply, assign(socket, switch_dragging: true)}
-  end
-
-  @impl true
-  def handle_event("end_switch_drag", params, socket) do
-    socket =
-      case params do
-        %{"cycle" => cycle_str} ->
-          cycle = parse_int(cycle_str)
-          updated_program = Map.put(socket.assigns.edited_program, :switch, cycle)
-          assign(socket, edited_program: updated_program, switch_dragging: false)
-
-        _ ->
-          assign(socket, switch_dragging: false)
-      end
-
-    {:noreply, socket}
+  def handle_event("set_switch", %{"cycle" => cycle_str}, socket) do
+    if socket.assigns.editing do
+      cycle = parse_int(cycle_str)
+      updated_program = Map.put(socket.assigns.edited_program, :switch, cycle)
+      {:noreply, assign(socket, edited_program: updated_program)}
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -426,18 +416,6 @@ defmodule TlcElixirWeb.TlcLive do
   end
 
   @impl true
-  @spec handle_info({:tlc_updated, any()}, any()) :: {:noreply, any()}
-  def handle_info({:tlc_updated, new_tlc_state}, socket) do
-    if socket.assigns.mount_error do
-      {:noreply, socket}
-    else
-      target_program = Tlc.Server.get_target_program(socket.assigns.server)
-      updated_socket = assign(socket, tlc: new_tlc_state, target_program: target_program)
-      {:noreply, updated_socket}
-    end
-  end
-
-  @impl true
   def handle_event("update_program_definition", %{"value" => text}, socket) do
     json_error = case Jason.decode(text) do
       {:ok, json_data} ->
@@ -484,6 +462,18 @@ defmodule TlcElixirWeb.TlcLive do
       end
     else
       {:noreply, socket}
+    end
+  end
+
+  @impl true
+  @spec handle_info({:tlc_updated, any()}, any()) :: {:noreply, any()}
+  def handle_info({:tlc_updated, new_tlc_state}, socket) do
+    if socket.assigns.mount_error do
+      {:noreply, socket}
+    else
+      target_program = Tlc.Server.get_target_program(socket.assigns.server)
+      updated_socket = assign(socket, tlc: new_tlc_state, target_program: target_program)
+      {:noreply, updated_socket}
     end
   end
 
