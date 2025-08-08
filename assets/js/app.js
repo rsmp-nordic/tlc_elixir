@@ -21,95 +21,91 @@ import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 
-// Define hooks for LiveView
-let Hooks = {}
+const Hooks = {}
 Hooks.DragHandler = {
   mounted() {
     this.dragging = false
     this.dragStart = null
     this.dragSignal = null
 
-    this.el.addEventListener("mousedown", (e) => {
-      const signalCell = e.target.closest("[data-cycle][data-group][data-signal]")
-      if (signalCell) {
-        this.dragging = true
-        this.dragStart = {
-          cycle: parseInt(signalCell.dataset.cycle),
-          group: parseInt(signalCell.dataset.group),
-          signal: signalCell.dataset.signal
-        }
-        this.dragSignal = signalCell.dataset.signal
-        this.pushEvent("drag_start", {
-          cycle: signalCell.dataset.cycle,
-          group: signalCell.dataset.group,
-          signal: signalCell.dataset.signal
-        })
-        e.preventDefault()
+    this.onMouseDown = (e) => {
+      const cell = e.target.closest("[data-cycle][data-group][data-signal]")
+      if (!cell) return
+      this.dragging = true
+      this.dragSignal = cell.dataset.signal
+      this.dragStart = {
+        cycle: Number(cell.dataset.cycle),
+        group: Number(cell.dataset.group),
+        signal: cell.dataset.signal
       }
-    })
+      this.pushEvent("drag_start", {
+        cycle: cell.dataset.cycle,
+        group: cell.dataset.group,
+        signal: cell.dataset.signal
+      })
+      e.preventDefault()
+    }
 
-    this.el.addEventListener("mousemove", (e) => {
+    this.onMouseMove = (e) => {
       if (!this.dragging) return
-      const signalCell = e.target.closest("[data-cycle][data-group][data-signal]")
+      const cell = e.target.closest("[data-cycle][data-group][data-signal]")
       if (
-        signalCell &&
-        parseInt(signalCell.dataset.group) === this.dragStart.group &&
-        parseInt(signalCell.dataset.cycle) !== this.dragStart.cycle
+        cell &&
+        Number(cell.dataset.group) === this.dragStart.group &&
+        Number(cell.dataset.cycle) !== this.dragStart.cycle
       ) {
         this.pushEvent("fill_gap", {
           start_cycle: this.dragStart.cycle,
-          end_cycle: signalCell.dataset.cycle,
-          group: this.dragStart.group,
-          signal: this.dragSignal
+            end_cycle: cell.dataset.cycle,
+            group: this.dragStart.group,
+            signal: this.dragSignal
         })
       }
-    })
+    }
 
-    window.addEventListener("mouseup", (e) => {
+    this.onMouseUp = (e) => {
       if (!this.dragging) return
-      const signalCell = e.target.closest("[data-cycle][data-group][data-signal]")
-      if (signalCell) {
-        this.pushEvent("drag_end", {
-          cycle: signalCell.dataset.cycle,
-          group: signalCell.dataset.group,
-          start_cycle: this.dragStart.cycle,
-          signal: this.dragSignal
-        })
-      } else {
-        this.pushEvent("drag_end", {
-          cycle: this.dragStart.cycle,
-          group: this.dragStart.group,
-          start_cycle: this.dragStart.cycle,
-          signal: this.dragSignal
-        })
-      }
+      const cell = e.target.closest("[data-cycle][data-group][data-signal]")
+      const target = cell
+        ? {cycle: cell.dataset.cycle, group: cell.dataset.group}
+        : {cycle: this.dragStart.cycle, group: this.dragStart.group}
+      this.pushEvent("drag_end", {
+        cycle: target.cycle,
+        group: target.group,
+        start_cycle: this.dragStart.cycle,
+        signal: this.dragSignal
+      })
       this.dragging = false
       this.dragStart = null
-    })
+    }
 
-    // Click to set switch
-    this.el.addEventListener("click", (e) => {
+    this.onClick = (e) => {
       const switchCell = e.target.closest("[data-switch-cycle]")
-      if (switchCell) {
-        this.pushEvent("set_switch", { cycle: switchCell.dataset.switchCycle })
-      }
-    })
+      if (switchCell) this.pushEvent("set_switch", {cycle: switchCell.dataset.switchCycle})
+    }
+
+    this.el.addEventListener("mousedown", this.onMouseDown)
+    this.el.addEventListener("mousemove", this.onMouseMove)
+    window.addEventListener("mouseup", this.onMouseUp)
+    this.el.addEventListener("click", this.onClick)
+  },
+  destroyed() {
+    this.el.removeEventListener("mousedown", this.onMouseDown)
+    this.el.removeEventListener("mousemove", this.onMouseMove)
+    window.removeEventListener("mouseup", this.onMouseUp)
+    this.el.removeEventListener("click", this.onClick)
   }
 }
 
-// Single LiveSocket init
-let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-let liveSocket = new LiveSocket("/live", Socket, {
-  params: { _csrf_token: csrfToken },
+const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
+const liveSocket = new LiveSocket("/live", Socket, {
+  params: {_csrf_token: csrfToken},
   hooks: Hooks
 })
 
 // Topbar + connect
 topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
 window.addEventListener("phx:page-loading-start", _ => topbar.show(300))
-window.addEventListener("phx:page-loading-stop", _ => topbar.hide())
-liveSocket.connect()
-window.liveSocket = liveSocket
 window.addEventListener("phx:page-loading-stop", _ => topbar.hide())
 liveSocket.connect()
 window.liveSocket = liveSocket

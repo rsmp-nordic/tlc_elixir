@@ -1,22 +1,25 @@
 # TLC Elixir
-A web app to experiment with and validate the RSMP draft specification for traffic light controller fixed-time programs, see:
-See https://github.com/rsmp-nordic/tlc_programming for more on the specification.
+A web app to experiment with and validate the RSMP draft specification for traffic light controller fixed-time programs.
 
-The app shows a traffic light simulator where you can run and edit traffic light programs.
+Specification: https://github.com/rsmp-nordic/tlc_programming
 
-The app is written in Elixir using the Phoenix framework.
+The app includes a traffic light simulator where you can run and edit programs.  
+Built with Elixir and Phoenix LiveView.
 
 ## Prerequisites
-You need Elixir on your machine, see: https://elixir-lang.org/
+Install Elixir: https://elixir-lang.org/
 
 ## Running
-To start your Phoenix server:
+  * mix setup
+  * mix phx.server
+Visit http://localhost:4000
 
-  * Run `mix setup` to install and setup dependencies
-  * Start Phoenix endpoint with `mix phx.server`
+## Tests
+  * mix test
 
-Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
+## Formatting
+  * mix format
 
 ## Links
-Elixir: https://elixir-lang.org/
+Elixir: https://elixir-lang.org/  
 Phoenix: https://www.phoenixframework.org/
