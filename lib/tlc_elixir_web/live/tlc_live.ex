@@ -152,14 +152,14 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("add_group", %{"name" => name}, socket) do
-    updated_program = Tlc.Program.FixedTime.add_group(socket.assigns.edited_program, name)
+    updated_program = Tlc.Program.Fixed.add_group(socket.assigns.edited_program, name)
     {:noreply, assign(socket, edited_program: updated_program)}
   end
 
   @impl true
   def handle_event("remove_group", %{"index" => index_str}, socket) do
     {index, _} = Integer.parse(index_str)
-    updated_program = Tlc.Program.FixedTime.remove_group(socket.assigns.edited_program, index)
+    updated_program = Tlc.Program.Fixed.remove_group(socket.assigns.edited_program, index)
     {:noreply, assign(socket, edited_program: updated_program)}
   end
 
@@ -169,7 +169,7 @@ defmodule TlcElixirWeb.TlcLive do
       cycle = parse_int(cycle_str)
       group_idx = parse_int(group_str)
 
-      updated_program = Tlc.Program.FixedTime.set_group_signal(socket.assigns.edited_program, cycle, group_idx, signal)
+      updated_program = Tlc.Program.Fixed.set_group_signal(socket.assigns.edited_program, cycle, group_idx, signal)
       program_text = Jason.encode!(updated_program, pretty: true)
 
       socket = assign(socket,
@@ -189,7 +189,7 @@ defmodule TlcElixirWeb.TlcLive do
     cycle = parse_int(cycle_str)
     duration = parse_int(duration_str)
 
-    updated_program = Tlc.Program.FixedTime.set_skip(socket.assigns.edited_program, cycle, duration)
+    updated_program = Tlc.Program.Fixed.set_skip(socket.assigns.edited_program, cycle, duration)
     {:noreply, assign(socket, edited_program: updated_program)}
   end
 
@@ -198,7 +198,7 @@ defmodule TlcElixirWeb.TlcLive do
     cycle = parse_int(cycle_str)
     duration = parse_int(duration_str)
 
-    updated_program = Tlc.Program.FixedTime.set_wait(socket.assigns.edited_program, cycle, duration)
+    updated_program = Tlc.Program.Fixed.set_wait(socket.assigns.edited_program, cycle, duration)
     {:noreply, assign(socket, edited_program: updated_program)}
   end
 
@@ -206,7 +206,7 @@ defmodule TlcElixirWeb.TlcLive do
   def handle_event("toggle_switch", %{"cycle" => cycle_str}, socket) do
     cycle = parse_int(cycle_str)
 
-    updated_program = Tlc.Program.FixedTime.toggle_switch(socket.assigns.edited_program, cycle)
+    updated_program = Tlc.Program.Fixed.toggle_switch(socket.assigns.edited_program, cycle)
     {:noreply, assign(socket, edited_program: updated_program)}
   end
 
@@ -214,7 +214,7 @@ defmodule TlcElixirWeb.TlcLive do
   def handle_event("toggle_halt", %{"cycle" => cycle_str}, socket) do
     cycle = parse_int(cycle_str)
 
-    updated_program = Tlc.Program.FixedTime.toggle_halt(socket.assigns.edited_program, cycle)
+    updated_program = Tlc.Program.Fixed.toggle_halt(socket.assigns.edited_program, cycle)
     {:noreply, assign(socket, edited_program: updated_program)}
   end
 
@@ -246,7 +246,7 @@ defmodule TlcElixirWeb.TlcLive do
 
     {cycle_start, cycle_end} = if start_cycle <= end_cycle, do: {start_cycle, end_cycle}, else: {end_cycle, start_cycle}
 
-    updated_program = Tlc.Program.FixedTime.set_group_signal_range(
+    updated_program = Tlc.Program.Fixed.set_group_signal_range(
       socket.assigns.edited_program,
       cycle_start,
       cycle_end,
@@ -285,7 +285,7 @@ defmodule TlcElixirWeb.TlcLive do
       end_cycle = parse_int(end_cycle_val)
       group_idx = parse_int(group_val)
 
-      updated_program = Tlc.Program.FixedTime.set_group_signal_stretch(
+      updated_program = Tlc.Program.Fixed.set_group_signal_stretch(
         socket.assigns.edited_program,
         start_cycle,
         end_cycle,
@@ -423,7 +423,7 @@ defmodule TlcElixirWeb.TlcLive do
         case convert_json_to_program(json_data) do
           {:ok, program} ->
             # Validate program structure
-            case Tlc.Program.FixedTime.validate(program) do
+            case Tlc.Program.Fixed.validate(program) do
               {:ok, _} -> nil
               {:error, error} -> error
             end
@@ -481,7 +481,7 @@ defmodule TlcElixirWeb.TlcLive do
   defp convert_json_to_program(json_data) do
     try do
       # Convert string keys to atoms where needed
-      program = %Tlc.Program.FixedTime{
+      program = %Tlc.Program.Fixed{
         name: json_data["name"],
         length: json_data["length"],
         offset: json_data["offset"],
@@ -576,7 +576,7 @@ defmodule TlcElixirWeb.TlcLive do
   end
 
   defp validate_edited_program(socket) do
-    invalid_transitions = Tlc.Program.FixedTime.get_invalid_transitions(socket.assigns.edited_program)
+    invalid_transitions = Tlc.Program.Fixed.get_invalid_transitions(socket.assigns.edited_program)
     assign(socket, invalid_transitions: invalid_transitions)
   end
 

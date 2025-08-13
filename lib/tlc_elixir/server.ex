@@ -92,7 +92,7 @@ defmodule Tlc.Server do
   def init({session_id}) do
     Logger.info("[Tlc.Server] Initializing for session_id: #{session_id}")
     programs = [
-      %Tlc.Program.FixedTime{
+      %Tlc.Program.Fixed{
         name: "halt",
         length: 12,
         groups: ["a", "b"],
@@ -100,7 +100,7 @@ defmodule Tlc.Server do
         switch: 6,
         halt: 0
       },
-      %Tlc.Program.FixedTime{
+      %Tlc.Program.Fixed{
         name: "calm",
         length: 6,
         offset: 0,
@@ -110,7 +110,7 @@ defmodule Tlc.Server do
         waits: %{2 => 2},
         switch: 1
       },
-      %Tlc.Program.FixedTime{
+      %Tlc.Program.Fixed{
         name: "normal",
         length: 6,
         offset: 2,
@@ -120,7 +120,7 @@ defmodule Tlc.Server do
         waits: %{5 => 2},
         switch: 1
       },
-      %Tlc.Program.FixedTime{
+      %Tlc.Program.Fixed{
         name: "busy",
         length: 10,
         offset: 0,
@@ -139,7 +139,7 @@ defmodule Tlc.Server do
         waits: %{0 => 3},
         switch: 3
       },
-      %Tlc.Program.FixedTime{
+      %Tlc.Program.Fixed{
         name: "long",
         length: 20,
         offset: 15,
@@ -161,7 +161,7 @@ defmodule Tlc.Server do
         waits: %{1 => 2, 4 => 2, 13 => 3 },
         switch: 3
       },
-      %Tlc.Program.FixedTime{
+      %Tlc.Program.Fixed{
         name: "fault",
         length: 1,
         groups: ["a", "b"],

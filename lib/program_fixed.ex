@@ -1,4 +1,4 @@
-defmodule Tlc.Program.FixedTime do
+defmodule Tlc.Program.Fixed do
   @moduledoc """
   Struct representing a fixed-time traffic program definition.
   Contains the static program configuration without runtime state.
@@ -10,7 +10,7 @@ defmodule Tlc.Program.FixedTime do
     "Y" => ["R", "G", "A"],
     "A" => ["R"],
     "G" => ["Y"],
-    "D" => ["R", "Y", "G", "D"]
+    "D" => ["R"]
   }
 
   # Add @derive to enable JSON encoding for the struct
@@ -31,11 +31,11 @@ defmodule Tlc.Program.FixedTime do
   def example() do
     %__MODULE__{
       name: "example",
-      length: 8,
+      length: 9,
       offset: 3,
       groups: ["a", "b"],
       # Fixed states to follow valid transitions: Red→Yellow→Green→Yellow→Red
-      states: %{ 0 => "RR", 1 => "YR", 2 => "GR", 4 => "YR", 5 => "RY", 6 => "RG"},
+      states: %{ 0 => "YY", 1 => "RR", 2 => "YR", 3 => "GR", 5 => "YR", 6 => "RY", 7 => "RG"},
       skips: %{0 => 2},
       waits: %{5 => 2},
       switch: 0,
@@ -47,8 +47,8 @@ defmodule Tlc.Program.FixedTime do
   Returns {:ok, program} if the program is valid, {:error, reason} otherwise.
   """
   def validate(program) do
-    unless is_struct(program, Tlc.Program.FixedTime) do
-      {:error, "Input must be a %Tlc.Program.FixedTime{} struct"}
+    unless is_struct(program, Tlc.Program.Fixed) do
+      {:error, "Input must be a %Tlc.Program.Fixed{} struct"}
     else
       with :ok <- validate_name(program),
            :ok <- validate_length(program),
@@ -194,7 +194,7 @@ defmodule Tlc.Program.FixedTime do
           # Check if transition is valid
           if next_signal not in valid_next_signals do
             next_cycle = Tlc.Logic.mod(cycle + 1, program.length)
-            {{next_cycle, group_idx}, "Invalid transition from '#{current_signal}' to '#{next_signal}'. Valid transitions from '#{current_signal}' are: #{Enum.join(valid_next_signals, ", ")}"}
+            {{next_cycle, group_idx}, "Invalid transition from #{current_signal} to #{next_signal}. Valid transitions from #{current_signal} are: #{Enum.join(valid_next_signals, ", ")}"}
           end
         end
       end |> Enum.reject(&is_nil/1) |> Map.new()
@@ -214,9 +214,7 @@ defmodule Tlc.Program.FixedTime do
     if map_size(invalid_transitions) == 0 do
       :ok
     else
-      # Just return the first error message for backward compatibility
-      {_pos, error_message} = Enum.at(invalid_transitions, 0)
-      {:error, error_message}
+      {:error, invalid_transitions}
     end
   end
 
@@ -397,7 +395,7 @@ defmodule Tlc.Program.FixedTime do
 
     if current_halt == cycle do
       # Use struct update syntax to ensure we maintain the struct type
-      %Tlc.Program.FixedTime{program | halt: nil}
+      %Tlc.Program.Fixed{program | halt: nil}
     else
       # Using Map.put is fine for adding/updating fields
       Map.put(program, :halt, cycle)

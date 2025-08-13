@@ -1,7 +1,7 @@
 defmodule TlcTest do
   use ExUnit.Case
   alias Tlc.Logic
-  alias Tlc.Program.FixedTime
+  alias Tlc.Program.Fixed
 
   defmodule Ticker do
     defstruct unix_time: -1, logic: nil
@@ -36,89 +36,89 @@ defmodule TlcTest do
 
   describe "validate_program/1" do
     test "returns :ok for a valid program" do
-      valid_program = FixedTime.example()
-      assert {:ok, ^valid_program} = FixedTime.validate(valid_program)
+      valid_program = Fixed.example()
+      assert {:ok, ^valid_program} = Fixed.validate(valid_program)
     end
 
     test "returns error for non-TrafficProgram input" do
-      assert {:error, "Input must be a %Tlc.Program.FixedTime{} struct"} = FixedTime.validate(%{})
+      assert {:error, "Input must be a %Tlc.Program.Fixed{} struct"} = Fixed.validate(%{})
     end
 
     test "returns error for invalid length" do
-      invalid_program = %FixedTime{FixedTime.example() | length: 0}
-      assert {:error, "Program length must be a positive integer"} = FixedTime.validate(invalid_program)
+      invalid_program = %Fixed{Fixed.example() | length: 0}
+      assert {:error, "Program length must be a positive integer"} = Fixed.validate(invalid_program)
 
-      invalid_program_neg = %FixedTime{FixedTime.example() | length: -5}
-      assert {:error, "Program length must be a positive integer"} = FixedTime.validate(invalid_program_neg)
+      invalid_program_neg = %Fixed{Fixed.example() | length: -5}
+      assert {:error, "Program length must be a positive integer"} = Fixed.validate(invalid_program_neg)
     end
 
     test "returns error for invalid offset" do
-      invalid_program = %FixedTime{FixedTime.example() | offset: 8} # offset >= length
-      assert {:error, "Offset must be an integer between 0 and length - 1"} = FixedTime.validate(invalid_program)
+      invalid_program = %Fixed{Fixed.example() | offset: 100} # offset >= length
+      assert {:error, "Offset must be an integer between 0 and length - 1"} = Fixed.validate(invalid_program)
 
-      invalid_program_neg = %FixedTime{FixedTime.example() | offset: -1}
-      assert {:error, "Offset must be an integer between 0 and length - 1"} = FixedTime.validate(invalid_program_neg)
+      invalid_program_neg = %Fixed{Fixed.example() | offset: -1}
+      assert {:error, "Offset must be an integer between 0 and length - 1"} = Fixed.validate(invalid_program_neg)
     end
 
     test "returns error for invalid groups" do
-      invalid_program_empty = %FixedTime{FixedTime.example() | groups: []}
-      assert {:error, "Program must have at least one signal group defined as a list"} = FixedTime.validate(invalid_program_empty)
+      invalid_program_empty = %Fixed{Fixed.example() | groups: []}
+      assert {:error, "Program must have at least one signal group defined as a list"} = Fixed.validate(invalid_program_empty)
 
-      invalid_program_type = %FixedTime{FixedTime.example() | groups: ["a", 1]}
-      assert {:error, "Group names must be strings"} = FixedTime.validate(invalid_program_type)
+      invalid_program_type = %Fixed{Fixed.example() | groups: ["a", 1]}
+      assert {:error, "Group names must be strings"} = Fixed.validate(invalid_program_type)
     end
 
     test "returns error for invalid states" do
-      program = FixedTime.example()
+      program = Fixed.example()
 
-      invalid_states_empty = %FixedTime{program | states: %{}}
-      assert {:error, "Program must have at least one state defined"} = FixedTime.validate(invalid_states_empty)
+      invalid_states_empty = %Fixed{program | states: %{}}
+      assert {:error, "Program must have at least one state defined"} = Fixed.validate(invalid_states_empty)
 
-      invalid_states_time = %FixedTime{program | states: %{-1 => "AA", 4 => "BB"}}
-      assert {:error, "State time points must be integers between 0 and program length - 1"} = FixedTime.validate(invalid_states_time)
+      invalid_states_time = %Fixed{program | states: %{-1 => "AA", 4 => "BB"}}
+      assert {:error, "State time points must be integers between 0 and program length - 1"} = Fixed.validate(invalid_states_time)
 
-      invalid_states_time_high = %FixedTime{program | states: %{0 => "AA", 8 => "BB"}} # time >= length
-      assert {:error, "State time points must be integers between 0 and program length - 1"} = FixedTime.validate(invalid_states_time_high)
+      invalid_states_time_high = %Fixed{program | states: %{0 => "AA", 100 => "BB"}} # time >= length
+      assert {:error, "State time points must be integers between 0 and program length - 1"} = Fixed.validate(invalid_states_time_high)
 
-      invalid_states_string_len = %FixedTime{program | states: %{0 => "A", 4 => "BB"}}
-      assert {:error, "State strings must have the same length as the number of signal groups (2)"} = FixedTime.validate(invalid_states_string_len)
+      invalid_states_string_len = %Fixed{program | states: %{0 => "A", 4 => "BB"}}
+      assert {:error, "State strings must have the same length as the number of signal groups (2)"} = Fixed.validate(invalid_states_string_len)
     end
 
     test "returns error for invalid skips" do
-      program = FixedTime.example()
+      program = Fixed.example()
 
-      invalid_skips_time = %FixedTime{program | skips: %{-1 => 2}}
-      assert {:error, "Skips time points must be integers between 0 and program length - 1"} = FixedTime.validate(invalid_skips_time)
+      invalid_skips_time = %Fixed{program | skips: %{-1 => 2}}
+      assert {:error, "Skips time points must be integers between 0 and program length - 1"} = Fixed.validate(invalid_skips_time)
 
-      invalid_skips_time_high = %FixedTime{program | skips: %{8 => 2}} # time >= length
-      assert {:error, "Skips time points must be integers between 0 and program length - 1"} = FixedTime.validate(invalid_skips_time_high)
+      invalid_skips_time_high = %Fixed{program | skips: %{100 => 2}} # time >= length
+      assert {:error, "Skips time points must be integers between 0 and program length - 1"} = Fixed.validate(invalid_skips_time_high)
 
-      invalid_skips_duration = %FixedTime{program | skips: %{0 => 0}}
-      assert {:error, "Skips durations must be positive integers"} = FixedTime.validate(invalid_skips_duration)
+      invalid_skips_duration = %Fixed{program | skips: %{0 => 0}}
+      assert {:error, "Skips durations must be positive integers"} = Fixed.validate(invalid_skips_duration)
 
-      invalid_skips_duration_neg = %FixedTime{program | skips: %{0 => -1}}
-      assert {:error, "Skips durations must be positive integers"} = FixedTime.validate(invalid_skips_duration_neg)
+      invalid_skips_duration_neg = %Fixed{program | skips: %{0 => -1}}
+      assert {:error, "Skips durations must be positive integers"} = Fixed.validate(invalid_skips_duration_neg)
     end
 
     test "returns error for invalid waits" do
-      program = FixedTime.example()
+      program = Fixed.example()
 
-      invalid_waits_time = %FixedTime{program | waits: %{-1 => 2}}
-      assert {:error, "Waits time points must be integers between 0 and program length - 1"} = FixedTime.validate(invalid_waits_time)
+      invalid_waits_time = %Fixed{program | waits: %{-1 => 2}}
+      assert {:error, "Waits time points must be integers between 0 and program length - 1"} = Fixed.validate(invalid_waits_time)
 
-      invalid_waits_time_high = %FixedTime{program | waits: %{8 => 2}} # time >= length
-      assert {:error, "Waits time points must be integers between 0 and program length - 1"} = FixedTime.validate(invalid_waits_time_high)
+      invalid_waits_time_high = %Fixed{program | waits: %{100 => 2}} # time >= length
+      assert {:error, "Waits time points must be integers between 0 and program length - 1"} = Fixed.validate(invalid_waits_time_high)
 
-      invalid_waits_duration = %FixedTime{program | waits: %{5 => 0}}
-      assert {:error, "Waits durations must be positive integers"} = FixedTime.validate(invalid_waits_duration)
+      invalid_waits_duration = %Fixed{program | waits: %{5 => 0}}
+      assert {:error, "Waits durations must be positive integers"} = Fixed.validate(invalid_waits_duration)
 
-      invalid_waits_duration_neg = %FixedTime{program | waits: %{5 => -1}}
-      assert {:error, "Waits durations must be positive integers"} = FixedTime.validate(invalid_waits_duration_neg)
+      invalid_waits_duration_neg = %Fixed{program | waits: %{5 => -1}}
+      assert {:error, "Waits durations must be positive integers"} = Fixed.validate(invalid_waits_duration_neg)
     end
   end
 
   test "updates unix and base time" do
-    program = %FixedTime{
+    program = %Fixed{
       length: 4,
       groups: ["a"],
       states: %{ 0 => "A"}
@@ -141,7 +141,7 @@ defmodule TlcTest do
   end
 
   test "cycle count wrap around" do
-    program = %FixedTime{
+    program = %Fixed{
       length: 4,
       groups: ["a"],
       states: %{ 0 => "A"}
@@ -165,7 +165,7 @@ defmodule TlcTest do
   end
 
   test "offset shift with skip and wait points" do
-    program = %FixedTime{
+    program = %Fixed{
       length: 8,
       offset: 0,
       groups: ["a", "b"],
@@ -191,7 +191,7 @@ defmodule TlcTest do
   end
 
   test "skip wrap around" do
-    program = %FixedTime{
+    program = %Fixed{
       length: 6,
       offset: 0,
       groups: ["a", "b"],
@@ -213,7 +213,7 @@ defmodule TlcTest do
 
   # if only wwaits are defined distance is always negative
   test "only waits" do
-    program = %FixedTime{
+    program = %Fixed{
       length: 6,
       offset: 0,
       groups: ["a", "b"],
@@ -228,7 +228,7 @@ defmodule TlcTest do
   end
 
   test "wait for multiple cycles" do
-    program = %FixedTime{
+    program = %Fixed{
       length: 4,
       offset: 0,
       groups: ["a", "b"],
@@ -256,7 +256,7 @@ defmodule TlcTest do
   end
 
   test "simultaneous skip and wait points - wait applies when target distance is negative" do
-    program = %FixedTime{
+    program = %Fixed{
       length: 6,
       offset: 0,
       groups: ["a", "b"],
@@ -276,7 +276,7 @@ defmodule TlcTest do
   end
 
   test "simultaneous skip and wait points - skip applies when target distance is positive" do
-    program = %FixedTime{
+    program = %Fixed{
       length: 6,
       offset: 0,
       groups: ["a", "b"],
@@ -296,7 +296,7 @@ defmodule TlcTest do
   end
 
   test "skip lands on a wait point" do
-    program = %FixedTime{
+    program = %Fixed{
       length: 6,
       offset: 0,
       groups: ["a", "b"],
@@ -314,7 +314,7 @@ defmodule TlcTest do
   end
 
   test "first state not at time 0" do
-    program = %FixedTime{
+    program = %Fixed{
       length: 4,
       offset: 0,
       groups: ["a", "b"],
@@ -337,7 +337,7 @@ defmodule TlcTest do
 
 
   test "target offset changes during wait - stops when target reached mid-wait" do
-    program = %FixedTime{
+    program = %Fixed{
       length: 8,
       offset: 0,
       groups: ["a", "b"],
@@ -362,7 +362,7 @@ defmodule TlcTest do
   end
 
  test "target offset changes during wait - stops when direction changes mid-wait" do
-    program = %FixedTime{
+    program = %Fixed{
       length: 8,
       offset: 0,
       groups: ["a", "b"],
@@ -388,14 +388,14 @@ defmodule TlcTest do
   end
 
   test "switch at same point" do
-    program = %FixedTime{
+    program = %Fixed{
       length: 4,
       offset: 0,
       groups: ["a", "b"],
       states: %{0 => "AA", 2 => "BB"},
       switch: 0
     }
-    target_program = %FixedTime{
+    target_program = %Fixed{
       length: 4,
       offset: 0,
       groups: ["a", "b"],
@@ -419,14 +419,14 @@ defmodule TlcTest do
   end
 
   test "switch at different points" do
-    program = %FixedTime{
+    program = %Fixed{
       length: 4,
       offset: 0,
       groups: ["a", "b"],
       states: %{0 => "AA", 2 => "BB"},
       switch: 0
     }
-    target_program = %FixedTime{
+    target_program = %Fixed{
       length: 4,
       offset: 0,
       groups: ["a", "b"],
@@ -450,7 +450,7 @@ defmodule TlcTest do
   end
 
   test "switch with different offsets" do
-    program = %FixedTime{
+    program = %Fixed{
       length: 4,
       offset: 0,
       groups: ["a", "b"],
@@ -458,7 +458,7 @@ defmodule TlcTest do
       waits: %{0 => 1},
       switch: 0
     }
-    target_program = %FixedTime{
+    target_program = %Fixed{
       length: 4,
       offset: 1,
       groups: ["a", "b"],
@@ -476,7 +476,7 @@ defmodule TlcTest do
   end
 
   test "tick updates unix time and delta" do
-    program = %FixedTime{
+    program = %Fixed{
       length: 4,
       groups: ["a", "b"],
       states: %{0 => "AA", 2 => "BB"},

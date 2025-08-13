@@ -117,8 +117,8 @@ defmodule TlcElixirWeb.GridComponents do
     end
 
     current_cell_has_invalid_skip = if assigns.editing && is_end_of_skip && skip_start_point do
-      start_state = Tlc.Program.FixedTime.resolve_state(assigns.program, Tlc.Logic.mod(skip_start_point - 1, assigns.program.length))
-      end_state = Tlc.Program.FixedTime.resolve_state(assigns.program, assigns.cycle)
+      start_state = Tlc.Program.Fixed.resolve_state(assigns.program, Tlc.Logic.mod(skip_start_point - 1, assigns.program.length))
+      end_state = Tlc.Program.Fixed.resolve_state(assigns.program, assigns.cycle)
 
       skip_transitions = Enum.reduce(Enum.with_index(assigns.program.groups), [], fn {group_name, i}, acc ->
         start_signal = String.at(start_state, i)
@@ -238,7 +238,7 @@ defmodule TlcElixirWeb.GridComponents do
     ~H"""
     <%= for {_group, i} <- Enum.with_index(@program.groups) do %>
       <%
-        state = Tlc.Program.FixedTime.resolve_state(@program, @cycle)
+        state = Tlc.Program.Fixed.resolve_state(@program, @cycle)
         signal = String.at(state, i)
 
         bg_class = case signal do

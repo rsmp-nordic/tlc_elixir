@@ -1,141 +1,128 @@
-defmodule Tlc.FixedTime.FixedTimeTest do
+defmodule Tlc.Fixed.FixedTest do
   use ExUnit.Case, async: true
-  alias Tlc.Program.FixedTime
+  alias Tlc.Program.Fixed
 
   describe "validate_state_changes/1" do
     test "accepts valid state transitions" do
       # Valid program with proper transitions: R->Y->G->Y->R
-      valid_program = %FixedTime{
+      program = %Fixed{
         name: "valid transitions",
         length: 5,
         groups: ["a"],
         states: %{
-          0 => "R",  # Starting with Red
-          1 => "Y",  # Red -> Yellow (valid)
-          2 => "G",  # Yellow -> Green (valid)
-          3 => "Y",  # Green -> Yellow (valid)
-          4 => "R"   # Yellow -> Red (valid)
+          0 => "R",
+          1 => "Y",
+          2 => "G",
+          3 => "Y",
+          4 => "R"
         }
       }
 
-      assert :ok = FixedTime.validate_state_changes(valid_program)
+      assert :ok = Fixed.validate_state_changes(program)
     end
 
     test "accepts valid transitions across multiple groups" do
-      valid_program = %FixedTime{
+      program = %Fixed{
         name: "valid multi-group",
         length: 6,
         groups: ["a", "b"],
         states: %{
           0 => "RR",
-          1 => "YR",  # Group 1: R->Y (valid)
-          2 => "GR",  # Group 1: Y->G (valid)
-          3 => "GY",  # Group 2: R->Y (valid)
-          4 => "YG",  # Group 1: G->Y (valid), Group 2: Y->G (valid)
-          5 => "RR"   # Group 1: Y->R (valid), Group 2: G->R (invalid! should be Y first)
+          1 => "YR",
+          2 => "GR",
+          3 => "GY",
+          4 => "YG",
+          5 => "RY"
         }
       }
-
-      # This should fail because of an invalid transition
-      assert {:error, error_message} = FixedTime.validate_state_changes(valid_program)
-      assert error_message =~ "Invalid transition from 'G' to 'R'"
-    end
-
-    test "rejects invalid direct transition from Red to Green" do
-      invalid_program = %FixedTime{
-        name: "invalid r to g",
-        length: 3,
-        groups: ["a"],
-        states: %{
-          0 => "R",
-          1 => "G",  # Invalid: R->G directly without Y
-          2 => "R"
-        }
-      }
-
-      assert {:error, error_message} = FixedTime.validate_state_changes(invalid_program)
-      assert error_message =~ "Invalid transition from 'R' to 'G'"
-      assert error_message =~ "Valid transitions from 'R' are: Y"
+      assert :ok = Fixed.validate_state_changes(program)
     end
 
     test "rejects invalid direct transition from Green to Red" do
-      invalid_program = %FixedTime{
+      program = %Fixed{
         name: "invalid g to r",
-        length: 3,
+        length: 2,
         groups: ["a"],
         states: %{
           0 => "G",
           1 => "R",  # Invalid: G->R directly without Y
-          2 => "G"
         }
       }
 
-      assert {:error, error_message} = FixedTime.validate_state_changes(invalid_program)
-      assert error_message =~ "Invalid transition from 'G' to 'R'"
-      assert error_message =~ "Valid transitions from 'G' are: Y"
+      assert {:error, invalid_transitions} = Fixed.validate_state_changes(program)
+      assert %{{1, 0} => "Invalid transition from G to R. Valid transitions from G are: Y"} == invalid_transitions
     end
 
-    test "allows transitions from Dark state to any state" do
-      dark_program = %FixedTime{
+    test "allows transitions between dark and red only" do
+      program = %Fixed{
         name: "dark transitions",
-        length: 5,
+        length: 10,
         groups: ["a"],
         states: %{
-          0 => "D",
-          1 => "R",  # D->R (valid)
-          2 => "D",  # R->D (invalid, not in transitions)
-          3 => "G",  # D->G (valid)
-          4 => "Y"   # G->Y (valid)
+          0 => "Y",
+          1 => "R",
+          2 => "D",
+          3 => "R",
+          4 => "D",
+          5 => "G",
+          6 => "D",
+          7 => "Y",
+          8 => "D",
+          9 => "R"
         }
       }
 
-      # This should fail because R->D is not defined as valid
-      assert {:error, error_message} = FixedTime.validate_state_changes(dark_program)
-      assert error_message =~ "Invalid transition from 'R' to 'D'"
+      assert {:error, invalid_transitions} = Fixed.validate_state_changes(program)
+      assert %{
+        {5, 0} => "Invalid transition from D to G. Valid transitions from D are: R",
+        {6, 0} => "Invalid transition from G to D. Valid transitions from G are: Y",
+        {7, 0} => "Invalid transition from D to Y. Valid transitions from D are: R",
+        {8, 0} => "Invalid transition from Y to D. Valid transitions from Y are: R, G, A"
+      } == invalid_transitions
     end
 
     test "accepts a program with only one state" do
-      single_state_program = %FixedTime{
+      program = %Fixed{
         name: "single state",
         length: 5,
         groups: ["a"],
-        states: %{0 => "R"}  # Only one state, no transitions to validate
+        states: %{0 => "R"}
       }
 
-      assert :ok = FixedTime.validate_state_changes(single_state_program)
+      assert :ok = Fixed.validate_state_changes(program)
     end
 
     test "accepts a program with same consecutive states (no transition)" do
-      no_transition_program = %FixedTime{
+      program = %Fixed{
         name: "no transitions",
         length: 5,
         groups: ["a"],
         states: %{
           0 => "R",
-          1 => "R",  # Same state, no transition
-          2 => "R",  # Same state, no transition
-          3 => "Y",  # R->Y (valid)
-          4 => "Y"   # Same state, no transition
+          1 => "R",
+          2 => "R",
+          3 => "Y",
+          4 => "Y"
         }
       }
 
-      assert :ok = FixedTime.validate_state_changes(no_transition_program)
+      assert :ok = Fixed.validate_state_changes(program)
     end
 
     test "rejects unknown states" do
-      unknown_state_program = %FixedTime{
+      program = %Fixed{
         name: "unknown state",
         length: 3,
         groups: ["a"],
         states: %{
           0 => "R",
-          1 => "X",  # Unknown state 'X'
+          1 => "X",
           2 => "R"
         }
       }
 
-      assert {:error, error_message} = FixedTime.validate_state_changes(unknown_state_program)
-      assert error_message =~ "Unknown signal state 'X'"
+      assert {:error, invalid_transitions} = Fixed.validate_state_changes(program)
+      assert  %{{1, 0} => "Unknown signal state 'X'"} == invalid_transitions
     end
   end
 end
