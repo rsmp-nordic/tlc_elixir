@@ -1,5 +1,7 @@
 defmodule Tlc do
-  defstruct logic: %Tlc.Logic{}, programs: {}
+  defstruct logic: %Tlc.Logic{},
+            programs: {},
+            mode: :halt
 
   def new(programs) do
     program = Enum.at(programs,0)

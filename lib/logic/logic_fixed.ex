@@ -200,3 +200,8 @@ defmodule Tlc.Logic do
     |> update_states()
   end
 end
+
+
+defimpl Tlc.Program for Tlc.Program.Fixed do
+  def new_logic(program, target_program \\ nil), do: Tlc.Logic.new(program, target_program)
+end

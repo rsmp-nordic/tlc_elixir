@@ -173,9 +173,10 @@ defmodule Tlc.Server do
     default_interval = @tick_interval
     real_ms = System.os_time(:millisecond)
     virtual_unix_time = floor(real_ms / @tick_interval)
-    tlc_logic_instance = Tlc.new(programs)
+
+    program = Enum.at(program,0)
     logic =
-      tlc_logic_instance.logic
+      new_logic(program)
       |> Tlc.Logic.halt()
       |> Tlc.Logic.update_unix_time(virtual_unix_time)
       |> Tlc.Logic.update_base_time()
@@ -360,4 +361,9 @@ defmodule Tlc.Server do
       program -> program.name
     end
   end
+
+  defp logic_module(logic) when is_struct(product, Tlc.)
+
+
+  defp new_logic(%Tlc.Program.Fixed{} = program, target_program \\ nil), do: Tlc.Logic.Fixed.new(program)
 end
