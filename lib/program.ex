@@ -14,8 +14,9 @@ defmodule Tlc.Program do
   }
 
   # Add @derive to enable JSON encoding for the struct
-  @derive {Jason.Encoder, only: [:name, :length, :offset, :groups, :states, :skips, :waits, :switch, :halt]}
+  @derive {Jason.Encoder, only: [:name, :strategy, :length, :offset, :groups, :states, :skips, :waits, :switch, :halt]}
   defstruct name: "",
+            strategy: :fixed_time,
             length: 0,
             offset: 0,
             groups: [],
