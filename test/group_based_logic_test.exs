@@ -26,13 +26,13 @@ defmodule Tlc.GroupBasedLogicTest do
   end
 
   describe "new/1" do
-    test "initializes with first group in green phase" do
+    test "initializes with first group getting green (constraint satisfaction)" do
       program = GroupBasedProgram.example()
       logic = GroupBasedLogic.new(program)
 
-      assert logic.current_group == "sg1"
-      assert logic.current_phase == :green
-      assert logic.next_group == "sg2"
+      # First group should get green since it has demand and no conflicts
+      assert GroupBasedLogic.get_group_signal(logic, "sg1") == :green
+      assert GroupBasedLogic.get_group_signal(logic, "sg2") == :red
       assert logic.current_states == "GR"
     end
 
@@ -41,12 +41,13 @@ defmodule Tlc.GroupBasedLogicTest do
         GroupBasedProgram.example() |
         groups: ["sg1"],
         min_green: %{"sg1" => 10},
-        max_green: %{"sg1" => 60}
+        max_green: %{"sg1" => 60},
+        conflicts: %{}
       }
       
       logic = GroupBasedLogic.new(program)
-      assert logic.current_group == "sg1"
-      assert logic.next_group == "sg1"  # Cycles back to itself
+      # First group gets green
+      assert GroupBasedLogic.get_group_signal(logic, "sg1") == :green
       assert logic.current_states == "G"
     end
   end
