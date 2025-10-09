@@ -36,14 +36,20 @@ defmodule Tlc.GroupBasedLogic do
             unix_time: nil,
             unix_delta: 0,
             group_states: %{},      # Map of group name -> GroupState
-            current_states: ""
+            current_states: "",
+            constraints: []         # MTL constraints derived from program
 
   @doc """
   Creates a new GroupBasedLogic instance with the given program.
   
   Initial state: all groups red, first group has demand (minimum recall)
+  
+  The traffic program parameters are translated into abstract MTL constraints.
   """
   def new(program) do
+    # Translate traffic program into abstract MTL constraints
+    constraints = translate_program_to_mtl_constraints(program)
+    
     # Initialize all groups in red state
     group_states = Map.new(program.groups, fn group ->
       {group, %GroupState{
@@ -57,11 +63,86 @@ defmodule Tlc.GroupBasedLogic do
       program: program,
       unix_time: nil,
       group_states: group_states,
-      current_states: compute_states(group_states, program.groups)
+      current_states: compute_states(group_states, program.groups),
+      constraints: constraints
     }
     
     # Try to serve first group if possible
     try_serve_next_group(logic)
+  end
+  
+  # Translate traffic control program parameters into abstract MTL constraints
+  defp translate_program_to_mtl_constraints(program) do
+    constraints = []
+    
+    # Translate conflict matrix to mutex constraints
+    constraints = constraints ++ translate_conflicts_to_mutex(program)
+    
+    # Translate min/max green times to duration constraints
+    constraints = constraints ++ translate_green_times_to_duration(program)
+    
+    # Translate intergreen times to separation constraints
+    constraints = constraints ++ translate_intergreen_to_separation(program)
+    
+    # Add state transition rules (traffic signal state machine)
+    constraints = constraints ++ add_state_transition_rules(program)
+    
+    constraints
+  end
+  
+  defp translate_conflicts_to_mutex(program) do
+    # □ ¬(sg1.green ∧ sg2.green) → {:mutex, entity1, entity2}
+    Enum.flat_map(program.conflicts || %{}, fn {group, conflicting_groups} ->
+      Enum.map(conflicting_groups, fn other_group ->
+        {:mutex, group, other_group}
+      end)
+    end)
+  end
+  
+  defp translate_green_times_to_duration(program) do
+    # □ (sg.green_start → □≥min sg.green) → {:min_duration, entity, state, duration}
+    # □ (sg.green_start → ◇≤max ¬sg.green) → {:max_duration, entity, state, duration}
+    Enum.flat_map(program.groups || [], fn group ->
+      min_green = Map.get(program.min_green || %{}, group)
+      max_green = Map.get(program.max_green || %{}, group)
+      
+      constraints = []
+      
+      constraints = if min_green do
+        [{:min_duration, group, :green, min_green} | constraints]
+      else
+        constraints
+      end
+      
+      constraints = if max_green do
+        [{:max_duration, group, :green, max_green} | constraints]
+      else
+        constraints
+      end
+      
+      constraints
+    end)
+  end
+  
+  defp translate_intergreen_to_separation(program) do
+    # □ (sg1.green_end → □≥intergreen ¬sg2.green) → {:min_separation, from, to, time}
+    Enum.map(program.intergreen || %{}, fn {{from_group, to_group}, min_time} ->
+      # Include all_red_time in the separation requirement
+      total_separation = min_time + (program.all_red_time || 0)
+      {:min_separation, from_group, to_group, total_separation}
+    end)
+  end
+  
+  defp add_state_transition_rules(program) do
+    # □ (sg.green → ○(sg.green ∨ sg.yellow)) → {:state_transition, entity, from, [allowed]}
+    # □ (sg.yellow → ○sg.red)
+    Enum.flat_map(program.groups || [], fn group ->
+      [
+        {:state_transition, group, :green, [:green, :yellow]},
+        {:state_transition, group, :yellow, [:yellow, :red]},
+        {:state_transition, group, :red, [:red, :green]}
+      ]
+    end)
   end
 
   @doc """
@@ -120,7 +201,7 @@ defmodule Tlc.GroupBasedLogic do
   end
 
   # Check if green phase should transition to yellow
-  # Enforces: min_green ≤ duration ≤ max_green
+  # Uses abstract MTL solver to enforce duration constraints
   defp check_green_constraints(group, state, logic) do
     # If green_start is nil, this is an initialization issue - keep state as is
     if state.green_start == nil do
@@ -130,16 +211,22 @@ defmodule Tlc.GroupBasedLogic do
       min_green = Tlc.GroupBasedProgram.get_min_green(logic.program, group)
       max_green = Tlc.GroupBasedProgram.get_max_green(logic.program, group)
       
+      # Build context for checking the transition
+      context = build_mtl_solver_context()
+      proposed_action = {:transition, group, :yellow}
+      
       cond do
         # Must transition if max green reached (hard constraint)
         green_duration >= max_green ->
           transition_to_yellow(state, logic.unix_time)
         
         # Can transition if min green reached
-        # For now, we transition at min_green for simplicity
-        # A real implementation would check demand and optimization objectives
+        # Check if transition is valid using abstract MTL solver
         green_duration >= min_green ->
-          transition_to_yellow(state, logic.unix_time)
+          case Tlc.MTLSolver.validate_action(logic.constraints, logic, proposed_action, context) do
+            :ok -> transition_to_yellow(state, logic.unix_time)
+            {:error, _reason} -> state  # Keep state if transition would violate constraints
+          end
         
         # Still in minimum green period
         true ->
@@ -176,10 +263,8 @@ defmodule Tlc.GroupBasedLogic do
   @doc """
   Attempts to serve the next group with demand.
   
-  Enforces temporal logic constraints:
-  - □ ¬(sg1.green ∧ sg2.green) for conflicting groups (conflict constraint)
-  - □ (sg1.green_end → □≥intergreen ¬sg2.green) (intergreen constraint)
-  - □ (sg.demand → ◇ sg.green) (liveness - eventually serve demand)
+  Uses the abstract MTL solver to find groups that can be served while
+  satisfying all temporal logic constraints.
   
   Returns the logic with potentially one group transitioning to green.
   """
@@ -191,76 +276,59 @@ defmodule Tlc.GroupBasedLogic do
       state.signal == :red && state.demand
     end)
     
-    # Try to find a group that can be served (satisfies all constraints)
-    case find_servable_group(groups_with_demand, logic) do
-      nil -> logic
-      group -> serve_group(group, logic)
+    # Map groups to abstract actions
+    possible_actions = Enum.map(groups_with_demand, fn group ->
+      {:activate, group}
+    end)
+    
+    # Build context for abstract solver
+    context = build_mtl_solver_context()
+    
+    # Use abstract MTL solver to find valid actions
+    valid_actions = Tlc.MTLSolver.find_valid_actions(
+      logic.constraints,
+      logic,
+      possible_actions,
+      context
+    )
+    
+    # Serve the first valid group
+    case valid_actions do
+      [] -> logic
+      [{:activate, group} | _] -> serve_group(group, logic)
     end
   end
-
-  # Find a group that can be served without violating constraints
-  defp find_servable_group(groups, logic) do
-    Enum.find(groups, fn group ->
-      can_serve_group?(group, logic)
-    end)
-  end
-
-  # Check if a group can be served (all temporal logic constraints satisfied)
-  defp can_serve_group?(group, logic) do
-    check_conflict_constraint(group, logic) &&
-    check_intergreen_constraint(group, logic) &&
-    check_all_red_constraint(logic)
-  end
-
-  # □ ¬(sg1.green ∧ sg2.green) - Check conflict constraint
-  defp check_conflict_constraint(group, logic) do
-    # No conflicting groups can be green
-    not Enum.any?(logic.program.groups, fn other_group ->
-      if other_group == group do
-        false
-      else
-        other_state = Map.get(logic.group_states, other_group)
-        in_conflict = Tlc.GroupBasedProgram.in_conflict?(logic.program, group, other_group)
-        
-        in_conflict && other_state.signal == :green
+  
+  # Build context for abstract MTL solver with traffic-specific state accessors
+  defp build_mtl_solver_context do
+    %{
+      is_entity_active?: fn logic, group ->
+        state = Map.get(logic.group_states, group)
+        state && state.signal == :green
+      end,
+      get_entity_state: fn logic, group ->
+        state = Map.get(logic.group_states, group)
+        if state, do: state.signal, else: :red
+      end,
+      get_state_duration: fn logic, group ->
+        state = Map.get(logic.group_states, group)
+        if state && state.phase_start && logic.unix_time do
+          logic.unix_time - state.phase_start
+        else
+          0
+        end
+      end,
+      get_deactivation_time: fn logic, group ->
+        state = Map.get(logic.group_states, group)
+        if state, do: state.green_end, else: nil
+      end,
+      get_current_time: fn logic ->
+        logic.unix_time || 0
       end
-    end)
+    }
   end
 
-  # □ (sg1.green_end → □≥intergreen ¬sg2.green) - Check intergreen constraint
-  defp check_intergreen_constraint(group, logic) do
-    # Check all groups that conflict with this one
-    conflicting_groups = Map.get(logic.program.conflicts, group, [])
-    
-    Enum.all?(conflicting_groups, fn conflicting_group ->
-      conflicting_state = Map.get(logic.group_states, conflicting_group)
-      
-      # If the conflicting group recently ended green, check intergreen time
-      if conflicting_state.green_end do
-        intergreen_time = Tlc.GroupBasedProgram.get_intergreen_time(
-          logic.program, 
-          conflicting_group, 
-          group
-        )
-        time_since_end = logic.unix_time - conflicting_state.green_end
-        
-        # Enough time has passed (including all_red_time)
-        time_since_end >= (logic.program.all_red_time + intergreen_time)
-      else
-        # Group hasn't been green yet, no intergreen constraint
-        true
-      end
-    end)
-  end
 
-  # Check that all-red period has passed for any recently yellow group
-  defp check_all_red_constraint(logic) do
-    # We need to ensure that after any group transitions from yellow to red,
-    # there's an all_red period before allowing any conflicting group to go green.
-    # This is actually handled by the intergreen constraint, so we can return true here.
-    # The all_red_time is included in the intergreen calculation.
-    true
-  end
 
   # Serve a group by transitioning it to green
   defp serve_group(group, logic) do
