@@ -35,7 +35,7 @@ defmodule Tlc.Program do
       offset: 3,
       groups: ["a", "b"],
       # Fixed states to follow valid transitions: Red→Yellow→Green→Yellow→Red
-      states: %{ 0 => "RR", 1 => "YR", 2 => "GR", 4 => "YR", 5 => "RY", 6 => "RG"},
+      states: %{ 0 => "RR", 1 => "YR", 2 => "GR", 4 => "YR", 5 => "RY", 6 => "RG", 7 => "RY"},
       skips: %{0 => 2},
       waits: %{5 => 2},
       switch: 0,
