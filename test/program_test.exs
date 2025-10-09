@@ -43,19 +43,20 @@ defmodule Tlc.ProgramTest do
 
     test "rejects invalid direct transition from Red to Green" do
       invalid_program = %Program{
-        name: "invalid r to g",
-        length: 3,
+        name: "invalid g to r sequence",
+        length: 4,
         groups: ["a"],
         states: %{
-          0 => "R",
-          1 => "G",  # Invalid: R->G directly without Y
-          2 => "R"
+          0 => "G",
+          1 => "R",  # G->R directly without Y (invalid)
+          2 => "R",
+          3 => "Y"
         }
       }
 
       assert {:error, error_message} = Program.validate_state_changes(invalid_program)
-      assert error_message =~ "Invalid transition from 'R' to 'G'"
-      assert error_message =~ "Valid transitions from 'R' are: Y"
+      assert error_message =~ "Invalid transition from 'G' to 'R'"
+      assert error_message =~ "Valid transitions from 'G' are: Y"
     end
 
     test "rejects invalid direct transition from Green to Red" do
@@ -83,15 +84,16 @@ defmodule Tlc.ProgramTest do
         states: %{
           0 => "D",
           1 => "R",  # D->R (valid)
-          2 => "D",  # R->D (invalid, not in transitions)
-          3 => "G",  # D->G (valid)
-          4 => "Y"   # G->Y (valid)
+          2 => "Y",  # R->Y (valid)
+          3 => "G",  # Y->G (valid)
+          4 => "D"   # G->D (invalid, G can only go to Y)
         }
       }
 
-      # This should fail because R->D is not defined as valid
+      # This should fail because G->D is not defined as valid
       assert {:error, error_message} = Program.validate_state_changes(dark_program)
-      assert error_message =~ "Invalid transition from 'R' to 'D'"
+      assert error_message =~ "Invalid transition from 'G' to 'D'"
+      assert error_message =~ "Valid transitions from 'G' are: Y"
     end
 
     test "accepts a program with only one state" do
