@@ -270,7 +270,7 @@ defmodule Tlc.Server do
   @impl true
   def handle_cast({:switch_program, program_name}, tlc) do
     program = Enum.find(tlc.programs, fn prog -> 
-      Tlc.ProgramBehaviour.get_name(prog) == program_name 
+      get_program_name(prog) == program_name 
     end)
     
     if program do
@@ -295,7 +295,7 @@ defmodule Tlc.Server do
   @impl true
   def handle_cast({:switch_program_immediate, program_name}, tlc) do
     program = Enum.find(tlc.programs, fn prog -> 
-      Tlc.ProgramBehaviour.get_name(prog) == program_name 
+      get_program_name(prog) == program_name 
     end)
 
     if program do
@@ -387,10 +387,9 @@ defmodule Tlc.Server do
         fault_program = Enum.find(tlc.programs, fn prog -> prog.name == "fault" end)
         Tlc.Safety.check_transitions(tlc.safety, logic, fault_program)
       %Tlc.GroupBasedLogic{} ->
-        # For group-based programs, just update safety with current states
-        current_states = get_current_states(logic)
-        updated_safety = Tlc.Safety.update(tlc.safety, current_states)
-        {updated_safety, logic}
+        # For group-based programs, don't perform safety checks
+        # Just return safety and logic as-is
+        {tlc.safety, logic}
     end
 
     tlc = %{tlc |
@@ -475,4 +474,7 @@ defmodule Tlc.Server do
 
   defp get_logic_program(%Tlc.Logic{program: program}), do: program
   defp get_logic_program(%Tlc.GroupBasedLogic{program: program}), do: program
+
+  defp get_program_name(%Tlc.Program{name: name}), do: name
+  defp get_program_name(%Tlc.GroupBasedProgram{name: name}), do: name
 end
