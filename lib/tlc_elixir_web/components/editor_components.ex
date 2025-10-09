@@ -6,6 +6,60 @@ defmodule TlcElixirWeb.EditorComponents do
   use Phoenix.Component
   import TlcElixirWeb.GridComponents, only: [program_grid: 1]
 
+  def group_based_program_view(assigns) do
+    ~H"""
+    <div class="bg-gray-900 p-4 rounded border border-gray-700">
+      <h3 class="text-lg font-semibold text-gray-200 mb-3">Group-Based Program</h3>
+      
+      <div class="space-y-4">
+        <!-- Groups section -->
+        <div>
+          <h4 class="text-sm font-medium text-gray-300 mb-2">Signal Groups</h4>
+          <div class="flex flex-wrap gap-2">
+            <%= for group <- @display_program.groups do %>
+              <span class="px-3 py-1 bg-gray-700 text-gray-200 rounded">
+                <%= group %>
+              </span>
+            <% end %>
+          </div>
+        </div>
+
+        <!-- Timing constraints -->
+        <div>
+          <h4 class="text-sm font-medium text-gray-300 mb-2">Timing Constraints</h4>
+          <div class="space-y-2">
+            <%= for {group, timing} <- @display_program.timing do %>
+              <div class="flex items-center space-x-4 text-sm text-gray-300">
+                <span class="font-medium w-20"><%= group %>:</span>
+                <span>Min: <span class="text-green-400"><%= timing.min_green %>s</span></span>
+                <span>Max: <span class="text-red-400"><%= timing.max_green %>s</span></span>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <!-- Conflicts -->
+        <div>
+          <h4 class="text-sm font-medium text-gray-300 mb-2">Conflicts</h4>
+          <div class="space-y-2">
+            <%= for conflict <- @display_program.conflicts do %>
+              <div class="flex items-center space-x-2 text-sm text-gray-300">
+                <span class="text-red-400">⚠</span>
+                <span><%= Enum.join(conflict, " ↔ ") %></span>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <!-- Info message -->
+        <div class="mt-4 p-3 bg-blue-900 bg-opacity-30 border border-blue-700 rounded text-sm text-blue-200">
+          <p>This is a constraint-based program. Signal states are determined dynamically based on timing constraints and conflicts, rather than a fixed sequence.</p>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
   def program_button(assigns) do
     assigns = assign_new(assigns, :active, fn -> false end)
     assigns = assign_new(assigns, :is_target, fn -> false end)
@@ -13,20 +67,28 @@ defmodule TlcElixirWeb.EditorComponents do
 
     ~H"""
     <div class="relative group">
-      <div class={"px-3 py-2 rounded-md text-gray-200 flex items-center justify-between cursor-pointer transition-colors w-32 #{if @active, do: "bg-purple-700", else: "bg-gray-700 hover:bg-gray-600"}"}
+      <div class={"px-3 py-2 rounded-md text-gray-200 flex flex-col cursor-pointer transition-colors w-32 #{if @active, do: "bg-purple-700", else: "bg-gray-700 hover:bg-gray-600"}"}
           phx-click="switch_program" phx-value-program_name={@program.name}>
-        <!-- Left side with arrow and program name -->
-        <div class="flex items-center">
-          <!-- Arrow indicator for target program -->
-          <span class={"w-4 mr-1 text-lg #{if @is_target && @program.name != @current_program, do: "text-amber-300 animate-pulse", else: "opacity-0"}"}>
-            →
-          </span>
-          <!-- Program name -->
-          <span class="font-medium truncate"><%= @program.name %></span>
+        <!-- Top row: arrow and program name -->
+        <div class="flex items-center justify-between">
+          <div class="flex items-center">
+            <!-- Arrow indicator for target program -->
+            <span class={"w-4 mr-1 text-lg #{if @is_target && @program.name != @current_program, do: "text-amber-300 animate-pulse", else: "opacity-0"}"}>
+              →
+            </span>
+            <!-- Program name -->
+            <span class="font-medium truncate"><%= @program.name %></span>
+          </div>
+          <!-- Right side - space reserved for pencil icon -->
+          <span class="w-4"></span>
         </div>
-
-        <!-- Right side - space reserved for pencil icon -->
-        <span class="w-4"></span>
+        
+        <!-- Bottom row: strategy badge -->
+        <%= if Map.get(@program, :strategy) == :group_based do %>
+          <div class="mt-1">
+            <span class="text-xs bg-blue-500 bg-opacity-30 text-blue-200 px-1.5 py-0.5 rounded">group-based</span>
+          </div>
+        <% end %>
       </div>
 
       <%= if not @active do %>
@@ -63,17 +125,25 @@ defmodule TlcElixirWeb.EditorComponents do
         <button
           phx-click={if clickable, do: "switch_program", else: nil}
           phx-value-program_name={program.name}
-          class={"px-3 py-1 rounded flex items-center #{button_class} group relative"}
+          class={"px-3 py-1 rounded flex flex-col items-start #{button_class} group relative"}
         >
-          <div class="w-5 flex justify-center mr-1">
-            <%= if program.name == @target_program do %>
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            <% end %>
-          </div>
+          <div class="flex items-center w-full">
+            <div class="w-5 flex justify-center mr-1">
+              <%= if program.name == @target_program do %>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              <% end %>
+            </div>
 
-          <span><%= program.name %></span>
+            <span><%= program.name %></span>
+          </div>
+          
+          <%= if Map.get(program, :strategy) == :group_based do %>
+            <div class="mt-0.5 ml-6">
+              <span class="text-xs bg-blue-500 bg-opacity-30 text-blue-200 px-1.5 py-0.5 rounded">group-based</span>
+            </div>
+          <% end %>
 
           <%= if (@logic_mode != :fault || program.name != "fault") && program.name != @current_program.name do %>
             <svg
@@ -271,20 +341,28 @@ defmodule TlcElixirWeb.EditorComponents do
         <% end %>
       </div>
 
-      <.program_grid
-        display_program={@display_program}
-        edited_program={@edited_program}
-        current_program={@current_program}
-        current_cycle={@current_cycle}
-        editing={@editing}
-        offset={@offset}
-        target_offset={@target_offset}
-        target_distance={@target_distance}
-        invalid_transitions={@invalid_transitions}
+      <%= if Map.get(@display_program, :strategy) == :group_based do %>
+        <.group_based_program_view
+          display_program={@display_program}
+          edited_program={@edited_program}
+          editing={@editing}
+        />
+      <% else %>
+        <.program_grid
+          display_program={@display_program}
+          edited_program={@edited_program}
+          current_program={@current_program}
+          current_cycle={@current_cycle}
+          editing={@editing}
+          offset={@offset}
+          target_offset={@target_offset}
+          target_distance={@target_distance}
+          invalid_transitions={@invalid_transitions}
         next_signal_fn={@next_signal_fn}
         is_between_offsets_fn={@is_between_offsets_fn}
         logic={@logic}
       />
+      <% end %>
 
       <%= if @editing do %>
         <.program_definition_section
