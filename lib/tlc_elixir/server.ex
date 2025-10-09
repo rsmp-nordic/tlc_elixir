@@ -168,6 +168,19 @@ defmodule Tlc.Server do
         states: %{ 0 => "RR" },
         switch: 1
       },
+      %Tlc.Program.GroupBased{
+        name: "adaptive",
+        strategy: :group_based,
+        groups: ["a", "b"],
+        timing: %{
+          "a" => %{min_green: 10, max_green: 60},
+          "b" => %{min_green: 8, max_green: 45}
+        },
+        conflicts: [
+          ["a", "b"]
+        ],
+        switch: nil
+      },
      ]
 
     default_interval = @tick_interval

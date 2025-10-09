@@ -18,17 +18,42 @@ defmodule Tlc.Logic do
             target_offset: 0,
             target_distance: 0,
             waited: 0,
-            current_states: ""
+            current_states: "",
+            group_based_logic: nil
 
   # Define modulo function since rem() returns negative values for negative inputs
   def mod(x,y), do: rem( rem(x,y)+y, y)
 
-  def new(program, target_program \\ nil) do
+  def new(program, target_program \\ nil)
+
+  # Handle group-based programs
+  def new(%Tlc.Program.GroupBased{} = program, _target_program) do
+    gb_logic = Tlc.Logic.GroupBased.new(program)
+    %Tlc.Logic{
+      program: program,
+      target_program: nil,
+      group_based_logic: gb_logic,
+      current_states: Tlc.Logic.GroupBased.get_states(gb_logic)
+    }
+  end
+
+  # Handle fixed-time programs
+  def new(program, target_program) do
     %Tlc.Logic{
       program: program,
       target_program: target_program,
     }
     |> update_offset
+  end
+
+  # Handle group-based programs
+  def tick(%{group_based_logic: gb_logic} = logic, unix_time) when not is_nil(gb_logic) do
+    updated_gb_logic = Tlc.Logic.GroupBased.tick(gb_logic, unix_time)
+    %{logic |
+      group_based_logic: updated_gb_logic,
+      unix_time: unix_time,
+      current_states: Tlc.Logic.GroupBased.get_states(updated_gb_logic)
+    }
   end
 
   def tick(logic, unix_time) when logic.mode == :halt do
@@ -107,6 +132,11 @@ defmodule Tlc.Logic do
     %{logic | cycle_time: mod(logic.base_time + logic.offset, logic.program.length) }
   end
 
+  # Group-based programs don't support offset adjustments
+  def set_target_offset(%{group_based_logic: gb_logic} = logic, _target_offset) when not is_nil(gb_logic) do
+    logic
+  end
+
   def set_target_offset(logic, target_offset) do
     %{logic | target_offset: mod(target_offset, logic.program.length)}
     |> find_target_distance
@@ -122,6 +152,11 @@ defmodule Tlc.Logic do
     %{logic | offset: mod(logic.program.offset + logic.offset_adjust, logic.program.length) }
   end
 
+  # Group-based programs don't support program switching (simplified for now)
+  def set_target_program(%{group_based_logic: gb_logic} = logic, _program) when not is_nil(gb_logic) do
+    logic
+  end
+
   def set_target_program(logic, program) when logic.mode == :halt do
     %{logic | target_program: program, mode: :run}
     |> sync(logic.cycle_time)
@@ -130,12 +165,22 @@ defmodule Tlc.Logic do
     %{logic | target_program: program}
   end
 
+  # Group-based programs don't have target programs
+  def clear_target_program(%{group_based_logic: gb_logic} = logic) when not is_nil(gb_logic) do
+    logic
+  end
+
   def clear_target_program(logic) do
     %{logic | target_program: nil, target_offset: logic.offset, target_distance: 0}
   end
 
   def check_halt(logic) when logic.cycle_time == logic.program.halt, do: halt(logic)
   def check_halt(logic), do: logic
+
+  # Group-based programs support halt
+  def halt(%{group_based_logic: gb_logic} = logic) when not is_nil(gb_logic) do
+    %{logic | mode: :halt}
+  end
 
   def halt(logic) do
     %{logic |
@@ -156,10 +201,20 @@ defmodule Tlc.Logic do
     end
   end
 
+  # Group-based programs don't support switching
+  def switch(%{group_based_logic: gb_logic} = logic) when not is_nil(gb_logic) do
+    logic
+  end
+
   def switch(logic) do
     %{logic | program: logic.target_program, target_program: nil }
     |> update_base_time()
     |> sync(logic.target_program.switch)
+  end
+
+  # Group-based programs don't support sync
+  def sync(%{group_based_logic: gb_logic} = logic, _target_cycle_time) when not is_nil(gb_logic) do
+    logic
   end
 
   def sync(logic, target_cycle_time) do
@@ -172,10 +227,20 @@ defmodule Tlc.Logic do
     |> find_target_distance
   end
 
+  # Group-based programs don't support sync_time
+  def sync_time(%{group_based_logic: gb_logic} = logic, _sync_time) when not is_nil(gb_logic) do
+    logic
+  end
+
   def sync_time(logic, sync_time) do
     target_offset = mod(sync_time - logic.base_time, logic.program.length)
     logic
       |> set_target_offset(target_offset)
+  end
+
+  # Group-based programs handle fault by switching mode
+  def fault(%{group_based_logic: _gb_logic} = logic, _fault_program) do
+    %{logic | mode: :fault}
   end
 
   def fault(logic, fault_program) do
@@ -187,6 +252,11 @@ defmodule Tlc.Logic do
     |> update_base_time()
     |> sync(fault_program.switch)
     |> update_states()
+  end
+
+  # Group-based programs handle recover by switching mode
+  def recover(%{group_based_logic: _gb_logic} = logic, _halt_program) do
+    %{logic | mode: :halt}
   end
 
   def recover(logic, halt_program) do
