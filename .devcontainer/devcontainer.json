@@ -3,7 +3,7 @@
 {
 	"name": "Elixir",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-	"image": "elixir:3.4",
+	"image": "elixir",
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},
