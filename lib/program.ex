@@ -4,6 +4,8 @@ defmodule Tlc.Program do
   Contains the static program configuration without runtime state.
   """
 
+  @behaviour Tlc.ProgramBehaviour
+
   # Define valid state transitions
   @valid_transitions %{
     "R" => ["G", "Y", "A", "D"],
@@ -14,8 +16,9 @@ defmodule Tlc.Program do
   }
 
   # Add @derive to enable JSON encoding for the struct
-  @derive {Jason.Encoder, only: [:name, :length, :offset, :groups, :states, :skips, :waits, :switch, :halt]}
-  defstruct name: "",
+  @derive {Jason.Encoder, only: [:type, :name, :length, :offset, :groups, :states, :skips, :waits, :switch, :halt]}
+  defstruct type: :fixed_time,
+            name: "",
             length: 0,
             offset: 0,
             groups: [],
@@ -42,10 +45,20 @@ defmodule Tlc.Program do
     }
   end
 
+  @impl Tlc.ProgramBehaviour
+  def program_type(_program), do: :fixed_time
+
+  @impl Tlc.ProgramBehaviour
+  def get_groups(%__MODULE__{groups: groups}), do: groups
+
+  @impl Tlc.ProgramBehaviour
+  def get_name(%__MODULE__{name: name}), do: name
+
   @doc """
   Validates a traffic program definition.
   Returns {:ok, program} if the program is valid, {:error, reason} otherwise.
   """
+  @impl Tlc.ProgramBehaviour
   def validate(program) do
     unless is_struct(program, Tlc.Program) do
       {:error, "Input must be a %Tlc.Program{} struct"}
