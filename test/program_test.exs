@@ -42,8 +42,6 @@ defmodule Tlc.ProgramTest do
     end
 
     test "rejects invalid direct transition from Red to Green" do
-      # Note: While R->G is technically allowed in the transition rules (for special cases),
-      # this test verifies that G->R is correctly rejected as invalid.
       invalid_program = %Program{
         name: "invalid g to r sequence",
         length: 4,
@@ -51,8 +49,8 @@ defmodule Tlc.ProgramTest do
         states: %{
           0 => "G",
           1 => "R",  # G->R directly without Y (invalid)
-          2 => "R",  # Stay at R
-          3 => "Y"   # R->Y (valid transition to avoid wrap-around issues)
+          2 => "R",
+          3 => "Y"
         }
       }
 
