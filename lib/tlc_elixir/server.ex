@@ -168,21 +168,34 @@ defmodule Tlc.Server do
         states: %{ 0 => "RR" },
         switch: 1
       },
+      %Tlc.GroupBasedProgram{
+        name: "group-based",
+        groups: ["a", "b"],
+        min_green: %{"a" => 10, "b" => 8},
+        max_green: %{"a" => 60, "b" => 45},
+        conflicts: %{"a" => ["b"], "b" => ["a"]},
+        intergreen: %{{"a", "b"} => 4, {"b", "a"} => 4},
+        yellow_time: 3,
+        all_red_time: 2
+      },
      ]
 
     default_interval = @tick_interval
     real_ms = System.os_time(:millisecond)
     virtual_unix_time = floor(real_ms / @tick_interval)
-    tlc_logic_instance = Tlc.new(programs)
-    logic =
-      tlc_logic_instance.logic
-      |> Tlc.Logic.halt()
-      |> Tlc.Logic.update_unix_time(virtual_unix_time)
-      |> Tlc.Logic.update_base_time()
+    
+    # Start with the first program (halt)
+    first_program = Enum.at(programs, 0)
+    logic = create_logic_for_program(first_program)
+    logic = 
+      logic
+      |> halt_logic()
+      |> update_logic_unix_time(virtual_unix_time)
+      |> update_logic_base_time()
 
     tlc_server_state = %__MODULE__{
       logic: logic,
-      programs: tlc_logic_instance.programs,
+      programs: programs,
       target_program: nil,
       interval: default_interval,
       safety: Tlc.Safety.new(),
@@ -244,7 +257,11 @@ defmodule Tlc.Server do
 
   @impl true
   def handle_cast({:set_target_offset, target_offset}, tlc) do
-    updated_logic = Tlc.Logic.set_target_offset(tlc.logic, target_offset)
+    # Only applies to fixed-time programs
+    updated_logic = case tlc.logic do
+      %Tlc.Logic{} -> Tlc.Logic.set_target_offset(tlc.logic, target_offset)
+      _ -> tlc.logic  # No-op for group-based programs
+    end
     updated_tlc = %{tlc | logic: updated_logic}
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
@@ -252,26 +269,52 @@ defmodule Tlc.Server do
 
   @impl true
   def handle_cast({:switch_program, program_name}, tlc) do
-    program = Enum.find(tlc.programs, fn prog -> prog.name == program_name end)
-    updated_logic = Tlc.Logic.set_target_program(tlc.logic, program)
-    updated_tlc = %{tlc | logic: updated_logic}
-    broadcast_update(updated_tlc)
-    {:noreply, updated_tlc}
+    program = Enum.find(tlc.programs, fn prog -> 
+      get_program_name(prog) == program_name 
+    end)
+    
+    if program do
+      # For group-based programs, just switch immediately
+      case program do
+        %Tlc.GroupBasedProgram{} ->
+          new_logic = create_logic_for_program(program)
+          updated_tlc = %{tlc | logic: new_logic}
+          broadcast_update(updated_tlc)
+          {:noreply, updated_tlc}
+        %Tlc.Program{} ->
+          updated_logic = Tlc.Logic.set_target_program(tlc.logic, program)
+          updated_tlc = %{tlc | logic: updated_logic}
+          broadcast_update(updated_tlc)
+          {:noreply, updated_tlc}
+      end
+    else
+      {:noreply, tlc}
+    end
   end
 
   @impl true
   def handle_cast({:switch_program_immediate, program_name}, tlc) do
-    program = Enum.find(tlc.programs, fn prog -> prog.name == program_name end)
+    program = Enum.find(tlc.programs, fn prog -> 
+      get_program_name(prog) == program_name 
+    end)
 
     if program do
-      updated_logic =
-        tlc.logic
-        |> Tlc.Logic.set_target_program(program)
-        |> Tlc.Logic.switch()
-
-      updated_tlc = %{tlc | logic: updated_logic}
-      broadcast_update(updated_tlc)
-      {:noreply, updated_tlc}
+      case program do
+        %Tlc.GroupBasedProgram{} ->
+          # For group-based programs, create new logic
+          new_logic = create_logic_for_program(program)
+          updated_tlc = %{tlc | logic: new_logic}
+          broadcast_update(updated_tlc)
+          {:noreply, updated_tlc}
+        %Tlc.Program{} ->
+          updated_logic =
+            tlc.logic
+            |> Tlc.Logic.set_target_program(program)
+            |> Tlc.Logic.switch()
+          updated_tlc = %{tlc | logic: updated_logic}
+          broadcast_update(updated_tlc)
+          {:noreply, updated_tlc}
+      end
     else
       {:noreply, tlc}
     end
@@ -279,7 +322,11 @@ defmodule Tlc.Server do
 
   @impl true
   def handle_cast(:clear_target_program, tlc) do
-    updated_logic = Tlc.Logic.clear_target_program(tlc.logic)
+    # Only applies to fixed-time programs
+    updated_logic = case tlc.logic do
+      %Tlc.Logic{} -> Tlc.Logic.clear_target_program(tlc.logic)
+      _ -> tlc.logic  # No-op for group-based programs
+    end
     updated_tlc = %{tlc | logic: updated_logic}
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
@@ -287,17 +334,33 @@ defmodule Tlc.Server do
 
   @impl true
   def handle_cast(:toggle_fault, tlc) do
-    updated_tlc =
-      if tlc.logic.mode == :fault do
-        halt_program = Enum.find(tlc.programs, fn prog -> prog.name == "halt" end)
-        updated_logic = Tlc.Logic.recover(tlc.logic, halt_program)
-        updated_safety = Tlc.Safety.clear_history(tlc.safety, updated_logic.program.name)
-        %{tlc | logic: updated_logic, safety: updated_safety}
-      else
-        fault_program = Enum.find(tlc.programs, fn prog -> prog.name == "fault" end)
-        updated_logic = Tlc.Logic.fault(tlc.logic, fault_program)
-        %{tlc | logic: updated_logic}
-      end
+    # Only applies to fixed-time programs
+    updated_tlc = case tlc.logic do
+      %Tlc.Logic{mode: mode} ->
+        if mode == :fault do
+          halt_program = Enum.find(tlc.programs, fn prog -> 
+            match?(%Tlc.Program{name: "halt"}, prog)
+          end)
+          if halt_program do
+            updated_logic = Tlc.Logic.recover(tlc.logic, halt_program)
+            updated_safety = Tlc.Safety.clear_history(tlc.safety, updated_logic.program.name)
+            %{tlc | logic: updated_logic, safety: updated_safety}
+          else
+            tlc
+          end
+        else
+          fault_program = Enum.find(tlc.programs, fn prog -> 
+            match?(%Tlc.Program{name: "fault"}, prog)
+          end)
+          if fault_program do
+            updated_logic = Tlc.Logic.fault(tlc.logic, fault_program)
+            %{tlc | logic: updated_logic}
+          else
+            tlc
+          end
+        end
+      _ -> tlc  # No-op for group-based programs
+    end
 
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
@@ -309,19 +372,25 @@ defmodule Tlc.Server do
     virtual_unix_time = tlc.virtual_unix_time + 1
 
     logic = tlc.logic
-    logic = if tlc.resync do
+    logic = if tlc.resync && match?(%Tlc.Logic{}, logic) do
       sync_time = floor(real_ms / tlc.interval)
       Tlc.Logic.sync_time(tlc.logic, sync_time)
     else
       logic
     end
 
-    logic =  Tlc.Logic.tick(logic, virtual_unix_time)
+    logic = tick_logic(logic, virtual_unix_time)
 
-    fault_program = Enum.find(tlc.programs, fn prog -> prog.name == "fault" end)
-
-    {updated_safety, logic} =
-      Tlc.Safety.check_transitions(tlc.safety, logic, fault_program)
+    # Safety checks only apply to fixed-time programs
+    {updated_safety, logic} = case logic do
+      %Tlc.Logic{} ->
+        fault_program = Enum.find(tlc.programs, fn prog -> prog.name == "fault" end)
+        Tlc.Safety.check_transitions(tlc.safety, logic, fault_program)
+      %Tlc.GroupBasedLogic{} ->
+        # For group-based programs, don't perform safety checks
+        # Just return safety and logic as-is
+        {tlc.safety, logic}
+    end
 
     tlc = %{tlc |
       logic: logic,
@@ -360,4 +429,52 @@ defmodule Tlc.Server do
       program -> program.name
     end
   end
+
+  # Helper functions to handle both fixed-time and group-based programs
+  
+  defp create_logic_for_program(%Tlc.Program{} = program) do
+    Tlc.Logic.new(program)
+  end
+
+  defp create_logic_for_program(%Tlc.GroupBasedProgram{} = program) do
+    Tlc.GroupBasedLogic.new(program)
+  end
+
+  defp halt_logic(%Tlc.Logic{} = logic), do: Tlc.Logic.halt(logic)
+  defp halt_logic(%Tlc.GroupBasedLogic{} = logic), do: Tlc.GroupBasedLogic.halt(logic)
+
+  defp update_logic_unix_time(%Tlc.Logic{} = logic, unix_time) do
+    Tlc.Logic.update_unix_time(logic, unix_time)
+  end
+  defp update_logic_unix_time(%Tlc.GroupBasedLogic{} = logic, unix_time) do
+    # For GroupBasedLogic, we just return it since tick will update unix_time
+    logic
+  end
+
+  defp update_logic_base_time(%Tlc.Logic{} = logic) do
+    Tlc.Logic.update_base_time(logic)
+  end
+  defp update_logic_base_time(%Tlc.GroupBasedLogic{} = logic) do
+    # GroupBasedLogic doesn't have a separate base_time concept
+    logic
+  end
+
+  defp tick_logic(%Tlc.Logic{} = logic, unix_time) do
+    Tlc.Logic.tick(logic, unix_time)
+  end
+  defp tick_logic(%Tlc.GroupBasedLogic{} = logic, unix_time) do
+    Tlc.GroupBasedLogic.tick(logic, unix_time)
+  end
+
+  defp get_logic_mode(%Tlc.Logic{mode: mode}), do: mode
+  defp get_logic_mode(%Tlc.GroupBasedLogic{mode: mode}), do: mode
+
+  defp get_current_states(%Tlc.Logic{current_states: states}), do: states
+  defp get_current_states(%Tlc.GroupBasedLogic{current_states: states}), do: states
+
+  defp get_logic_program(%Tlc.Logic{program: program}), do: program
+  defp get_logic_program(%Tlc.GroupBasedLogic{program: program}), do: program
+
+  defp get_program_name(%Tlc.Program{name: name}), do: name
+  defp get_program_name(%Tlc.GroupBasedProgram{name: name}), do: name
 end
