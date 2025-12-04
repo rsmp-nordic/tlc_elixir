@@ -70,6 +70,13 @@ defmodule Tlc.Server do
   end
 
   @doc """
+  Requests a stage transition for stage-based programs.
+  """
+  def request_stage(server, stage_id) do
+    GenServer.cast(server, {:request_stage, stage_id})
+  end
+
+  @doc """
   Updates a program in the server's program list.
   If a program with the same name exists, it will be replaced.
   If not, the program will be added to the list.
@@ -324,6 +331,20 @@ defmodule Tlc.Server do
       %Tlc.Logic.StageBased{} -> tlc.logic
     end
     updated_tlc = %{tlc | logic: updated_logic, target_program: nil}
+    broadcast_update(updated_tlc)
+    {:noreply, updated_tlc}
+  end
+
+  @impl true
+  def handle_cast({:request_stage, stage_id}, tlc) do
+    # Only handle for stage-based logic
+    updated_logic = case tlc.logic do
+      %Tlc.Logic.StageBased{} ->
+        Tlc.Logic.StageBased.request_stage(tlc.logic, stage_id)
+      _ ->
+        tlc.logic
+    end
+    updated_tlc = %{tlc | logic: updated_logic}
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
   end

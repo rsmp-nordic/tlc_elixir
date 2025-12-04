@@ -66,6 +66,25 @@ defmodule TlcElixirWeb.TlcLive do
   end
 
   @impl true
+  def handle_event("clear_target_program", _params, socket) do
+    Tlc.Server.clear_target_program(socket.assigns.server)
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("request_stage", %{"stage_id" => stage_id}, socket) do
+    # Request a stage transition for stage-based programs
+    case socket.assigns.tlc.logic do
+      %Tlc.Logic.StageBased{} ->
+        # We need to add this to the server
+        Tlc.Server.request_stage(socket.assigns.server, stage_id)
+      _ ->
+        :ok
+    end
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_event("set_target_offset", %{"target_offset" => target_offset}, socket) do
     {offset, _} = Integer.parse(target_offset)
     Tlc.Server.set_target_offset(socket.assigns.server, offset)
@@ -544,13 +563,6 @@ defmodule TlcElixirWeb.TlcLive do
     end
   end
 
-  defp next_signal("R"), do: "Y"
-  defp next_signal("Y"), do: "A"
-  defp next_signal("A"), do: "G"
-  defp next_signal("G"), do: "D"
-  defp next_signal("D"), do: "R"
-  defp next_signal(_), do: "R"
-
   defp ensure_server_started(server_id) do
     server_name_via_tuple = Tlc.Server.via_tuple(server_id)
 
@@ -598,4 +610,50 @@ defmodule TlcElixirWeb.TlcLive do
   end
   defp parse_int(value) when is_integer(value), do: value
   defp parse_int(_), do: 0
+
+  # ============================================================================
+  # Helper functions for common header
+  # ============================================================================
+
+  @doc """
+  Returns the logic type as an atom based on the logic struct type.
+  """
+  def get_logic_type(%Tlc.Logic.FixedTime{}), do: :fixed_time
+  def get_logic_type(%Tlc.Logic.StageBased{}), do: :stage_based
+  def get_logic_type(_), do: :unknown
+
+  @doc """
+  Returns the groups list for the current program.
+  Works for both fixed-time and stage-based programs.
+  """
+  def get_groups(%Tlc.Logic.FixedTime{program: program}), do: program.groups
+  def get_groups(%Tlc.Logic.StageBased{program: program}), do: Tlc.Program.StageBased.groups(program)
+  def get_groups(_), do: []
+
+  @doc """
+  Returns the appropriate time display value for the logic type.
+  For fixed-time: cycle_time
+  For stage-based: stage_elapsed (or transition_elapsed if in transition)
+  """
+  def get_display_time(%Tlc.Logic.FixedTime{cycle_time: cycle_time}), do: cycle_time
+  def get_display_time(%Tlc.Logic.StageBased{current_transition: nil, stage_elapsed: elapsed}), do: elapsed
+  def get_display_time(%Tlc.Logic.StageBased{transition_elapsed: elapsed}), do: elapsed
+  def get_display_time(_), do: 0
+
+  @doc """
+  Returns the appropriate time label for the logic type.
+  """
+  def get_time_label(:fixed_time), do: "Cycle"
+  def get_time_label(:stage_based), do: "Elapsed"
+  def get_time_label(_), do: "Time"
+
+  @doc """
+  Returns the next signal in the sequence for fixed-time signal cycling.
+  """
+  def next_signal("R"), do: "Y"
+  def next_signal("Y"), do: "A"
+  def next_signal("A"), do: "G"
+  def next_signal("G"), do: "D"
+  def next_signal("D"), do: "R"
+  def next_signal(_), do: "R"
 end

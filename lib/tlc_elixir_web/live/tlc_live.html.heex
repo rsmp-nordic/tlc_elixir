@@ -5,47 +5,60 @@
       @saved_program != nil -> @saved_program
       true -> @tlc.logic.program
     end
+
+    logic_type = get_logic_type(@tlc.logic)
+    groups = get_groups(@tlc.logic)
+    display_time = get_display_time(@tlc.logic)
+    time_label = get_time_label(logic_type)
   %>
 
-  <!-- Signal Heads and State sections side by side -->
-  <div class="flex flex-wrap gap-2">
-    <!-- Current State section -->
-    <div class="flex-1">
-      <.state_section logic={@tlc.logic} />
-    </div>
+  <!-- Common Header: Program selector, Mode, Time, Signal lamps -->
+  <.common_header
+    programs={@tlc.programs}
+    current_program={@tlc.logic.program}
+    target_program={@target_program}
+    logic_type={logic_type}
+    mode={@tlc.logic.mode}
+    time={display_time}
+    time_label={time_label}
+    groups={groups}
+    current_states={@tlc.logic.current_states}
+    interval={@tlc.interval}
+    editing={@editing}
+  />
 
-    <!-- Signal Head Visualization -->
-    <div class="">
-      <.signal_heads_section 
-        groups={@tlc.logic.program.groups} 
-        current_state={@tlc.logic.current_states} 
+  <!-- Type-specific details section -->
+  <%= if logic_type == :fixed_time do %>
+    <.fixed_time_details logic={@tlc.logic} />
+  <% else %>
+    <.stage_based_details logic={@tlc.logic} />
+  <% end %>
+
+  <!-- Fixed-time specific: Cycle table section -->
+  <%= if logic_type == :fixed_time do %>
+    <div class="overflow-x-auto">
+      <.program_editor_container
+        display_program={display_program}
+        edited_program={@edited_program}
+        current_program={@tlc.logic.program}
+        current_cycle={@tlc.logic.cycle_time}
+        editing={@editing}
+        offset={@tlc.logic.offset}
+        target_offset={@tlc.logic.target_offset}
+        target_distance={@tlc.logic.target_distance}
+        invalid_transitions={@invalid_transitions}
+        next_signal_fn={&next_signal/1}
+        is_between_offsets_fn={&is_between_offsets/3}
+        logic={@tlc.logic}
+        switch_dragging={@switch_dragging}
+        interval={@tlc.interval}
+        programs={@tlc.programs}
+        logic_mode={@tlc.logic.mode}
+        target_program={@target_program}
+        program_text={@program_text}
+        json_error={@json_error}
+        validation_error={@validation_error}
       />
     </div>
-  </div>
-
-  <!-- Cycle table section -->
-  <div class="overflow-x-auto">
-    <.program_editor_container
-      display_program={display_program}
-      edited_program={@edited_program}
-      current_program={@tlc.logic.program}
-      current_cycle={@tlc.logic.cycle_time}
-      editing={@editing}
-      offset={@tlc.logic.offset}
-      target_offset={@tlc.logic.target_offset}
-      target_distance={@tlc.logic.target_distance}
-      invalid_transitions={@invalid_transitions}
-      next_signal_fn={&next_signal/1}
-      is_between_offsets_fn={&is_between_offsets/3}
-      logic={@tlc.logic}
-      switch_dragging={@switch_dragging}
-      interval={@tlc.interval}
-      programs={@tlc.programs}
-      logic_mode={@tlc.logic.mode}
-      target_program={@target_program}
-      program_text={@program_text}
-      json_error={@json_error}
-      validation_error={@validation_error}
-    />
-  </div>
+  <% end %>
 </.tlc_page_container>

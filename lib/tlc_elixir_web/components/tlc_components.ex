@@ -27,4 +27,9 @@ defmodule TlcElixirWeb.TlcComponents do
   defdelegate program_grid(assigns), to: TlcElixirWeb.GridComponents
   defdelegate program_editor_container(assigns), to: TlcElixirWeb.EditorComponents
   defdelegate tlc_page_container(assigns), to: TlcElixirWeb.LayoutComponents
+
+  # New common header components
+  defdelegate common_header(assigns), to: TlcElixirWeb.LayoutComponents
+  defdelegate fixed_time_details(assigns), to: TlcElixirWeb.LayoutComponents
+  defdelegate stage_based_details(assigns), to: TlcElixirWeb.LayoutComponents
 end
