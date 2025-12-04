@@ -1,0 +1,290 @@
+defmodule Tlc.Logic.StageBased do
+  @moduledoc """
+  A module to simulate a stage-based traffic light program.
+
+  This module handles the runtime logic for a Tlc.Program.StageBased.
+  It manages stage switching and transition execution.
+  """
+
+  alias Tlc.Program.StageBased, as: Program
+
+  defstruct mode: :run,
+            program: nil,
+            current_program_id: nil,
+            current_stage: nil,
+            current_transition: nil,
+            transition_elapsed: 0,
+            stage_elapsed: 0,
+            requested_stage: nil,
+            current_states: "",
+            unix_time: nil,
+            unix_delta: 0
+
+  @doc """
+  Creates a new stage-based logic instance from a program.
+  Optionally starts at a specific program and stage.
+  """
+  def new(program, opts \\ []) do
+    program_id = Keyword.get(opts, :program_id) || get_default_program_id(program)
+    stage_id = Keyword.get(opts, :stage_id) || get_default_stage_id(program, program_id)
+
+    initial_states = Program.get_stage_state(program, stage_id) || ""
+
+    %__MODULE__{
+      program: program,
+      current_program_id: program_id,
+      current_stage: stage_id,
+      current_states: initial_states
+    }
+  end
+
+  defp get_default_program_id(program) do
+    case Map.keys(program.programs) do
+      [first | _] -> first
+      [] -> nil
+    end
+  end
+
+  defp get_default_stage_id(program, program_id) do
+    case Map.get(program.programs, program_id) do
+      %Program.Program{enter: [first | _]} -> first
+      _ ->
+        # Fall back to first stage
+        case Map.keys(program.stages) do
+          [first | _] -> first
+          [] -> nil
+        end
+    end
+  end
+
+  @doc """
+  Advances the logic by one tick (typically 1 second).
+  """
+  def tick(logic, unix_time) when logic.mode == :halt do
+    logic
+    |> update_unix_time(unix_time)
+  end
+
+  def tick(logic, unix_time) do
+    logic
+    |> update_unix_time(unix_time)
+    |> process_tick()
+  end
+
+  defp update_unix_time(logic, unix_time) when logic.unix_time == nil do
+    %{logic | unix_time: unix_time, unix_delta: 0}
+  end
+  defp update_unix_time(logic, unix_time) do
+    %{logic | unix_time: unix_time, unix_delta: unix_time - logic.unix_time}
+  end
+
+  defp process_tick(logic) do
+    cond do
+      logic.current_transition != nil ->
+        # We're in a transition
+        process_transition(logic)
+
+      logic.requested_stage != nil and logic.requested_stage != logic.current_stage ->
+        # Stage change requested, check if we can start transition
+        maybe_start_transition(logic)
+
+      true ->
+        # We're in a stage, just advance time
+        advance_stage(logic)
+    end
+  end
+
+  defp process_transition(logic) do
+    new_elapsed = logic.transition_elapsed + logic.unix_delta
+    transition = logic.current_transition
+    total_duration = Program.transition_duration(transition)
+
+    if new_elapsed >= total_duration do
+      # Transition complete, enter the target stage
+      complete_transition(logic)
+    else
+      # Still in transition, update state
+      %{logic |
+        transition_elapsed: new_elapsed,
+        current_states: get_transition_state(transition, new_elapsed)
+      }
+    end
+  end
+
+  defp get_transition_state(transition, elapsed) do
+    # Find which step we're in based on elapsed time
+    {state, _} = Enum.reduce_while(transition.sequence, {nil, 0}, fn step, {_state, acc_time} ->
+      new_acc = acc_time + step.duration
+      if elapsed < new_acc do
+        {:halt, {step.state, new_acc}}
+      else
+        {:cont, {step.state, new_acc}}
+      end
+    end)
+
+    # Return the last state if we somehow exceeded
+    state || (List.last(transition.sequence) && List.last(transition.sequence).state) || ""
+  end
+
+  defp complete_transition(logic) do
+    target_stage = logic.current_transition.to
+    new_states = Program.get_stage_state(logic.program, target_stage) || ""
+
+    %{logic |
+      current_stage: target_stage,
+      current_transition: nil,
+      transition_elapsed: 0,
+      stage_elapsed: 0,
+      requested_stage: nil,
+      current_states: new_states
+    }
+  end
+
+  defp maybe_start_transition(logic) do
+    # Get the current program
+    current_program = Map.get(logic.program.programs, logic.current_program_id)
+
+    if current_program do
+      # Check if there's a valid flow from current stage to requested stage
+      flows = Map.get(current_program.flows, logic.current_stage, [])
+      flow = Enum.find(flows, fn f -> f.to == logic.requested_stage end)
+
+      if flow do
+        # Get the transition
+        transition = Program.get_transition(
+          logic.program,
+          logic.current_stage,
+          logic.requested_stage,
+          flow.transition
+        )
+
+        if transition do
+          start_transition(logic, transition)
+        else
+          # No transition defined, clear the request
+          %{logic | requested_stage: nil}
+        end
+      else
+        # No valid flow, clear the request
+        %{logic | requested_stage: nil}
+      end
+    else
+      %{logic | requested_stage: nil}
+    end
+  end
+
+  defp start_transition(logic, transition) do
+    initial_state = if length(transition.sequence) > 0 do
+      hd(transition.sequence).state
+    else
+      logic.current_states
+    end
+
+    %{logic |
+      current_transition: transition,
+      transition_elapsed: 0,
+      current_states: initial_state
+    }
+  end
+
+  defp advance_stage(logic) do
+    %{logic | stage_elapsed: logic.stage_elapsed + logic.unix_delta}
+  end
+
+  @doc """
+  Requests a transition to a specific stage.
+  The transition will occur when conditions are met.
+  """
+  def request_stage(logic, stage_id) do
+    %{logic | requested_stage: stage_id}
+  end
+
+  @doc """
+  Gets the current state of a specific signal group.
+  Returns a single character representing the state.
+  """
+  def get_group_state(logic, group_id) do
+    index = Enum.find_index(logic.program.groups, fn g -> g == group_id end)
+
+    if index && index < String.length(logic.current_states) do
+      String.at(logic.current_states, index)
+    else
+      nil
+    end
+  end
+
+  @doc """
+  Returns true if the logic is currently in a transition.
+  """
+  def in_transition?(logic) do
+    logic.current_transition != nil
+  end
+
+  @doc """
+  Returns true if the logic is currently in a stage (not transitioning).
+  """
+  def in_stage?(logic) do
+    logic.current_transition == nil
+  end
+
+  @doc """
+  Gets all available stages from the current stage based on the program flows.
+  """
+  def available_stages(logic) do
+    current_program = Map.get(logic.program.programs, logic.current_program_id)
+
+    if current_program do
+      flows = Map.get(current_program.flows, logic.current_stage, [])
+      Enum.map(flows, fn f -> f.to end)
+    else
+      []
+    end
+  end
+
+  @doc """
+  Halts the logic at the current position.
+  """
+  def halt(logic) do
+    %{logic |
+      mode: :halt,
+      requested_stage: nil
+    }
+  end
+
+  @doc """
+  Resumes the logic from a halted state.
+  """
+  def resume(logic) do
+    %{logic | mode: :run}
+  end
+
+  @doc """
+  Gets the remaining time in the current stage based on default duration.
+  Returns nil if in a transition or stage has no default duration.
+  """
+  def stage_remaining_time(logic) do
+    if logic.current_transition != nil do
+      nil
+    else
+      stage = Map.get(logic.program.stages, logic.current_stage)
+      if stage && stage.duration.default > 0 do
+        max(0, stage.duration.default - logic.stage_elapsed)
+      else
+        nil
+      end
+    end
+  end
+
+  @doc """
+  Gets the remaining time in the current transition.
+  Returns nil if not in a transition.
+  """
+  def transition_remaining_time(logic) do
+    if logic.current_transition do
+      total = Program.transition_duration(logic.current_transition)
+      max(0, total - logic.transition_elapsed)
+    else
+      nil
+    end
+  end
+end
