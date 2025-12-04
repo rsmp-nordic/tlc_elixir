@@ -1,76 +1,22 @@
 defmodule Tlc.Program.StageBased do
   @moduledoc """
-  Struct representing a stage-based traffic program definition.
-  Contains the static program configuration without runtime state.
+  Struct representing a single stage-based traffic program.
+  Contains a reference to stage definitions and program-specific flow configuration.
 
   Stage-based control is an alternative to fixed-time control where:
   - Stages define which signal groups can have green simultaneously
   - Transitions define how to move between stages with explicit state changes
-  - All state changes occur during transitions, states remain static during stages
+  - Programs define which stages to use and how to flow between them
   """
 
-  @derive {Jason.Encoder, only: [:name, :groups, :stages, :transitions, :programs]}
+  alias Tlc.Program.Stages
+
+  @derive {Jason.Encoder, only: [:name, :stages_ref, :enter, :leave, :flows]}
   defstruct name: "",
-            groups: [],
-            stages: %{},
-            transitions: %{},
-            programs: %{}
-
-  defmodule Stage do
-    @moduledoc """
-    Represents a stage definition.
-    A stage defines which groups are open and for how long.
-    """
-    @derive Jason.Encoder
-    defstruct id: nil,
-              open: [],
-              duration: %{}
-  end
-
-  defmodule Duration do
-    @moduledoc """
-    Represents duration settings for a stage.
-    """
-    @derive Jason.Encoder
-    defstruct default: 0,
-              min: nil,
-              max: nil
-  end
-
-  defmodule Transition do
-    @moduledoc """
-    Represents a transition between two stages.
-    A transition defines how to move from one stage to another by explicitly listing
-    all state changes, including intermediate states like yellow.
-    """
-    @derive Jason.Encoder
-    defstruct from: nil,
-              to: nil,
-              name: "default",
-              sequence: []
-  end
-
-  defmodule TransitionStep do
-    @moduledoc """
-    Represents a step in a transition sequence.
-    Each step has a state string and duration.
-    """
-    @derive Jason.Encoder
-    defstruct state: "",
-              duration: 0
-  end
-
-  defmodule Program do
-    @moduledoc """
-    Represents a program definition within a stage-based program.
-    A program defines which stages and transitions can be used.
-    """
-    @derive Jason.Encoder
-    defstruct id: nil,
-              enter: [],
-              leave: [],
-              flows: %{}
-  end
+            stages_ref: nil,
+            enter: [],
+            leave: [],
+            flows: %{}
 
   defmodule Flow do
     @moduledoc """
@@ -85,179 +31,27 @@ defmodule Tlc.Program.StageBased do
   Provides an example stage-based traffic program definition.
   """
   def example() do
+    stages = Stages.example()
+
     %__MODULE__{
-      name: "example",
-      groups: ["a1", "a2", "b1", "b2"],
-      stages: %{
-        "main" => %Stage{
-          id: "main",
-          open: ["a1", "a2"],
-          duration: %Duration{default: 20, max: 29}
-        },
-        "side" => %Stage{
-          id: "side",
-          open: ["b1", "b2"],
-          duration: %Duration{min: 10, default: 20, max: 26}
-        }
-      },
-      transitions: %{
-        {"main", "side"} => %{
-          "default" => %Transition{
-            from: "main",
-            to: "side",
-            name: "default",
-            sequence: [
-              %TransitionStep{state: "1100", duration: 3},
-              %TransitionStep{state: "0022", duration: 2}
-            ]
-          }
-        },
-        {"side", "main"} => %{
-          "default" => %Transition{
-            from: "side",
-            to: "main",
-            name: "default",
-            sequence: [
-              %TransitionStep{state: "0011", duration: 3},
-              %TransitionStep{state: "2200", duration: 2}
-            ]
-          }
-        }
-      },
-      programs: %{
-        "normal" => %Program{
-          id: "normal",
-          enter: ["main"],
-          leave: ["main"],
-          flows: %{
-            "main" => [%Flow{to: "side", transition: "default"}],
-            "side" => [%Flow{to: "main", transition: "default"}]
-          }
-        }
+      name: "normal",
+      stages_ref: stages,
+      enter: ["main"],
+      leave: ["main"],
+      flows: %{
+        "main" => [%Flow{to: "side", transition: "default"}],
+        "side" => [%Flow{to: "main", transition: "default"}]
       }
     }
   end
 
   @doc """
   Creates a stage-based program from a map/keyword list configuration.
+  Requires a Stages struct to reference.
   """
-  def from_config(config) when is_map(config) do
-    groups = Map.get(config, :groups, Map.get(config, "groups", []))
+  def from_config(config, %Stages{} = stages_ref) when is_map(config) do
+    name = Map.get(config, :name, Map.get(config, "name", Map.get(config, :id, Map.get(config, "id", ""))))
 
-    stages = parse_stages(Map.get(config, :stages, Map.get(config, "stages", %{})))
-    transitions = parse_transitions(Map.get(config, :transitions, Map.get(config, "transitions", %{})))
-    programs = parse_programs(Map.get(config, :programs, Map.get(config, "programs", %{})))
-
-    %__MODULE__{
-      name: Map.get(config, :name, Map.get(config, "name", "")),
-      groups: groups,
-      stages: stages,
-      transitions: transitions,
-      programs: programs
-    }
-  end
-
-  defp parse_stages(stages_config) when is_map(stages_config) do
-    stages_config
-    |> Enum.map(fn {id, stage_config} ->
-      id_str = to_string(id)
-      {id_str, parse_stage(id_str, stage_config)}
-    end)
-    |> Map.new()
-  end
-  defp parse_stages(_), do: %{}
-
-  defp parse_stage(id, config) when is_map(config) do
-    open = Map.get(config, :open, Map.get(config, "open", []))
-    duration_config = Map.get(config, :duration, Map.get(config, "duration", %{}))
-
-    %Stage{
-      id: id,
-      open: open,
-      duration: parse_duration(duration_config)
-    }
-  end
-
-  defp parse_duration(config) when is_map(config) do
-    %Duration{
-      default: Map.get(config, :default, Map.get(config, "default", 0)),
-      min: Map.get(config, :min, Map.get(config, "min", nil)),
-      max: Map.get(config, :max, Map.get(config, "max", nil))
-    }
-  end
-  defp parse_duration(default) when is_integer(default) do
-    %Duration{default: default}
-  end
-  defp parse_duration(_), do: %Duration{}
-
-  defp parse_transitions(transitions_config) when is_map(transitions_config) do
-    transitions_config
-    |> Enum.flat_map(fn {from, to_configs} ->
-      from_str = to_string(from)
-      parse_to_transitions(from_str, to_configs)
-    end)
-    |> Enum.group_by(fn {key, _} -> key end, fn {_, transition} -> transition end)
-    |> Enum.map(fn {key, transitions} ->
-      {key, Map.new(transitions, fn t -> {t.name, t} end)}
-    end)
-    |> Map.new()
-  end
-  defp parse_transitions(_), do: %{}
-
-  defp parse_to_transitions(from, to_configs) when is_map(to_configs) do
-    Enum.flat_map(to_configs, fn {to, transition_config} ->
-      to_str = to_string(to)
-      parse_transition_variants(from, to_str, transition_config)
-    end)
-  end
-
-  defp parse_transition_variants(from, to, config) when is_list(config) do
-    # Single transition as a sequence
-    [{{from, to}, %Transition{
-      from: from,
-      to: to,
-      name: "default",
-      sequence: parse_sequence(config)
-    }}]
-  end
-  defp parse_transition_variants(from, to, config) when is_map(config) do
-    # Multiple named transitions
-    Enum.map(config, fn {name, sequence} ->
-      name_str = to_string(name)
-      {{from, to}, %Transition{
-        from: from,
-        to: to,
-        name: name_str,
-        sequence: parse_sequence(sequence)
-      }}
-    end)
-  end
-  defp parse_transition_variants(_, _, _), do: []
-
-  defp parse_sequence(sequence) when is_list(sequence) do
-    sequence
-    |> Enum.chunk_every(2)
-    |> Enum.filter(fn chunk -> length(chunk) == 2 end)
-    |> Enum.map(fn [state, duration] ->
-      %TransitionStep{
-        state: to_string(state),
-        duration: duration
-      }
-    end)
-  end
-  defp parse_sequence(_), do: []
-
-  defp parse_programs(programs_config) when is_map(programs_config) do
-    programs_config
-    |> Enum.map(fn {id, program_config} ->
-      id_str = to_string(id)
-      {id_str, parse_program(id_str, program_config)}
-    end)
-    |> Map.new()
-  end
-  defp parse_programs(_), do: %{}
-
-  defp parse_program(id, config) when is_map(config) do
     # Parse enter stages
     enter = case Map.get(config, :enter, Map.get(config, "enter", %{})) do
       stages when is_map(stages) -> Map.keys(stages) |> Enum.map(&to_string/1)
@@ -267,7 +61,7 @@ defmodule Tlc.Program.StageBased do
 
     # Parse flows (stages with their destinations)
     flows = config
-    |> Enum.reject(fn {key, _} -> key in [:enter, "enter", :id, "id"] end)
+    |> Enum.reject(fn {key, _} -> key in [:enter, "enter", :id, "id", :name, "name"] end)
     |> Enum.map(fn {from, destinations} ->
       from_str = to_string(from)
       parsed_flows = parse_flows(destinations)
@@ -290,8 +84,9 @@ defmodule Tlc.Program.StageBased do
     end)
     |> Map.new()
 
-    %Program{
-      id: id,
+    %__MODULE__{
+      name: name,
+      stages_ref: stages_ref,
       enter: enter,
       leave: leave,
       flows: flows
@@ -316,10 +111,8 @@ defmodule Tlc.Program.StageBased do
       {:error, "Input must be a %Tlc.Program.StageBased{} struct"}
     else
       with :ok <- validate_name(program),
-           :ok <- validate_groups(program),
-           :ok <- validate_stages(program),
-           :ok <- validate_transitions(program),
-           :ok <- validate_programs(program) do
+           :ok <- validate_stages_ref(program),
+           :ok <- validate_flows(program) do
         {:ok, program}
       end
     end
@@ -328,108 +121,77 @@ defmodule Tlc.Program.StageBased do
   defp validate_name(%{name: name}) when is_binary(name) and name != "", do: :ok
   defp validate_name(_), do: {:error, "Name must be a non-empty string"}
 
-  defp validate_groups(%{groups: groups}) when is_list(groups) and length(groups) > 0 do
-    if Enum.all?(groups, &is_binary/1), do: :ok, else: {:error, "Group names must be strings"}
-  end
-  defp validate_groups(_), do: {:error, "Program must have at least one signal group defined as a list"}
+  defp validate_stages_ref(%{stages_ref: stages_ref}) when is_struct(stages_ref, Stages), do: :ok
+  defp validate_stages_ref(_), do: {:error, "stages_ref must be a Tlc.Program.Stages struct"}
 
-  defp validate_stages(%{stages: stages}) when is_map(stages) and map_size(stages) > 0 do
-    # Verify each stage has valid open groups and duration
-    invalid = Enum.find(stages, fn {_id, stage} ->
-      not is_list(stage.open) or not is_struct(stage.duration, Duration)
-    end)
+  defp validate_flows(%{flows: flows, stages_ref: stages_ref, enter: enter}) when is_map(flows) do
+    stage_ids = Map.keys(stages_ref.stages)
 
-    if invalid do
-      {:error, "Invalid stage configuration"}
+    # Check enter stages exist
+    invalid_enter = Enum.any?(enter, fn stage -> stage not in stage_ids end)
+
+    if invalid_enter do
+      {:error, "Program references undefined stages in enter"}
     else
-      :ok
-    end
-  end
-  defp validate_stages(_), do: {:error, "Program must have at least one stage defined"}
-
-  defp validate_transitions(%{transitions: transitions, groups: groups}) when is_map(transitions) do
-    group_count = length(groups)
-
-    # Verify each transition sequence has valid states
-    invalid = Enum.find(transitions, fn {_key, variants} ->
-      Enum.any?(variants, fn {_name, transition} ->
-        Enum.any?(transition.sequence, fn step ->
-          String.length(step.state) != group_count or step.duration <= 0
-        end)
-      end)
-    end)
-
-    if invalid do
-      {:error, "Invalid transition: state string length must match number of groups and duration must be positive"}
-    else
-      :ok
-    end
-  end
-  defp validate_transitions(_), do: :ok
-
-  defp validate_programs(%{programs: programs, stages: stages}) when is_map(programs) do
-    stage_ids = Map.keys(stages)
-
-    # Verify program flows reference valid stages
-    invalid = Enum.find(programs, fn {_id, program} ->
-      # Check enter stages exist
-      invalid_enter = Enum.any?(program.enter, fn stage -> stage not in stage_ids end)
-
       # Check flow destinations exist
-      invalid_flows = Enum.any?(program.flows, fn {from, flows} ->
+      invalid_flows = Enum.any?(flows, fn {from, flow_list} ->
         from not in stage_ids or
-          Enum.any?(flows, fn flow -> flow.to not in stage_ids end)
+          Enum.any?(flow_list, fn flow -> flow.to not in stage_ids end)
       end)
 
-      invalid_enter or invalid_flows
-    end)
-
-    if invalid do
-      {:error, "Program references undefined stages"}
-    else
-      :ok
+      if invalid_flows do
+        {:error, "Program flows reference undefined stages"}
+      else
+        :ok
+      end
     end
   end
-  defp validate_programs(_), do: :ok
+  defp validate_flows(_), do: :ok
+
+  # Delegate stage/transition operations to the stages_ref
 
   @doc """
   Gets the state string for a stage.
-  Returns a string with one character per group:
-  - "A" for groups that are open
-  - "0" for groups that are closed
+  Delegates to the stages_ref.
   """
-  def get_stage_state(program, stage_id) do
-    stage = Map.get(program.stages, stage_id)
-
-    if stage do
-      program.groups
-      |> Enum.map(fn group ->
-        if group in stage.open, do: "A", else: "0"
-      end)
-      |> Enum.join()
-    else
-      nil
-    end
+  def get_stage_state(%__MODULE__{stages_ref: stages_ref}, stage_id) do
+    Stages.get_stage_state(stages_ref, stage_id)
   end
 
   @doc """
   Gets a transition between two stages.
-  Returns the transition struct or nil if not found.
+  Delegates to the stages_ref.
   """
-  def get_transition(program, from_stage, to_stage, transition_name \\ "default") do
-    case Map.get(program.transitions, {from_stage, to_stage}) do
-      nil -> nil
-      variants ->
-        Map.get(variants, transition_name) || Map.get(variants, "default")
-    end
+  def get_transition(%__MODULE__{stages_ref: stages_ref}, from_stage, to_stage, transition_name \\ "default") do
+    Stages.get_transition(stages_ref, from_stage, to_stage, transition_name)
   end
 
   @doc """
   Calculates the total duration of a transition.
+  Delegates to Stages module.
   """
   def transition_duration(transition) do
-    transition.sequence
-    |> Enum.map(& &1.duration)
-    |> Enum.sum()
+    Stages.transition_duration(transition)
+  end
+
+  @doc """
+  Gets the groups from the stages_ref.
+  """
+  def groups(%__MODULE__{stages_ref: stages_ref}) do
+    stages_ref.groups
+  end
+
+  @doc """
+  Gets the stages from the stages_ref.
+  """
+  def stages(%__MODULE__{stages_ref: stages_ref}) do
+    stages_ref.stages
+  end
+
+  @doc """
+  Gets a specific stage from the stages_ref.
+  """
+  def get_stage(%__MODULE__{stages_ref: stages_ref}, stage_id) do
+    Map.get(stages_ref.stages, stage_id)
   end
 end

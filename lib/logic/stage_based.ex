@@ -10,7 +10,6 @@ defmodule Tlc.Logic.StageBased do
 
   defstruct mode: :run,
             program: nil,
-            current_program_id: nil,
             current_stage: nil,
             current_transition: nil,
             transition_elapsed: 0,
@@ -22,35 +21,27 @@ defmodule Tlc.Logic.StageBased do
 
   @doc """
   Creates a new stage-based logic instance from a program.
-  Optionally starts at a specific program and stage.
+  Optionally starts at a specific stage.
   """
   def new(program, opts \\ []) do
-    program_id = Keyword.get(opts, :program_id) || get_default_program_id(program)
-    stage_id = Keyword.get(opts, :stage_id) || get_default_stage_id(program, program_id)
+    stage_id = Keyword.get(opts, :stage_id) || get_default_stage_id(program)
 
     initial_states = Program.get_stage_state(program, stage_id) || ""
 
     %__MODULE__{
       program: program,
-      current_program_id: program_id,
       current_stage: stage_id,
       current_states: initial_states
     }
   end
 
-  defp get_default_program_id(program) do
-    case Map.keys(program.programs) do
+  defp get_default_stage_id(program) do
+    # Use first enter stage from the program
+    case program.enter do
       [first | _] -> first
-      [] -> nil
-    end
-  end
-
-  defp get_default_stage_id(program, program_id) do
-    case Map.get(program.programs, program_id) do
-      %Program.Program{enter: [first | _]} -> first
-      _ ->
-        # Fall back to first stage
-        case Map.keys(program.stages) do
+      [] ->
+        # Fall back to first stage from stages_ref
+        case Map.keys(program.stages_ref.stages) do
           [first | _] -> first
           [] -> nil
         end
@@ -141,34 +132,27 @@ defmodule Tlc.Logic.StageBased do
   end
 
   defp maybe_start_transition(logic) do
-    # Get the current program
-    current_program = Map.get(logic.program.programs, logic.current_program_id)
+    # Check if there's a valid flow from current stage to requested stage
+    flows = Map.get(logic.program.flows, logic.current_stage, [])
+    flow = Enum.find(flows, fn f -> f.to == logic.requested_stage end)
 
-    if current_program do
-      # Check if there's a valid flow from current stage to requested stage
-      flows = Map.get(current_program.flows, logic.current_stage, [])
-      flow = Enum.find(flows, fn f -> f.to == logic.requested_stage end)
+    if flow do
+      # Get the transition
+      transition = Program.get_transition(
+        logic.program,
+        logic.current_stage,
+        logic.requested_stage,
+        flow.transition
+      )
 
-      if flow do
-        # Get the transition
-        transition = Program.get_transition(
-          logic.program,
-          logic.current_stage,
-          logic.requested_stage,
-          flow.transition
-        )
-
-        if transition do
-          start_transition(logic, transition)
-        else
-          # No transition defined, clear the request
-          %{logic | requested_stage: nil}
-        end
+      if transition do
+        start_transition(logic, transition)
       else
-        # No valid flow, clear the request
+        # No transition defined, clear the request
         %{logic | requested_stage: nil}
       end
     else
+      # No valid flow, clear the request
       %{logic | requested_stage: nil}
     end
   end
@@ -204,7 +188,8 @@ defmodule Tlc.Logic.StageBased do
   Returns a single character representing the state.
   """
   def get_group_state(logic, group_id) do
-    index = Enum.find_index(logic.program.groups, fn g -> g == group_id end)
+    groups = Program.groups(logic.program)
+    index = Enum.find_index(groups, fn g -> g == group_id end)
 
     if index && index < String.length(logic.current_states) do
       String.at(logic.current_states, index)
@@ -231,14 +216,8 @@ defmodule Tlc.Logic.StageBased do
   Gets all available stages from the current stage based on the program flows.
   """
   def available_stages(logic) do
-    current_program = Map.get(logic.program.programs, logic.current_program_id)
-
-    if current_program do
-      flows = Map.get(current_program.flows, logic.current_stage, [])
-      Enum.map(flows, fn f -> f.to end)
-    else
-      []
-    end
+    flows = Map.get(logic.program.flows, logic.current_stage, [])
+    Enum.map(flows, fn f -> f.to end)
   end
 
   @doc """
@@ -266,7 +245,7 @@ defmodule Tlc.Logic.StageBased do
     if logic.current_transition != nil do
       nil
     else
-      stage = Map.get(logic.program.stages, logic.current_stage)
+      stage = Program.get_stage(logic.program, logic.current_stage)
       if stage && stage.duration.default > 0 do
         max(0, stage.duration.default - logic.stage_elapsed)
       else

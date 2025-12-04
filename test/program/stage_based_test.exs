@@ -2,19 +2,20 @@ defmodule Tlc.Program.StageBasedTest do
   use ExUnit.Case, async: true
 
   alias Tlc.Program.StageBased
-  alias Tlc.Program.StageBased.{Stage, Transition, TransitionStep, Program}
+  alias Tlc.Program.StageBased.Flow
+  alias Tlc.Program.Stages
 
   describe "example/0" do
     test "returns a valid example program" do
       program = StageBased.example()
 
-      assert program.name == "example"
-      assert program.groups == ["a1", "a2", "b1", "b2"]
-      assert Map.has_key?(program.stages, "main")
-      assert Map.has_key?(program.stages, "side")
-      assert Map.has_key?(program.transitions, {"main", "side"})
-      assert Map.has_key?(program.transitions, {"side", "main"})
-      assert Map.has_key?(program.programs, "normal")
+      assert program.name == "normal"
+      assert is_struct(program.stages_ref, Stages)
+      assert program.stages_ref.groups == ["a1", "a2", "b1", "b2"]
+      assert "main" in program.enter
+      assert "main" in program.leave
+      assert Map.has_key?(program.flows, "main")
+      assert Map.has_key?(program.flows, "side")
     end
 
     test "example program passes validation" do
@@ -23,10 +24,10 @@ defmodule Tlc.Program.StageBasedTest do
     end
   end
 
-  describe "from_config/1" do
+  describe "from_config/2" do
     test "parses a simple configuration" do
-      config = %{
-        name: "test",
+      stages = Stages.from_config(%{
+        name: "test_stages",
         groups: ["a1", "a2", "b1"],
         stages: %{
           main: %{
@@ -45,96 +46,54 @@ defmodule Tlc.Program.StageBasedTest do
           side: %{
             main: ["001", 3, "220", 2]
           }
-        },
-        programs: %{
-          normal: %{
-            enter: %{main: nil},
-            main: %{side: nil, leave: nil},
-            side: %{main: nil}
-          }
         }
+      })
+
+      program_config = %{
+        name: "normal",
+        enter: %{main: nil},
+        main: %{side: nil, leave: nil},
+        side: %{main: nil}
       }
 
-      program = StageBased.from_config(config)
+      program = StageBased.from_config(program_config, stages)
 
-      assert program.name == "test"
-      assert program.groups == ["a1", "a2", "b1"]
-
-      # Check stages
-      assert %Stage{id: "main", open: ["a1", "a2"]} = program.stages["main"]
-      assert program.stages["main"].duration.default == 20
-      assert program.stages["main"].duration.max == 30
-      assert program.stages["side"].duration.min == 10
-
-      # Check transitions
-      assert Map.has_key?(program.transitions, {"main", "side"})
-      transition = program.transitions[{"main", "side"}]["default"]
-      assert transition.from == "main"
-      assert transition.to == "side"
-      assert length(transition.sequence) == 2
-      assert hd(transition.sequence).state == "110"
-      assert hd(transition.sequence).duration == 3
-
-      # Check programs
-      assert Map.has_key?(program.programs, "normal")
-      normal = program.programs["normal"]
-      assert "main" in normal.enter
-      assert "main" in normal.leave
-      assert length(normal.flows["main"]) == 1
-      assert hd(normal.flows["main"]).to == "side"
+      assert program.name == "normal"
+      assert program.stages_ref == stages
+      assert "main" in program.enter
+      assert "main" in program.leave
+      assert length(program.flows["main"]) == 1
+      assert hd(program.flows["main"]).to == "side"
     end
 
-    test "parses multiple named transitions" do
+    test "parses program with string keys" do
+      stages = Stages.example()
+
       config = %{
-        name: "test",
-        groups: ["a", "b"],
-        stages: %{
-          main: %{open: ["a"], duration: %{default: 10}},
-          side: %{open: ["b"], duration: %{default: 10}}
-        },
-        transitions: %{
-          main: %{
-            side: %{
-              default: ["10", 3, "02", 2],
-              quick: ["10", 2, "02", 1]
-            }
-          }
-        },
-        programs: %{}
+        "name" => "string_keys_program",
+        "enter" => ["main"],
+        "main" => %{"side" => "default"},
+        "side" => %{"main" => "default"}
       }
 
-      program = StageBased.from_config(config)
+      program = StageBased.from_config(config, stages)
 
-      assert Map.has_key?(program.transitions[{"main", "side"}], "default")
-      assert Map.has_key?(program.transitions[{"main", "side"}], "quick")
-
-      default_transition = program.transitions[{"main", "side"}]["default"]
-      quick_transition = program.transitions[{"main", "side"}]["quick"]
-
-      # Default transition has longer durations
-      assert StageBased.transition_duration(default_transition) == 5
-      assert StageBased.transition_duration(quick_transition) == 3
+      assert program.name == "string_keys_program"
+      assert "main" in program.enter
     end
 
-    test "parses string keys in configuration" do
+    test "parses program with id instead of name" do
+      stages = Stages.example()
+
       config = %{
-        "name" => "string_keys",
-        "groups" => ["a", "b"],
-        "stages" => %{
-          "main" => %{
-            "open" => ["a"],
-            "duration" => %{"default" => 15}
-          }
-        },
-        "transitions" => %{},
-        "programs" => %{}
+        id: "my_program",
+        enter: ["main"],
+        main: %{side: nil}
       }
 
-      program = StageBased.from_config(config)
+      program = StageBased.from_config(config, stages)
 
-      assert program.name == "string_keys"
-      assert program.groups == ["a", "b"]
-      assert program.stages["main"].duration.default == 15
+      assert program.name == "my_program"
     end
   end
 
@@ -153,98 +112,51 @@ defmodule Tlc.Program.StageBasedTest do
       assert {:error, "Name must be a non-empty string"} = StageBased.validate(program)
     end
 
-    test "rejects empty groups" do
-      program = %StageBased{StageBased.example() | groups: []}
-      assert {:error, _} = StageBased.validate(program)
+    test "rejects missing stages_ref" do
+      program = %StageBased{StageBased.example() | stages_ref: nil}
+      assert {:error, "stages_ref must be a Tlc.Program.Stages struct"} = StageBased.validate(program)
     end
 
-    test "rejects empty stages" do
-      program = %StageBased{StageBased.example() | stages: %{}}
-      assert {:error, _} = StageBased.validate(program)
+    test "rejects program referencing undefined stage in enter" do
+      stages = Stages.example()
+      program = %StageBased{
+        name: "bad_program",
+        stages_ref: stages,
+        enter: ["nonexistent"],
+        leave: [],
+        flows: %{}
+      }
+
+      assert {:error, "Program references undefined stages in enter"} = StageBased.validate(program)
     end
 
-    test "rejects transition with mismatched state length" do
-      program = StageBased.example()
-
-      bad_transitions = %{
-        {"main", "side"} => %{
-          "default" => %Transition{
-            from: "main",
-            to: "side",
-            name: "default",
-            sequence: [
-              %TransitionStep{state: "110", duration: 3}  # Only 3 chars, should be 4
-            ]
-          }
+    test "rejects program with flow referencing undefined stage" do
+      stages = Stages.example()
+      program = %StageBased{
+        name: "bad_program",
+        stages_ref: stages,
+        enter: ["main"],
+        leave: [],
+        flows: %{
+          "main" => [%Flow{to: "nonexistent", transition: "default"}]
         }
       }
 
-      program = %StageBased{program | transitions: bad_transitions}
-      assert {:error, _} = StageBased.validate(program)
-    end
-
-    test "rejects transition with zero duration" do
-      program = StageBased.example()
-
-      bad_transitions = %{
-        {"main", "side"} => %{
-          "default" => %Transition{
-            from: "main",
-            to: "side",
-            name: "default",
-            sequence: [
-              %TransitionStep{state: "1100", duration: 0}
-            ]
-          }
-        }
-      }
-
-      program = %StageBased{program | transitions: bad_transitions}
-      assert {:error, _} = StageBased.validate(program)
-    end
-
-    test "rejects program referencing undefined stage" do
-      program = StageBased.example()
-
-      bad_programs = %{
-        "normal" => %Program{
-          id: "normal",
-          enter: ["nonexistent"],
-          leave: [],
-          flows: %{}
-        }
-      }
-
-      program = %StageBased{program | programs: bad_programs}
-      assert {:error, "Program references undefined stages"} = StageBased.validate(program)
+      assert {:error, "Program flows reference undefined stages"} = StageBased.validate(program)
     end
   end
 
-  describe "get_stage_state/2" do
-    test "returns correct state for main stage" do
+  describe "delegated functions" do
+    test "get_stage_state delegates to stages_ref" do
       program = StageBased.example()
-      state = StageBased.get_stage_state(program, "main")
 
       # main stage has a1 and a2 open (first two groups)
-      assert state == "AA00"
-    end
-
-    test "returns correct state for side stage" do
-      program = StageBased.example()
-      state = StageBased.get_stage_state(program, "side")
-
+      assert StageBased.get_stage_state(program, "main") == "AA00"
       # side stage has b1 and b2 open (last two groups)
-      assert state == "00AA"
+      assert StageBased.get_stage_state(program, "side") == "00AA"
     end
 
-    test "returns nil for unknown stage" do
-      program = StageBased.example()
-      assert is_nil(StageBased.get_stage_state(program, "unknown"))
-    end
-  end
-
-  describe "get_transition/3" do
-    test "returns default transition" do
+    test "get_transition delegates to stages_ref" do
       program = StageBased.example()
       transition = StageBased.get_transition(program, "main", "side")
 
@@ -253,47 +165,7 @@ defmodule Tlc.Program.StageBasedTest do
       assert transition.name == "default"
     end
 
-    test "returns named transition" do
-      config = %{
-        name: "test",
-        groups: ["a", "b"],
-        stages: %{
-          main: %{open: ["a"], duration: %{default: 10}},
-          side: %{open: ["b"], duration: %{default: 10}}
-        },
-        transitions: %{
-          main: %{
-            side: %{
-              default: ["10", 3],
-              quick: ["10", 2]
-            }
-          }
-        },
-        programs: %{}
-      }
-
-      program = StageBased.from_config(config)
-      quick = StageBased.get_transition(program, "main", "side", "quick")
-
-      assert quick.name == "quick"
-      assert hd(quick.sequence).duration == 2
-    end
-
-    test "returns nil for unknown transition" do
-      program = StageBased.example()
-      assert is_nil(StageBased.get_transition(program, "main", "unknown"))
-    end
-
-    test "falls back to default when named transition not found" do
-      program = StageBased.example()
-      transition = StageBased.get_transition(program, "main", "side", "nonexistent")
-
-      assert transition.name == "default"
-    end
-  end
-
-  describe "transition_duration/1" do
-    test "calculates total transition duration" do
+    test "transition_duration calculates correctly" do
       program = StageBased.example()
       transition = StageBased.get_transition(program, "main", "side")
 
@@ -301,9 +173,63 @@ defmodule Tlc.Program.StageBasedTest do
       assert StageBased.transition_duration(transition) == 5
     end
 
-    test "returns 0 for empty sequence" do
-      transition = %Transition{sequence: []}
-      assert StageBased.transition_duration(transition) == 0
+    test "groups returns groups from stages_ref" do
+      program = StageBased.example()
+      assert StageBased.groups(program) == ["a1", "a2", "b1", "b2"]
+    end
+
+    test "stages returns stages from stages_ref" do
+      program = StageBased.example()
+      stages = StageBased.stages(program)
+
+      assert Map.has_key?(stages, "main")
+      assert Map.has_key?(stages, "side")
+    end
+
+    test "get_stage returns specific stage from stages_ref" do
+      program = StageBased.example()
+      stage = StageBased.get_stage(program, "main")
+
+      assert stage.id == "main"
+      assert stage.open == ["a1", "a2"]
+    end
+  end
+
+  describe "multiple programs sharing stages" do
+    test "can create multiple programs with same stages_ref" do
+      stages = Stages.example()
+
+      normal_program = %StageBased{
+        name: "normal",
+        stages_ref: stages,
+        enter: ["main"],
+        leave: ["main"],
+        flows: %{
+          "main" => [%Flow{to: "side", transition: "default"}],
+          "side" => [%Flow{to: "main", transition: "default"}]
+        }
+      }
+
+      rush_hour_program = %StageBased{
+        name: "rush_hour",
+        stages_ref: stages,
+        enter: ["main"],
+        leave: ["side"],
+        flows: %{
+          "main" => [%Flow{to: "side", transition: "default"}],
+          "side" => [%Flow{to: "main", transition: "default"}]
+        }
+      }
+
+      assert {:ok, _} = StageBased.validate(normal_program)
+      assert {:ok, _} = StageBased.validate(rush_hour_program)
+
+      # Both programs share the same stages_ref
+      assert normal_program.stages_ref == rush_hour_program.stages_ref
+
+      # But have different configurations
+      assert normal_program.name != rush_hour_program.name
+      assert normal_program.leave != rush_hour_program.leave
     end
   end
 end

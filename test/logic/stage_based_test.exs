@@ -2,6 +2,8 @@ defmodule Tlc.Logic.StageBasedTest do
   use ExUnit.Case, async: true
 
   alias Tlc.Program.StageBased, as: Program
+  alias Tlc.Program.StageBased.Flow
+  alias Tlc.Program.Stages
   alias Tlc.Logic.StageBased, as: Logic
 
   setup do
@@ -14,14 +16,13 @@ defmodule Tlc.Logic.StageBasedTest do
       logic = Logic.new(program)
 
       assert logic.program == program
-      assert logic.current_program_id == "normal"
       assert logic.current_stage == "main"
       assert logic.mode == :run
       assert logic.current_states == "AA00"
     end
 
-    test "creates a logic instance with specified program and stage" do
-      config = %{
+    test "creates a logic instance with specified stage" do
+      stages = Stages.from_config(%{
         name: "test",
         groups: ["a", "b"],
         stages: %{
@@ -31,20 +32,22 @@ defmodule Tlc.Logic.StageBasedTest do
         transitions: %{
           main: %{side: ["10", 3]},
           side: %{main: ["01", 3]}
-        },
-        programs: %{
-          normal: %{
-            enter: %{main: nil, side: nil},
-            main: %{side: nil},
-            side: %{main: nil}
-          }
+        }
+      })
+
+      program = %Program{
+        name: "normal",
+        stages_ref: stages,
+        enter: ["main", "side"],
+        leave: [],
+        flows: %{
+          "main" => [%Flow{to: "side", transition: "default"}],
+          "side" => [%Flow{to: "main", transition: "default"}]
         }
       }
 
-      program = Program.from_config(config)
-      logic = Logic.new(program, program_id: "normal", stage_id: "side")
+      logic = Logic.new(program, stage_id: "side")
 
-      assert logic.current_program_id == "normal"
       assert logic.current_stage == "side"
       assert logic.current_states == "0A"
     end
@@ -98,9 +101,9 @@ defmodule Tlc.Logic.StageBasedTest do
       assert logic.current_transition.to == "side"
     end
 
-    test "does not start transition when no flow exists", %{program: _program} do
+    test "does not start transition when no flow exists" do
       # Set up a program where there's no flow from side back to main
-      config = %{
+      stages = Stages.from_config(%{
         name: "test",
         groups: ["a", "b"],
         stages: %{
@@ -109,17 +112,20 @@ defmodule Tlc.Logic.StageBasedTest do
         },
         transitions: %{
           main: %{side: ["10", 3]}
-        },
-        programs: %{
-          normal: %{
-            enter: %{main: nil},
-            main: %{side: nil}
-            # No flow from side to anywhere
-          }
+        }
+      })
+
+      program = %Program{
+        name: "normal",
+        stages_ref: stages,
+        enter: ["main"],
+        leave: [],
+        flows: %{
+          "main" => [%Flow{to: "side", transition: "default"}]
+          # No flow from side to anywhere
         }
       }
 
-      program = Program.from_config(config)
       logic = program
               |> Logic.new(stage_id: "side")
               |> Logic.tick(1000)
@@ -199,9 +205,9 @@ defmodule Tlc.Logic.StageBasedTest do
       assert "side" in available
     end
 
-    test "returns empty list when no flows defined", %{program: _program} do
+    test "returns empty list when no flows defined" do
       # Create a dead-end stage
-      config = %{
+      stages = Stages.from_config(%{
         name: "test",
         groups: ["a"],
         stages: %{
@@ -210,16 +216,17 @@ defmodule Tlc.Logic.StageBasedTest do
         },
         transitions: %{
           main: %{deadend: ["0", 3]}
-        },
-        programs: %{
-          normal: %{
-            enter: %{deadend: nil}
-            # deadend has no outgoing flows
-          }
         }
+      })
+
+      program = %Program{
+        name: "normal",
+        stages_ref: stages,
+        enter: ["deadend"],
+        leave: [],
+        flows: %{}  # deadend has no outgoing flows
       }
 
-      program = Program.from_config(config)
       logic = Logic.new(program, stage_id: "deadend")
 
       assert Logic.available_stages(logic) == []
