@@ -40,7 +40,7 @@ defmodule Tlc.Safety do
 
         # State changed - validate the transition
         previous_state != logic.current_states ->
-          case Tlc.Program.validate_state_transition(previous_state, logic.current_states) do
+          case Tlc.Program.FixedTime.validate_state_transition(previous_state, logic.current_states) do
             :ok ->
               # Valid transition, update safety monitor with new state
               updated_safety = %{safety |
@@ -51,7 +51,7 @@ defmodule Tlc.Safety do
             {:error, reason} ->
               # Invalid transition, put logic in fault mode
               Logger.warning("Safety violation detected: #{reason}")
-              updated_logic = Tlc.Logic.fault(logic, fault_program)
+              updated_logic = Tlc.Logic.FixedTime.fault(logic, fault_program)
               # Update safety with the new fault state
               updated_safety = %{safety |
                 previous_states: Map.put(safety.previous_states, group_id, updated_logic.current_states)

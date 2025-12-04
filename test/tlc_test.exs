@@ -1,7 +1,7 @@
 defmodule TlcTest do
   use ExUnit.Case
-  alias Tlc.Logic
-  alias Tlc.Program
+  alias Tlc.Logic.FixedTime, as: Logic
+  alias Tlc.Program.FixedTime, as: Program
 
   defmodule Ticker do
     defstruct unix_time: -1, logic: nil
@@ -15,7 +15,7 @@ defmodule TlcTest do
 
     def tick(ticker) do
       unix_time = ticker.unix_time + 1
-      logic = Tlc.Logic.tick(ticker.logic, unix_time)
+      logic = Logic.tick(ticker.logic, unix_time)
       %{ticker | unix_time: unix_time, logic: logic }
     end
   end
@@ -41,7 +41,7 @@ defmodule TlcTest do
     end
 
     test "returns error for non-TrafficProgram input" do
-      assert {:error, "Input must be a %Tlc.Program{} struct"} = Program.validate(%{})
+      assert {:error, "Input must be a %Tlc.Program.FixedTime{} struct"} = Program.validate(%{})
     end
 
     test "returns error for invalid length" do
@@ -127,15 +127,15 @@ defmodule TlcTest do
     assert logic.unix_time == nil
     assert logic.base_time == 0
 
-    logic = Tlc.Logic.tick(logic, 0)
+    logic = Logic.tick(logic, 0)
     assert logic.unix_time == 0
     assert logic.base_time == 0
 
-    logic = Tlc.Logic.tick(logic, 1)
+    logic = Logic.tick(logic, 1)
     assert logic.unix_time == 1
     assert logic.base_time == 1
 
-    logic = Tlc.Logic.tick(logic, 3)
+    logic = Logic.tick(logic, 3)
     assert logic.unix_time == 3
     assert logic.base_time == 3
   end
@@ -486,15 +486,15 @@ defmodule TlcTest do
     assert logic.unix_time == nil
     assert logic.unix_delta == 0
 
-    logic = Tlc.Logic.tick(logic, 6983693664)
+    logic = Logic.tick(logic, 6983693664)
     assert logic.unix_time == 6983693664
     assert logic.unix_delta == 0
 
-    logic = Tlc.Logic.tick(logic, 6983693665)
+    logic = Logic.tick(logic, 6983693665)
     assert logic.unix_time == 6983693665
     assert logic.unix_delta == 1
 
-    logic = Tlc.Logic.tick(logic, 6983693667)
+    logic = Logic.tick(logic, 6983693667)
     assert logic.unix_time == 6983693667
     assert logic.unix_delta == 2
   end

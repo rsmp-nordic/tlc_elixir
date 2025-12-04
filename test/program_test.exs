@@ -1,6 +1,6 @@
-defmodule Tlc.ProgramTest do
+defmodule Tlc.Program.FixedTimeTest do
   use ExUnit.Case, async: true
-  alias Tlc.Program
+  alias Tlc.Program.FixedTime, as: Program
 
   describe "validate_state_changes/1" do
     test "accepts valid state transitions" do

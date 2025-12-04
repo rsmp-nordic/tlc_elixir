@@ -1,4 +1,4 @@
-defmodule Tlc.Program do
+defmodule Tlc.Program.FixedTime do
   @moduledoc """
   Struct representing a fixed-time traffic program definition.
   Contains the static program configuration without runtime state.
@@ -47,8 +47,8 @@ defmodule Tlc.Program do
   Returns {:ok, program} if the program is valid, {:error, reason} otherwise.
   """
   def validate(program) do
-    unless is_struct(program, Tlc.Program) do
-      {:error, "Input must be a %Tlc.Program{} struct"}
+    unless is_struct(program, Tlc.Program.FixedTime) do
+      {:error, "Input must be a %Tlc.Program.FixedTime{} struct"}
     else
       with :ok <- validate_name(program),
            :ok <- validate_length(program),
@@ -193,7 +193,7 @@ defmodule Tlc.Program do
 
           # Check if transition is valid
           if next_signal not in valid_next_signals do
-            next_cycle = Tlc.Logic.mod(cycle + 1, program.length)
+            next_cycle = Tlc.Logic.FixedTime.mod(cycle + 1, program.length)
             {{next_cycle, group_idx}, "Invalid transition from '#{current_signal}' to '#{next_signal}'. Valid transitions from '#{current_signal}' are: #{Enum.join(valid_next_signals, ", ")}"}
           end
         end
@@ -267,7 +267,7 @@ defmodule Tlc.Program do
   """
   def resolve_state(program, cycle_time) do
     # Apply modulo to wrap cycle_time
-    wrapped_cycle_time = Tlc.Logic.mod(cycle_time, program.length)
+    wrapped_cycle_time = Tlc.Logic.FixedTime.mod(cycle_time, program.length)
 
     # Get all defined times in descending order
     times = program.states |> Map.keys() |> Enum.sort(:desc)
@@ -392,11 +392,11 @@ defmodule Tlc.Program do
   If the current halt point is at the given cycle, removes it.
   """
   def toggle_halt(nil, _cycle), do: nil
-  def toggle_halt(%Tlc.Program{} = program, cycle) do
+  def toggle_halt(%Tlc.Program.FixedTime{} = program, cycle) do
     if program.halt == cycle do
-      %Tlc.Program{program | halt: nil}
+      %Tlc.Program.FixedTime{program | halt: nil}
     else
-      %Tlc.Program{program | halt: cycle}
+      %Tlc.Program.FixedTime{program | halt: cycle}
     end
   end
 

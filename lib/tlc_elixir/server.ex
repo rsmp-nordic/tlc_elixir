@@ -92,7 +92,7 @@ defmodule Tlc.Server do
   def init({session_id}) do
     Logger.info("[Tlc.Server] Initializing for session_id: #{session_id}")
     programs = [
-      %Tlc.Program{
+      %Tlc.Program.FixedTime{
         name: "halt",
         length: 12,
         groups: ["a", "b"],
@@ -100,7 +100,7 @@ defmodule Tlc.Server do
         switch: 6,
         halt: 0
       },
-      %Tlc.Program{
+      %Tlc.Program.FixedTime{
         name: "calm",
         length: 6,
         offset: 0,
@@ -110,7 +110,7 @@ defmodule Tlc.Server do
         waits: %{2 => 2},
         switch: 1
       },
-      %Tlc.Program{
+      %Tlc.Program.FixedTime{
         name: "normal",
         length: 6,
         offset: 2,
@@ -120,7 +120,7 @@ defmodule Tlc.Server do
         waits: %{5 => 2},
         switch: 1
       },
-      %Tlc.Program{
+      %Tlc.Program.FixedTime{
         name: "busy",
         length: 10,
         offset: 0,
@@ -139,7 +139,7 @@ defmodule Tlc.Server do
         waits: %{0 => 3},
         switch: 3
       },
-      %Tlc.Program{
+      %Tlc.Program.FixedTime{
         name: "long",
         length: 20,
         offset: 15,
@@ -161,7 +161,7 @@ defmodule Tlc.Server do
         waits: %{1 => 2, 4 => 2, 13 => 3 },
         switch: 3
       },
-      %Tlc.Program{
+      %Tlc.Program.FixedTime{
         name: "fault",
         length: 1,
         groups: ["a", "b"],
@@ -176,9 +176,9 @@ defmodule Tlc.Server do
     tlc_logic_instance = Tlc.new(programs)
     logic =
       tlc_logic_instance.logic
-      |> Tlc.Logic.halt()
-      |> Tlc.Logic.update_unix_time(virtual_unix_time)
-      |> Tlc.Logic.update_base_time()
+      |> Tlc.Logic.FixedTime.halt()
+      |> Tlc.Logic.FixedTime.update_unix_time(virtual_unix_time)
+      |> Tlc.Logic.FixedTime.update_base_time()
 
     tlc_server_state = %__MODULE__{
       logic: logic,
@@ -244,7 +244,7 @@ defmodule Tlc.Server do
 
   @impl true
   def handle_cast({:set_target_offset, target_offset}, tlc) do
-    updated_logic = Tlc.Logic.set_target_offset(tlc.logic, target_offset)
+    updated_logic = Tlc.Logic.FixedTime.set_target_offset(tlc.logic, target_offset)
     updated_tlc = %{tlc | logic: updated_logic}
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
@@ -253,7 +253,7 @@ defmodule Tlc.Server do
   @impl true
   def handle_cast({:switch_program, program_name}, tlc) do
     program = Enum.find(tlc.programs, fn prog -> prog.name == program_name end)
-    updated_logic = Tlc.Logic.set_target_program(tlc.logic, program)
+    updated_logic = Tlc.Logic.FixedTime.set_target_program(tlc.logic, program)
     updated_tlc = %{tlc | logic: updated_logic}
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
@@ -266,8 +266,8 @@ defmodule Tlc.Server do
     if program do
       updated_logic =
         tlc.logic
-        |> Tlc.Logic.set_target_program(program)
-        |> Tlc.Logic.switch()
+        |> Tlc.Logic.FixedTime.set_target_program(program)
+        |> Tlc.Logic.FixedTime.switch()
 
       updated_tlc = %{tlc | logic: updated_logic}
       broadcast_update(updated_tlc)
@@ -279,7 +279,7 @@ defmodule Tlc.Server do
 
   @impl true
   def handle_cast(:clear_target_program, tlc) do
-    updated_logic = Tlc.Logic.clear_target_program(tlc.logic)
+    updated_logic = Tlc.Logic.FixedTime.clear_target_program(tlc.logic)
     updated_tlc = %{tlc | logic: updated_logic}
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
@@ -290,12 +290,12 @@ defmodule Tlc.Server do
     updated_tlc =
       if tlc.logic.mode == :fault do
         halt_program = Enum.find(tlc.programs, fn prog -> prog.name == "halt" end)
-        updated_logic = Tlc.Logic.recover(tlc.logic, halt_program)
+        updated_logic = Tlc.Logic.FixedTime.recover(tlc.logic, halt_program)
         updated_safety = Tlc.Safety.clear_history(tlc.safety, updated_logic.program.name)
         %{tlc | logic: updated_logic, safety: updated_safety}
       else
         fault_program = Enum.find(tlc.programs, fn prog -> prog.name == "fault" end)
-        updated_logic = Tlc.Logic.fault(tlc.logic, fault_program)
+        updated_logic = Tlc.Logic.FixedTime.fault(tlc.logic, fault_program)
         %{tlc | logic: updated_logic}
       end
 
@@ -311,12 +311,12 @@ defmodule Tlc.Server do
     logic = tlc.logic
     logic = if tlc.resync do
       sync_time = floor(real_ms / tlc.interval)
-      Tlc.Logic.sync_time(tlc.logic, sync_time)
+      Tlc.Logic.FixedTime.sync_time(tlc.logic, sync_time)
     else
       logic
     end
 
-    logic =  Tlc.Logic.tick(logic, virtual_unix_time)
+    logic =  Tlc.Logic.FixedTime.tick(logic, virtual_unix_time)
 
     fault_program = Enum.find(tlc.programs, fn prog -> prog.name == "fault" end)
 
