@@ -11,8 +11,11 @@ defmodule TlcElixirWeb.Endpoint do
     same_site: "Lax"
   ]
 
+  # Note: websocket connect_info excludes session to work with VS Code SimpleBrowser
+  # SimpleBrowser doesn't properly handle cookies in its iframe context
+  # For production, you may want to restore session: @session_options
   socket "/live", Phoenix.LiveView.Socket,
-    websocket: [connect_info: [session: @session_options]],
+    websocket: [connect_info: [:peer_data, :uri, :x_headers]],
     longpoll: [connect_info: [session: @session_options]]
 
   # Serve at "/" the static files from "priv/static" directory.

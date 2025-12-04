@@ -1,6 +1,7 @@
 defmodule TlcElixirWeb.Router do
   use TlcElixirWeb, :router
 
+  # Standard browser pipeline with full security (for production)
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -10,12 +11,25 @@ defmodule TlcElixirWeb.Router do
     plug :put_secure_browser_headers
   end
 
+  # Browser pipeline without frame-ancestors CSP (for VS Code SimpleBrowser dev)
+  # The put_secure_browser_headers sets frame-ancestors 'self' which blocks iframes
+  pipeline :browser_dev do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :put_root_layout, html: {TlcElixirWeb.Layouts, :root}
+    plug :protect_from_forgery
+    # Omit put_secure_browser_headers to allow SimpleBrowser iframe embedding
+  end
+
   pipeline :api do
     plug :accepts, ["json"]
   end
 
+  # Main app - using browser_dev to work with VS Code SimpleBrowser
+  # Change to :browser for production with full security headers
   scope "/", TlcElixirWeb do
-    pipe_through :browser
+    pipe_through :browser_dev
 
     # We need to use live_session to properly handle session data
     live_session :tlc, session: {__MODULE__, :session_with_id, []} do
