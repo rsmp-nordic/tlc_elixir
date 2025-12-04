@@ -266,4 +266,52 @@ defmodule Tlc.Logic.StageBased do
       nil
     end
   end
+
+  @doc """
+  Returns true when the logic is at a switch point, which is when:
+  - The current stage is a "leave" stage, AND
+  - Not currently in a transition
+
+  This is the safe moment to switch out of a stage-based program.
+  If no leave stages are defined, any stage (when not transitioning) is considered a switch point.
+  """
+  def at_switch_point?(logic) do
+    not in_transition?(logic) and is_leave_stage?(logic)
+  end
+
+  defp is_leave_stage?(logic) do
+    case logic.program.leave do
+      [] ->
+        # No leave stages defined, any stage is valid
+        true
+      leave_stages ->
+        logic.current_stage in leave_stages
+    end
+  end
+
+  @doc """
+  Creates a new stage-based logic instance starting at the first enter stage.
+  This is used when switching from another program type to stage-based.
+  If no enter stages are defined, falls back to the first available stage.
+  """
+  def start_at_enter_stage(program) do
+    enter_stage_id = case program.enter do
+      [first | _] -> first
+      [] ->
+        # Fall back to first stage from stages_ref
+        case Map.keys(program.stages_ref.stages) do
+          [first | _] -> first
+          [] -> nil
+        end
+    end
+
+    initial_states = Program.get_stage_state(program, enter_stage_id) || ""
+
+    %__MODULE__{
+      program: program,
+      current_stage: enter_stage_id,
+      current_states: initial_states,
+      mode: :run
+    }
+  end
 end

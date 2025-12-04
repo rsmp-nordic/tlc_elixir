@@ -199,4 +199,13 @@ defmodule Tlc.Logic.FixedTime do
     |> sync(halt_program.halt)
     |> update_states()
   end
+
+  @doc """
+  Returns true when the logic is at a switch point, which is when
+  cycle_time equals the program's switch value. This is the safe
+  moment to switch out of a fixed-time program.
+  """
+  def at_switch_point?(logic) do
+    logic.cycle_time == logic.program.switch
+  end
 end
