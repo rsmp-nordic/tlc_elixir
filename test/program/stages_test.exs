@@ -9,9 +9,11 @@ defmodule Tlc.Program.StagesTest do
       stages = Stages.example()
 
       assert stages.name == "example_stages"
-      assert stages.groups == ["a1", "a2", "b1", "b2"]
+      assert stages.groups == ["a1", "a2", "b1", "b2", "a1_l"]
       assert Map.has_key?(stages.stages, "main")
       assert Map.has_key?(stages.stages, "side")
+      assert Map.has_key?(stages.stages, "turn")
+      assert Map.has_key?(stages.stages, "oneway")
       assert Map.has_key?(stages.transitions, {"main", "side"})
       assert Map.has_key?(stages.transitions, {"side", "main"})
     end
@@ -175,7 +177,7 @@ defmodule Tlc.Program.StagesTest do
             to: "side",
             name: "default",
             sequence: [
-              %TransitionStep{state: "1100", duration: 0}
+              %TransitionStep{state: "YYRR", duration: 0}
             ]
           }
         }
@@ -184,6 +186,76 @@ defmodule Tlc.Program.StagesTest do
       stages = %Stages{stages | transitions: bad_transitions}
       assert {:error, _} = Stages.validate(stages)
     end
+
+    test "rejects transition with invalid signal state change (G->R without Y)" do
+      stages = Stages.example()
+
+      # main stage is GGRRR, this transition jumps directly to RRRRR which is invalid
+      bad_transitions = %{
+        {"main", "side"} => %{
+          "default" => %Transition{
+            from: "main",
+            to: "side",
+            name: "default",
+            sequence: [
+              %TransitionStep{state: "RRRRR", duration: 3}  # Invalid: G->R for groups 0,1
+            ]
+          }
+        }
+      }
+
+      stages = %Stages{stages | transitions: bad_transitions}
+      result = Stages.validate(stages)
+      assert {:error, msg} = result
+      assert msg =~ "Invalid signal change"
+    end
+
+    test "rejects transition sequence with invalid intermediate state change" do
+      stages = Stages.example()
+
+      # First step is valid (G->Y), but second step is invalid (Y->G instead of Y->R)
+      bad_transitions = %{
+        {"main", "side"} => %{
+          "default" => %Transition{
+            from: "main",
+            to: "side",
+            name: "default",
+            sequence: [
+              %TransitionStep{state: "YYRRR", duration: 3},  # Valid: G->Y
+              %TransitionStep{state: "GGRRR", duration: 2}   # Invalid: Y->G (should go through R)
+            ]
+          }
+        }
+      }
+
+      stages = %Stages{stages | transitions: bad_transitions}
+      result = Stages.validate(stages)
+      assert {:error, msg} = result
+      assert msg =~ "Invalid signal change"
+    end
+
+    test "accepts valid transition sequence" do
+      stages = Stages.example()
+
+      # Valid transition from main (GGRRR) to side (RRGGR)
+      good_transitions = %{
+        {"main", "side"} => %{
+          "default" => %Transition{
+            from: "main",
+            to: "side",
+            name: "default",
+            sequence: [
+              %TransitionStep{state: "YYRRR", duration: 3},  # G->Y valid
+              %TransitionStep{state: "RRAAR", duration: 2}   # Y->R valid, R->A valid
+              # Final step to RRGGR: R->R (no change), R->R, A->G valid, A->G valid, R->R
+            ]
+          }
+        }
+      }
+
+      stages = %Stages{stages | transitions: good_transitions}
+      assert {:ok, _} = Stages.validate(stages)
+    end
   end
 
   describe "get_stage_state/2" do
@@ -191,16 +263,16 @@ defmodule Tlc.Program.StagesTest do
       stages = Stages.example()
       state = Stages.get_stage_state(stages, "main")
 
-      # main stage has a1 and a2 open (first two groups)
-      assert state == "AA00"
+      # main stage has a1 and a2 open (first two of 5 groups)
+      assert state == "GGRRR"
     end
 
     test "returns correct state for side stage" do
       stages = Stages.example()
       state = Stages.get_stage_state(stages, "side")
 
-      # side stage has b1 and b2 open (last two groups)
-      assert state == "00AA"
+      # side stage has b1 and b2 open (3rd and 4th of 5 groups)
+      assert state == "RRGGR"
     end
 
     test "returns nil for unknown stage" do

@@ -172,7 +172,32 @@ defmodule Tlc.Logic.StageBased do
   end
 
   defp advance_stage(logic) do
-    %{logic | stage_elapsed: logic.stage_elapsed + logic.unix_delta}
+    new_elapsed = logic.stage_elapsed + logic.unix_delta
+    logic = %{logic | stage_elapsed: new_elapsed}
+
+    # Check if the stage duration has expired and auto-transition to next stage
+    stage = Program.get_stage(logic.program, logic.current_stage)
+    default_duration = stage && stage.duration && stage.duration.default
+
+    if default_duration && default_duration > 0 && new_elapsed >= default_duration do
+      # Duration expired, request next stage from flows
+      maybe_auto_request_next_stage(logic)
+    else
+      logic
+    end
+  end
+
+  defp maybe_auto_request_next_stage(logic) do
+    flows = Map.get(logic.program.flows, logic.current_stage, [])
+
+    case flows do
+      [first_flow | _] ->
+        # Auto-request the first available stage
+        %{logic | requested_stage: first_flow.to}
+      [] ->
+        # No flows defined, stay in current stage
+        logic
+    end
   end
 
   @doc """
@@ -227,6 +252,18 @@ defmodule Tlc.Logic.StageBased do
     %{logic |
       mode: :halt,
       requested_stage: nil
+    }
+  end
+
+  @doc """
+  Puts the logic into fault mode.
+  The fault_program parameter is ignored for stage-based logic (kept for API compatibility).
+  """
+  def fault(logic, _fault_program) do
+    %{logic |
+      mode: :fault,
+      requested_stage: nil,
+      current_transition: nil
     }
   end
 
@@ -313,5 +350,85 @@ defmodule Tlc.Logic.StageBased do
       current_states: initial_states,
       mode: :run
     }
+  end
+
+  @doc """
+  Creates a new stage-based logic instance starting at an enter stage that matches
+  the given current state. This is used when switching from another program type
+  (like fixed-time) to stage-based, ensuring the switch point states match.
+  Falls back to start_at_enter_stage if no matching enter stage is found.
+  """
+  def start_at_matching_enter_stage(program, current_state) do
+    # Find an enter stage whose state matches the current state
+    matching_stage = Enum.find(program.enter, fn stage_id ->
+      Program.get_stage_state(program, stage_id) == current_state
+    end)
+
+    case matching_stage do
+      nil ->
+        # No matching enter stage found, fall back to first enter stage
+        start_at_enter_stage(program)
+
+      stage_id ->
+        %__MODULE__{
+          program: program,
+          current_stage: stage_id,
+          current_states: current_state,
+          mode: :run
+        }
+    end
+  end
+
+  @doc """
+  Switches from the current stage-based logic to a new program.
+  If the current stage can transition to the new program's enter stage, it starts
+  a transition. Otherwise, it falls back to start_at_enter_stage (immediate switch).
+
+  This should be called when both the old and new program share the same stages_ref.
+  """
+  def switch_to_program(logic, new_program) do
+    enter_stage_id = case new_program.enter do
+      [first | _] -> first
+      [] -> nil
+    end
+
+    cond do
+      # If already at the enter stage, just switch programs
+      logic.current_stage == enter_stage_id ->
+        %__MODULE__{
+          program: new_program,
+          current_stage: enter_stage_id,
+          current_states: logic.current_states,
+          mode: :run
+        }
+
+      # Try to find a transition from current stage to enter stage
+      enter_stage_id != nil ->
+        case Program.get_transition(new_program, logic.current_stage, enter_stage_id, "default") do
+          %{} = transition ->
+            # Start transition to the enter stage
+            first_step = List.first(transition.sequence)
+            %__MODULE__{
+              program: new_program,
+              current_stage: logic.current_stage,
+              current_transition: transition,
+              transition_elapsed: 0,
+              stage_elapsed: 0,
+              requested_stage: nil,
+              current_states: first_step.state,
+              unix_time: logic.unix_time,
+              unix_delta: logic.unix_delta,
+              mode: :run
+            }
+
+          nil ->
+            # No transition available, fall back to immediate switch
+            # This may cause safety violations!
+            start_at_enter_stage(new_program)
+        end
+
+      true ->
+        start_at_enter_stage(new_program)
+    end
   end
 end

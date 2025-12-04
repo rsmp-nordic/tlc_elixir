@@ -9,11 +9,11 @@ defmodule Tlc.Program.StageBasedTest do
     test "returns a valid example program" do
       program = StageBased.example()
 
-      assert program.name == "normal"
+      assert program.name == "quiet"
       assert is_struct(program.stages_ref, Stages)
-      assert program.stages_ref.groups == ["a1", "a2", "b1", "b2"]
+      assert program.stages_ref.groups == ["a1", "a2", "b1", "b2", "a1_l"]
       assert "main" in program.enter
-      assert "main" in program.leave
+      assert "main" in program.leave  # Leave is "main" to match fixed-time switch point state
       assert Map.has_key?(program.flows, "main")
       assert Map.has_key?(program.flows, "side")
     end
@@ -151,9 +151,9 @@ defmodule Tlc.Program.StageBasedTest do
       program = StageBased.example()
 
       # main stage has a1 and a2 open (first two groups)
-      assert StageBased.get_stage_state(program, "main") == "AA00"
-      # side stage has b1 and b2 open (last two groups)
-      assert StageBased.get_stage_state(program, "side") == "00AA"
+      assert StageBased.get_stage_state(program, "main") == "GGRRR"
+      # side stage has b1 and b2 open (groups 3 and 4)
+      assert StageBased.get_stage_state(program, "side") == "RRGGR"
     end
 
     test "get_transition delegates to stages_ref" do
@@ -175,7 +175,7 @@ defmodule Tlc.Program.StageBasedTest do
 
     test "groups returns groups from stages_ref" do
       program = StageBased.example()
-      assert StageBased.groups(program) == ["a1", "a2", "b1", "b2"]
+      assert StageBased.groups(program) == ["a1", "a2", "b1", "b2", "a1_l"]
     end
 
     test "stages returns stages from stages_ref" do

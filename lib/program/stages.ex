@@ -61,12 +61,13 @@ defmodule Tlc.Program.Stages do
   end
 
   @doc """
-  Provides an example stages definition.
+  Provides an example stages definition based on the stage-based programming spec.
+  Contains stages: main, side, turn, and oneway with groups: a1, a2, b1, b2, a1_l.
   """
   def example() do
     %__MODULE__{
       name: "example_stages",
-      groups: ["a1", "a2", "b1", "b2"],
+      groups: ["a1", "a2", "b1", "b2", "a1_l"],
       stages: %{
         "main" => %Stage{
           id: "main",
@@ -77,6 +78,16 @@ defmodule Tlc.Program.Stages do
           id: "side",
           open: ["b1", "b2"],
           duration: %Duration{min: 10, default: 20, max: 26}
+        },
+        "turn" => %Stage{
+          id: "turn",
+          open: ["a1_l"],
+          duration: %Duration{default: 10}
+        },
+        "oneway" => %Stage{
+          id: "oneway",
+          open: ["a1"],
+          duration: %Duration{default: 15}
         }
       },
       transitions: %{
@@ -86,8 +97,67 @@ defmodule Tlc.Program.Stages do
             to: "side",
             name: "default",
             sequence: [
-              %TransitionStep{state: "1100", duration: 3},
-              %TransitionStep{state: "0022", duration: 2}
+              %TransitionStep{state: "YYRRR", duration: 3},
+              %TransitionStep{state: "RRAAR", duration: 2}
+            ]
+          },
+          "quick" => %Transition{
+            from: "main",
+            to: "side",
+            name: "quick",
+            sequence: [
+              %TransitionStep{state: "YYRRR", duration: 5},
+              %TransitionStep{state: "RRAAR", duration: 4}
+            ]
+          }
+        },
+        {"main", "turn"} => %{
+          "default" => %Transition{
+            from: "main",
+            to: "turn",
+            name: "default",
+            sequence: [
+              %TransitionStep{state: "YYRRA", duration: 3}
+            ]
+          }
+        },
+        {"side", "turn"} => %{
+          "default" => %Transition{
+            from: "side",
+            to: "turn",
+            name: "default",
+            sequence: [
+              %TransitionStep{state: "RRYYR", duration: 3},
+              %TransitionStep{state: "RRRRA", duration: 2}
+            ]
+          },
+          "quick" => %Transition{
+            from: "side",
+            to: "turn",
+            name: "quick",
+            sequence: [
+              %TransitionStep{state: "RRYYR", duration: 3}
+            ]
+          }
+        },
+        {"turn", "main"} => %{
+          "default" => %Transition{
+            from: "turn",
+            to: "main",
+            name: "default",
+            sequence: [
+              %TransitionStep{state: "ARRRY", duration: 3}
+            ]
+          }
+        },
+        {"turn", "side"} => %{
+          "default" => %Transition{
+            from: "turn",
+            to: "side",
+            name: "default",
+            sequence: [
+              %TransitionStep{state: "RRRRY", duration: 3},
+              %TransitionStep{state: "RRAAR", duration: 2}
             ]
           }
         },
@@ -97,8 +167,8 @@ defmodule Tlc.Program.Stages do
             to: "main",
             name: "default",
             sequence: [
-              %TransitionStep{state: "0011", duration: 3},
-              %TransitionStep{state: "2200", duration: 2}
+              %TransitionStep{state: "RRYYR", duration: 3},
+              %TransitionStep{state: "AARRR", duration: 2}
             ]
           }
         }
@@ -223,7 +293,8 @@ defmodule Tlc.Program.Stages do
       with :ok <- validate_name(stages),
            :ok <- validate_groups(stages),
            :ok <- validate_stages(stages),
-           :ok <- validate_transitions(stages) do
+           :ok <- validate_transitions(stages),
+           :ok <- validate_transition_state_changes(stages) do
         {:ok, stages}
       end
     end
@@ -271,11 +342,76 @@ defmodule Tlc.Program.Stages do
   end
   defp validate_transitions(_), do: :ok
 
+  # Valid signal state transitions (same as in FixedTime)
+  @valid_transitions %{
+    "R" => ["G", "Y", "A", "D"],
+    "Y" => ["R", "G", "A"],
+    "A" => ["R", "G"],
+    "G" => ["Y"],
+    "D" => ["R", "Y", "G", "D"]
+  }
+
+  defp validate_transition_state_changes(%{transitions: transitions} = stages) when is_map(transitions) do
+    # Check all transitions for valid state changes
+    errors = Enum.flat_map(transitions, fn {{from_stage, to_stage}, variants} ->
+      from_state = get_stage_state(stages, from_stage)
+      to_state = get_stage_state(stages, to_stage)
+
+      Enum.flat_map(variants, fn {variant_name, transition} ->
+        validate_transition_sequence(from_state, to_state, transition.sequence, from_stage, to_stage, variant_name)
+      end)
+    end)
+
+    case errors do
+      [] -> :ok
+      [first_error | _] -> {:error, first_error}
+    end
+  end
+  defp validate_transition_state_changes(_), do: :ok
+
+  defp validate_transition_sequence(from_state, to_state, sequence, from_stage, to_stage, variant_name) do
+    # Build the full sequence: from_state -> steps -> to_state
+    states = [from_state | Enum.map(sequence, & &1.state)] ++ [to_state]
+
+    # Check each consecutive pair of states
+    states
+    |> Enum.chunk_every(2, 1, :discard)
+    |> Enum.with_index()
+    |> Enum.flat_map(fn {[current, next], step_idx} ->
+      case validate_state_pair(current, next) do
+        :ok -> []
+        {:error, group_idx, from_signal, to_signal} ->
+          ["Transition '#{from_stage}' -> '#{to_stage}' (#{variant_name}), step #{step_idx}: " <>
+           "Invalid signal change from '#{from_signal}' to '#{to_signal}' for group #{group_idx}"]
+      end
+    end)
+  end
+
+  defp validate_state_pair(current, next) when byte_size(current) == byte_size(next) do
+    0..(String.length(current) - 1)
+    |> Enum.reduce_while(:ok, fn idx, _acc ->
+      current_signal = String.at(current, idx)
+      next_signal = String.at(next, idx)
+
+      if current_signal == next_signal do
+        {:cont, :ok}
+      else
+        valid_next = Map.get(@valid_transitions, current_signal, [])
+        if next_signal in valid_next do
+          {:cont, :ok}
+        else
+          {:halt, {:error, idx, current_signal, next_signal}}
+        end
+      end
+    end)
+  end
+  defp validate_state_pair(_, _), do: :ok
+
   @doc """
   Gets the state string for a stage.
   Returns a string with one character per group:
-  - "A" for groups that are open
-  - "0" for groups that are closed
+  - "G" for groups that are open (green)
+  - "R" for groups that are closed (red)
   """
   def get_stage_state(stages, stage_id) do
     stage = Map.get(stages.stages, stage_id)
@@ -283,7 +419,7 @@ defmodule Tlc.Program.Stages do
     if stage do
       stages.groups
       |> Enum.map(fn group ->
-        if group in stage.open, do: "A", else: "0"
+        if group in stage.open, do: "G", else: "R"
       end)
       |> Enum.join()
     else

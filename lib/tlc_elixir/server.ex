@@ -98,84 +98,97 @@ defmodule Tlc.Server do
   @impl true
   def init({session_id}) do
     Logger.info("[Tlc.Server] Initializing for session_id: #{session_id}")
+    # All fixed-time programs use switch point state "GGRRR" to match stage-based "main" stage
     programs = [
       %Tlc.Program.FixedTime{
         name: "halt",
         length: 12,
-        groups: ["a", "b"],
-        states: %{ 0 => "DD", 1 => "RR", 3 => "YR", 5 => "GR", 8 => "YY", 10 => "RR" },
-        switch: 6,
+        groups: ["a1", "a2", "b1", "b2", "a1_l"],
+        states: %{ 0 => "DDDDD", 1 => "RRRRR", 3 => "AARRR", 5 => "GGRRR", 8 => "YYRRR", 10 => "RRRRR" },
+        switch: 5,
         halt: 0
       },
       %Tlc.Program.FixedTime{
         name: "calm",
-        length: 6,
+        length: 10,
         offset: 0,
-        groups: ["a", "b"],
-        states: %{0 => "RR", 1 => "GR", 2 => "GG", 3 => "YY", 4 => "YR", 5 => "RR"},
-        skips: %{4 => 3},
-        waits: %{2 => 2},
-        switch: 1
+        groups: ["a1", "a2", "b1", "b2", "a1_l"],
+        states: %{
+          0 => "GGRRR",   # switch point
+          3 => "YYRRR",
+          4 => "RRRRR",
+          5 => "RRAAR",
+          6 => "RRGGR",
+          8 => "RRYYR",
+          9 => "RRRRR"
+        },
+        switch: 0
       },
       %Tlc.Program.FixedTime{
         name: "normal",
-        length: 6,
-        offset: 2,
-        groups: ["a", "b"],
-        states: %{ 0 => "RY", 1 => "GR", 4 => "YR", 5 => "RG"},
-        skips: %{2 => 2},
-        waits: %{5 => 2},
-        switch: 1
+        length: 12,
+        offset: 0,
+        groups: ["a1", "a2", "b1", "b2", "a1_l"],
+        states: %{
+          0 => "GGRRR",   # switch point
+          4 => "YYRRR",
+          5 => "RRRRR",
+          6 => "RRAAR",
+          7 => "RRGGR",
+          10 => "RRYYR",
+          11 => "RRRRR"
+        },
+        switch: 0
       },
       %Tlc.Program.FixedTime{
         name: "busy",
-        length: 10,
+        length: 16,
         offset: 0,
-        groups: ["a", "b"],
+        groups: ["a1", "a2", "b1", "b2", "a1_l"],
         states: %{
-          0 => "RG",
-          1 => "GY",
-          2 => "GA",
-          3 => "GR",
-          4 => "YR",
-          5 => "RR",
-          8 => "AY",
-          9 => "AG"
-      },
-        skips: %{5 => 3},
-        waits: %{0 => 3},
-        switch: 3
+          0 => "GGRRR",   # switch point
+          5 => "YYRRR",
+          6 => "RRRRR",
+          7 => "RRAAR",
+          8 => "RRGGR",
+          12 => "RRYYR",
+          13 => "RRRRR",
+          14 => "AARRR",
+          15 => "GGRRR"
+        },
+        switch: 0
       },
       %Tlc.Program.FixedTime{
         name: "long",
-        length: 20,
-        offset: 15,
-        groups: ["a", "b"],
+        length: 24,
+        offset: 0,
+        groups: ["a1", "a2", "b1", "b2", "a1_l"],
         states: %{
-          0 => "RY",
-          1 => "GY",
-          2 => "GR",
-          6 => "YR",
-          7 => "YG",
-          8 => "RG",
-          9 => "RY",
-          11 => "GA",
-          14 => "GR",
-          15 => "YR",
-          17 => "RG"
+          0 => "GGRRR",   # switch point
+          8 => "YYRRR",
+          9 => "RRRRR",
+          10 => "RRAAR",
+          11 => "RRGGR",
+          18 => "RRYYR",
+          19 => "RRRRR",
+          20 => "AARRR"
         },
-        skips: %{5 => 7, 18 => 1},
-        waits: %{1 => 2, 4 => 2, 13 => 3 },
-        switch: 3
+        switch: 0
       },
       %Tlc.Program.FixedTime{
         name: "fault",
         length: 1,
-        groups: ["a", "b"],
-        states: %{ 0 => "RR" },
-        switch: 1
+        groups: ["a1", "a2", "b1", "b2", "a1_l"],
+        states: %{ 0 => "RRRRR" },
+        switch: 0
       },
+      # Stage-based programs
+      Tlc.Program.StageBased.example(),
+      Tlc.Program.StageBased.example2(),
      ]
+
+    # Validate program switch compatibility and log warnings for any issues
+    Tlc.Program.SwitchValidator.validate_and_warn(programs)
 
     default_interval = @tick_interval
     real_ms = System.os_time(:millisecond)
@@ -280,7 +293,14 @@ defmodule Tlc.Server do
         end
       else
         # Cross-type switch: store target program at server level
-        %{tlc | target_program: program}
+        # If currently halted, set mode to run so it progresses to switch point
+        updated_logic = case tlc.logic do
+          %Tlc.Logic.FixedTime{mode: :halt} = logic ->
+            %{logic | mode: :run}
+          logic ->
+            logic
+        end
+        %{tlc | logic: updated_logic, target_program: program}
       end
 
       broadcast_update(updated_tlc)
@@ -306,8 +326,8 @@ defmodule Tlc.Server do
             %{tlc | logic: updated_logic}
 
           %Tlc.Logic.StageBased{} ->
-            # For stage-based, create new logic with the new program
-            updated_logic = create_logic_for_program(program, tlc.virtual_unix_time, :switching)
+            # For stage-based, use switch_to_program to properly transition
+            updated_logic = Tlc.Logic.StageBased.switch_to_program(tlc.logic, program)
             %{tlc | logic: updated_logic, target_program: nil}
         end
       else
@@ -475,13 +495,28 @@ defmodule Tlc.Server do
     %{logic | unix_time: unix_time}
   end
 
-  # Check if we should switch to a target program at the server level (cross-type switch)
+  # Check if we should switch to a target program at the server level (cross-type switch or stage-based)
   defp maybe_switch_to_target_program(%{target_program: nil} = tlc), do: tlc
 
   defp maybe_switch_to_target_program(%{target_program: target_program, logic: logic} = tlc) do
     if at_switch_point?(logic) do
       # We're at a switch point, perform the switch
-      new_logic = create_logic_for_program(target_program, tlc.virtual_unix_time, :switching)
+      # Programs must be designed so switch point states match
+      current_state = logic.current_states
+      new_logic = case {logic, target_program} do
+        {%Tlc.Logic.StageBased{}, %Tlc.Program.StageBased{}} ->
+          # Stage-based to stage-based: use switch_to_program for proper transition
+          Tlc.Logic.StageBased.switch_to_program(logic, target_program)
+
+        {_, %Tlc.Program.StageBased{}} ->
+          # Switching to stage-based: find matching enter stage
+          Tlc.Logic.StageBased.start_at_matching_enter_stage(target_program, current_state)
+          |> then(fn l -> %{l | unix_time: tlc.virtual_unix_time} end)
+
+        _ ->
+          # Switching to fixed-time: create new logic
+          create_logic_for_program(target_program, tlc.virtual_unix_time, :switching)
+      end
       %{tlc | logic: new_logic, target_program: nil}
     else
       # Not at a switch point yet, keep waiting

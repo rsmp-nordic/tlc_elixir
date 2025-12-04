@@ -18,7 +18,7 @@ defmodule Tlc.Logic.StageBasedTest do
       assert logic.program == program
       assert logic.current_stage == "main"
       assert logic.mode == :run
-      assert logic.current_states == "AA00"
+      assert logic.current_states == "GGRRR"
     end
 
     test "creates a logic instance with specified stage" do
@@ -30,8 +30,8 @@ defmodule Tlc.Logic.StageBasedTest do
           side: %{open: ["b"], duration: %{default: 10}}
         },
         transitions: %{
-          main: %{side: ["10", 3]},
-          side: %{main: ["01", 3]}
+          main: %{side: ["YR", 3]},
+          side: %{main: ["RY", 3]}
         }
       })
 
@@ -49,7 +49,7 @@ defmodule Tlc.Logic.StageBasedTest do
       logic = Logic.new(program, stage_id: "side")
 
       assert logic.current_stage == "side"
-      assert logic.current_states == "0A"
+      assert logic.current_states == "RG"
     end
   end
 
@@ -153,7 +153,7 @@ defmodule Tlc.Logic.StageBasedTest do
       logic = Logic.tick(logic, 1006)  # elapsed: 5
       assert Logic.in_stage?(logic)
       assert logic.current_stage == "side"
-      assert logic.current_states == "00AA"
+      assert logic.current_states == "RRGGR"
     end
 
     test "state changes during transition", %{program: program} do
@@ -163,21 +163,21 @@ defmodule Tlc.Logic.StageBasedTest do
               |> Logic.request_stage("side")
 
       # Initially in main stage
-      assert logic.current_states == "AA00"
+      assert logic.current_states == "GGRRR"
 
       # Start transition
       logic = Logic.tick(logic, 1001)
       assert Logic.in_transition?(logic)
       # First transition step state
-      assert logic.current_states == "1100"
+      assert logic.current_states == "YYRRR"
 
       # After first step duration (3s), should be in second step
       logic = Logic.tick(logic, 1004)  # elapsed: 3
-      assert logic.current_states == "0022"
+      assert logic.current_states == "RRAAR"
 
       # After transition completes, should be in side stage state
       logic = Logic.tick(logic, 1006)  # elapsed: 5
-      assert logic.current_states == "00AA"
+      assert logic.current_states == "RRGGR"
     end
   end
 
@@ -185,10 +185,10 @@ defmodule Tlc.Logic.StageBasedTest do
     test "returns correct state for each group", %{program: program} do
       logic = Logic.new(program)
 
-      assert Logic.get_group_state(logic, "a1") == "A"
-      assert Logic.get_group_state(logic, "a2") == "A"
-      assert Logic.get_group_state(logic, "b1") == "0"
-      assert Logic.get_group_state(logic, "b2") == "0"
+      assert Logic.get_group_state(logic, "a1") == "G"
+      assert Logic.get_group_state(logic, "a2") == "G"
+      assert Logic.get_group_state(logic, "b1") == "R"
+      assert Logic.get_group_state(logic, "b2") == "R"
     end
 
     test "returns nil for unknown group", %{program: program} do
@@ -305,33 +305,184 @@ defmodule Tlc.Logic.StageBasedTest do
     end
   end
 
+  describe "auto stage transitions" do
+    test "automatically transitions to next stage when duration expires" do
+      # Set up a simple program with short durations
+      stages = Stages.from_config(%{
+        name: "test",
+        groups: ["a", "b"],
+        stages: %{
+          main: %{open: ["a"], duration: %{default: 5}},
+          side: %{open: ["b"], duration: %{default: 5}}
+        },
+        transitions: %{
+          main: %{side: ["10", 2]},
+          side: %{main: ["01", 2]}
+        }
+      })
+
+      program = %Program{
+        name: "auto_test",
+        stages_ref: stages,
+        enter: ["main"],
+        leave: [],
+        flows: %{
+          "main" => [%Flow{to: "side", transition: "default"}],
+          "side" => [%Flow{to: "main", transition: "default"}]
+        }
+      }
+
+      # Start in main stage
+      logic = Logic.new(program, stage_id: "main")
+      assert logic.current_stage == "main"
+      assert logic.stage_elapsed == 0
+
+      # Tick for 4 seconds - should still be in main stage
+      logic = logic
+              |> Logic.tick(1000)
+              |> Logic.tick(1001)
+              |> Logic.tick(1002)
+              |> Logic.tick(1003)
+              |> Logic.tick(1004)
+
+      assert logic.current_stage == "main"
+      assert logic.stage_elapsed == 4
+
+      # Tick once more - duration (5s) should expire and auto-request side stage
+      logic = Logic.tick(logic, 1005)
+      assert logic.stage_elapsed == 5
+      assert logic.requested_stage == "side"
+
+      # Next tick should start the transition
+      logic = Logic.tick(logic, 1006)
+      assert Logic.in_transition?(logic)
+      assert logic.current_transition.to == "side"
+
+      # Complete the transition (2s duration)
+      logic = Logic.tick(logic, 1008)
+      assert Logic.in_stage?(logic)
+      assert logic.current_stage == "side"
+      assert logic.stage_elapsed == 0
+
+      # Wait for side stage to expire (5s default)
+      logic = logic
+              |> Logic.tick(1009)
+              |> Logic.tick(1010)
+              |> Logic.tick(1011)
+              |> Logic.tick(1012)
+              |> Logic.tick(1013)
+
+      assert logic.stage_elapsed == 5
+      assert logic.requested_stage == "main"
+
+      # Complete the transition back to main
+      logic = logic
+              |> Logic.tick(1014)  # Start transition
+              |> Logic.tick(1016)  # Complete transition
+
+      assert logic.current_stage == "main"
+    end
+
+    test "does not auto-transition when no flows exist" do
+      stages = Stages.from_config(%{
+        name: "test",
+        groups: ["a"],
+        stages: %{
+          deadend: %{open: ["a"], duration: %{default: 3}}
+        },
+        transitions: %{}
+      })
+
+      program = %Program{
+        name: "deadend_test",
+        stages_ref: stages,
+        enter: ["deadend"],
+        leave: [],
+        flows: %{}  # No flows from deadend
+      }
+
+      logic = Logic.new(program, stage_id: "deadend")
+              |> Logic.tick(1000)
+              |> Logic.tick(1001)
+              |> Logic.tick(1002)
+              |> Logic.tick(1003)  # Duration expires
+
+      # Should still be in deadend stage with no requested stage
+      assert logic.current_stage == "deadend"
+      assert logic.requested_stage == nil
+      assert logic.stage_elapsed == 3
+    end
+
+    test "does not auto-transition when duration is 0 or nil" do
+      stages = Stages.from_config(%{
+        name: "test",
+        groups: ["a", "b"],
+        stages: %{
+          main: %{open: ["a"], duration: %{default: 0}},  # No default duration
+          side: %{open: ["b"], duration: %{default: 5}}
+        },
+        transitions: %{
+          main: %{side: ["10", 2]}
+        }
+      })
+
+      program = %Program{
+        name: "no_duration_test",
+        stages_ref: stages,
+        enter: ["main"],
+        leave: [],
+        flows: %{
+          "main" => [%Flow{to: "side", transition: "default"}]
+        }
+      }
+
+      logic = Logic.new(program, stage_id: "main")
+              |> Logic.tick(1000)
+              |> Logic.tick(1010)  # 10 seconds pass
+
+      # Should still be in main stage (no auto-transition due to 0 duration)
+      assert logic.current_stage == "main"
+      assert logic.requested_stage == nil
+    end
+  end
+
   describe "full cycle test" do
     test "can cycle through stages and back", %{program: program} do
+      # The quiet program has flows: main -> side -> turn -> main
       # Start in main stage
       logic = program
               |> Logic.new()
               |> Logic.tick(1000)
 
       assert logic.current_stage == "main"
-      assert logic.current_states == "AA00"
+      assert logic.current_states == "GGRRR"
 
-      # Request side stage and complete transition
+      # Request side stage and complete transition (main -> side, 5s transition)
       logic = logic
               |> Logic.request_stage("side")
               |> Logic.tick(1001)  # Start transition
               |> Logic.tick(1006)  # Complete transition (5s)
 
       assert logic.current_stage == "side"
-      assert logic.current_states == "00AA"
+      assert logic.current_states == "RRGGR"
 
-      # Request main stage and complete transition
+      # Request turn stage and complete transition (side -> turn, 5s transition)
       logic = logic
-              |> Logic.request_stage("main")
+              |> Logic.request_stage("turn")
               |> Logic.tick(1007)  # Start transition
               |> Logic.tick(1012)  # Complete transition (5s)
 
+      assert logic.current_stage == "turn"
+      assert logic.current_states == "RRRRG"
+
+      # Request main stage and complete transition (turn -> main, 3s transition)
+      logic = logic
+              |> Logic.request_stage("main")
+              |> Logic.tick(1013)  # Start transition
+              |> Logic.tick(1016)  # Complete transition (3s)
+
       assert logic.current_stage == "main"
-      assert logic.current_states == "AA00"
+      assert logic.current_states == "GGRRR"
     end
   end
 end

@@ -8,7 +8,7 @@ defmodule Tlc.Program.FixedTime do
   @valid_transitions %{
     "R" => ["G", "Y", "A", "D"],
     "Y" => ["R", "G", "A"],
-    "A" => ["R"],
+    "A" => ["R", "G"],
     "G" => ["Y"],
     "D" => ["R", "Y", "G", "D"]
   }

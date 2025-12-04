@@ -254,22 +254,6 @@ defmodule TlcElixirWeb.EditorComponents do
     ~H"""
     <div id="switch-drag-container"
          class={"bg-gray-800 p-4 rounded shadow-lg border border-gray-700 #{if @switch_dragging, do: "switch-dragging-active", else: ""}"}>
-      <div class="mb-4">
-        <h2 class="text-xl font-semibold text-gray-200 mb-3">Program</h2>
-
-        <.program_controls
-          editing={@editing}
-          programs={@programs}
-          logic_mode={@logic_mode}
-          current_program={@current_program}
-          target_program={@target_program}
-          edited_program={@edited_program}
-        />
-
-        <%= if not @editing do %>
-          <.interval_controls interval={@interval} />
-        <% end %>
-      </div>
 
       <.program_grid
         display_program={@display_program}

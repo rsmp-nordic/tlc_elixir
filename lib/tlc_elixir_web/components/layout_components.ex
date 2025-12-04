@@ -24,52 +24,23 @@ defmodule TlcElixirWeb.LayoutComponents do
 
   def common_header(assigns) do
     ~H"""
-    <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700">
-      <div class="flex flex-wrap items-center justify-between gap-4 mb-3">
-        <%!-- Program Section: Current + Selector together --%>
-        <div class="flex items-center gap-3">
-          <div class="flex items-center gap-2">
-            <span class="text-lg font-semibold text-gray-200"><%= @current_program.name %></span>
-            <.type_badge type={@logic_type} />
-            <%= if @target_program && @target_program != @current_program.name do %>
-              <span class="text-amber-400 animate-pulse flex items-center gap-1">
-                <span>→</span>
-                <span class="font-medium"><%= @target_program %></span>
-                <button phx-click="clear_target_program" class="ml-1 text-gray-400 hover:text-white">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </span>
-            <% end %>
-          </div>
-          <span class="text-gray-500">|</span>
-          <%!-- Program Selector --%>
-          <.program_selector
-            programs={@programs}
-            current_program={@current_program.name}
-            target_program={@target_program}
-            mode={@mode}
-            editing={@editing}
-          />
-        </div>
+    <div class="flex gap-3">
+      <%!-- Controller Section --%>
+      <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 flex-1">
+        <h3 class="text-lg font-semibold text-gray-200 mb-2">Controller</h3>
 
-        <%!-- Time and Mode --%>
-        <div class="flex items-center gap-4">
-          <.info_pill label={@time_label} value={@time} />
+        <%!-- State, Cycle, Speed --%>
+        <div class="flex flex-wrap items-center gap-4 mb-3">
           <.mode_indicator mode={@mode} />
+          <.info_pill label={@time_label} value={@time} />
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-gray-400">Speed:</span>
+            <.interval_buttons interval={@interval} />
+          </div>
         </div>
 
-        <%!-- Interval Controls --%>
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-gray-400">Speed:</span>
-          <.interval_buttons interval={@interval} />
-        </div>
-      </div>
-
-      <%!-- Signal Heads Row --%>
-      <div class="border-t border-gray-700 pt-3">
-        <div class="flex justify-center gap-6 md:gap-8">
+        <%!-- Signal Heads --%>
+        <div class="flex justify-start gap-4">
           <%= for {group, i} <- Enum.with_index(@groups) do %>
             <div class="flex flex-col items-center">
               <div class="signal-head flex flex-col gap-1.5 p-1.5 bg-gray-900 rounded border border-gray-700">
@@ -86,6 +57,18 @@ defmodule TlcElixirWeb.LayoutComponents do
           <% end %>
         </div>
       </div>
+
+      <%!-- Programs Section --%>
+      <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700">
+        <h3 class="text-lg font-semibold text-gray-200 mb-2">Programs</h3>
+        <.program_selector
+          programs={@programs}
+          current_program={@current_program.name}
+          target_program={@target_program}
+          mode={@mode}
+          editing={@editing}
+        />
+      </div>
     </div>
     """
   end
@@ -98,9 +81,9 @@ defmodule TlcElixirWeb.LayoutComponents do
 
   def fixed_time_details(assigns) do
     ~H"""
-    <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700">
+    <div class="bg-gray-800 p-2 rounded shadow border border-gray-700">
       <h2 class="text-lg font-semibold text-gray-200 mb-2">Fixed-Time Details</h2>
-      <div class="grid grid-cols-4 gap-2 text-xs">
+      <div class="grid grid-cols-5 gap-1 text-xs">
         <.state_card label="Unix Time" value={@logic.unix_time} />
         <.state_card label="Unix Delta" value={@logic.unix_delta} />
         <.state_card label="Base Time" value={@logic.base_time} />
@@ -146,89 +129,49 @@ defmodule TlcElixirWeb.LayoutComponents do
   attr :logic, :any, required: true
 
   def stage_based_details(assigns) do
-    # Get available stages for clickable transition
+    # Get all stages and available stages for clickable transition
+    all_stages = Tlc.Program.StageBased.stages(assigns.logic.program) |> Map.keys()
     available_stages = Tlc.Logic.StageBased.available_stages(assigns.logic)
-    stage_remaining = Tlc.Logic.StageBased.stage_remaining_time(assigns.logic)
-    transition_remaining = Tlc.Logic.StageBased.transition_remaining_time(assigns.logic)
     in_transition = Tlc.Logic.StageBased.in_transition?(assigns.logic)
+    transition_target = if in_transition, do: assigns.logic.current_transition.to, else: nil
 
     assigns = assign(assigns,
+      all_stages: all_stages,
       available_stages: available_stages,
-      stage_remaining: stage_remaining,
-      transition_remaining: transition_remaining,
-      in_transition: in_transition
+      in_transition: in_transition,
+      transition_target: transition_target
     )
 
     ~H"""
     <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700">
       <h2 class="text-lg font-semibold text-gray-200 mb-2">Stage-Based Details</h2>
 
-      <div class="grid grid-cols-3 gap-4 mb-3">
-        <%!-- Current Stage --%>
-        <div class="bg-gray-700 p-2 rounded">
-          <span class="text-xs text-gray-400 block">Current Stage</span>
-          <span class="text-lg font-bold text-green-400"><%= @logic.current_stage %></span>
-        </div>
-
-        <%!-- Stage Elapsed / Transition Progress --%>
-        <div class="bg-gray-700 p-2 rounded">
-          <%= if @in_transition do %>
-            <span class="text-xs text-gray-400 block">Transition Progress</span>
-            <span class="text-lg font-mono text-blue-400">
-              <%= @logic.transition_elapsed %>s
-              <%= if @transition_remaining do %>
-                <span class="text-xs text-gray-400">(<%= @transition_remaining %>s left)</span>
-              <% end %>
-            </span>
-          <% else %>
-            <span class="text-xs text-gray-400 block">Stage Elapsed</span>
-            <span class="text-lg font-mono text-gray-200">
-              <%= @logic.stage_elapsed %>s
-              <%= if @stage_remaining do %>
-                <span class="text-xs text-gray-400">(<%= @stage_remaining %>s left)</span>
-              <% end %>
-            </span>
-          <% end %>
-        </div>
-
-        <%!-- Mode --%>
-        <div class="bg-gray-700 p-2 rounded">
-          <span class="text-xs text-gray-400 block">Requested Stage</span>
-          <span class="text-lg font-medium text-amber-400">
-            <%= @logic.requested_stage || "—" %>
-          </span>
-        </div>
-      </div>
-
-      <%!-- Transition Info --%>
-      <%= if @in_transition do %>
-        <div class="bg-blue-900/30 border border-blue-700 p-2 rounded mb-3">
-          <span class="text-xs text-blue-400 block mb-1">In Transition</span>
-          <span class="text-sm text-gray-200">
-            <%= @logic.current_transition.from %> → <%= @logic.current_transition.to %>
-          </span>
-        </div>
-      <% end %>
-
-      <%!-- Available Stages (clickable) --%>
-      <div class="border-t border-gray-700 pt-3">
-        <span class="text-xs text-gray-400 block mb-2">Available Stages (click to request)</span>
+      <%!-- All Stages --%>
+      <div>
+        <span class="text-xs text-gray-400 block mb-2">Stages (click to request)</span>
         <div class="flex flex-wrap gap-2">
-          <%= for stage_id <- @available_stages do %>
+          <%= for stage_id <- @all_stages do %>
+            <%
+              is_current = stage_id == @logic.current_stage
+              is_transition_target = stage_id == @transition_target
+              is_available = stage_id in @available_stages
+              is_requested = stage_id == @logic.requested_stage
+            %>
             <button
               phx-click="request_stage"
               phx-value-stage_id={stage_id}
-              class={"px-3 py-1 rounded text-sm transition-colors " <>
-                if stage_id == @logic.requested_stage,
-                  do: "bg-amber-600 text-white",
-                  else: "bg-gray-700 hover:bg-gray-600 text-white"}
-              disabled={@logic.mode == :halt}
+              class={"w-24 py-1 rounded text-sm transition-colors flex items-center justify-center gap-1 " <>
+                cond do
+                  is_current -> "bg-purple-700 text-white font-bold"
+                  is_requested -> "bg-gray-600 text-white"
+                  is_available -> "bg-gray-700 hover:bg-gray-600 text-white"
+                  true -> "bg-gray-800 text-gray-500 cursor-not-allowed"
+                end}
+              disabled={@logic.mode == :halt or not is_available}
             >
-              <%= stage_id %>
+              <span class={"w-4 text-white " <> if is_transition_target, do: "", else: "invisible"}>→</span>
+              <span><%= stage_id %></span>
             </button>
-          <% end %>
-          <%= if @available_stages == [] do %>
-            <span class="text-gray-500 text-sm italic">No flows defined from current stage</span>
           <% end %>
         </div>
       </div>
@@ -314,35 +257,45 @@ defmodule TlcElixirWeb.LayoutComponents do
   attr :editing, :boolean, default: false
 
   defp program_selector(assigns) do
-    # Filter out fault and current program
+    # Filter out fault program only - keep current program and all types
     selectable_programs = Enum.filter(assigns.programs, fn program ->
-      program.name != assigns.current_program && program.name != "fault"
+      program.name != "fault"
     end)
 
     assigns = assign(assigns, selectable_programs: selectable_programs)
 
     ~H"""
-    <div class="flex flex-wrap gap-1 items-center">
-      <%!-- Program buttons --%>
+    <div class="flex flex-wrap gap-2 items-center">
+      <%!-- Program buttons (styled like stage buttons) --%>
       <%= for program <- @selectable_programs do %>
         <%
+          is_current = program.name == @current_program
           is_target = program.name == @target_program
-          program_type = get_program_type(program)
+          can_edit = not is_current and @mode != :fault and not @editing
         %>
-        <button
-          phx-click="switch_program"
-          phx-value-program_name={program.name}
-          class={program_button_class(@mode, @editing, is_target, program_type)}
-          disabled={@mode == :fault || @editing}
-        >
-          <%= if is_target do %>
-            <span class="mr-1 animate-pulse">→</span>
+        <div class="relative group">
+          <button
+            phx-click={if is_target, do: "clear_target_program", else: "switch_program"}
+            phx-value-program_name={program.name}
+            class={program_button_class(@mode, @editing, is_current, is_target)}
+            disabled={@mode == :fault || @editing || is_current}
+          >
+            <span class={"w-4 text-white " <> if is_target, do: "", else: "invisible"}>→</span>
+            <span><%= program.name %></span>
+          </button>
+          <%!-- Edit pencil icon - appears on hover for non-current, non-fault programs --%>
+          <%= if can_edit do %>
+            <button
+              phx-click="start_editing"
+              phx-value-program_name={program.name}
+              class="absolute -right-1 -top-1 w-5 h-5 bg-gray-600 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-gray-200 hover:bg-purple-600 hover:text-white z-10"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </button>
           <% end %>
-          <span class={"text-xs mr-1 #{type_indicator_class(program_type)}"}>
-            <%= type_indicator(program_type) %>
-          </span>
-          <%= program.name %>
-        </button>
+        </div>
       <% end %>
 
       <%!-- Fault toggle button --%>
@@ -357,36 +310,26 @@ defmodule TlcElixirWeb.LayoutComponents do
     """
   end
 
-  defp get_program_type(%Tlc.Program.FixedTime{}), do: :fixed_time
-  defp get_program_type(%Tlc.Program.StageBased{}), do: :stage_based
-  defp get_program_type(_), do: :unknown
-
-  defp type_indicator(:fixed_time), do: "F"
-  defp type_indicator(:stage_based), do: "S"
-  defp type_indicator(_), do: "?"
-
-  defp type_indicator_class(:fixed_time), do: "text-blue-400"
-  defp type_indicator_class(:stage_based), do: "text-green-400"
-  defp type_indicator_class(_), do: "text-gray-400"
-
-  defp program_button_class(mode, editing, is_target, _program_type) do
-    base = "px-2 py-1 text-xs rounded transition-colors flex items-center"
+  defp program_button_class(mode, editing, is_current, is_target) do
+    base = "w-24 py-1 rounded text-sm transition-colors flex items-center justify-center gap-1"
 
     cond do
       mode == :fault || editing ->
-        "#{base} bg-gray-700 text-gray-500 cursor-not-allowed"
+        "#{base} bg-gray-800 text-gray-500 cursor-not-allowed"
+      is_current ->
+        "#{base} bg-purple-700 text-white font-bold"
       is_target ->
-        "#{base} bg-amber-600 text-white animate-pulse"
+        "#{base} bg-gray-600 text-white"
       true ->
         "#{base} bg-gray-700 hover:bg-gray-600 text-white"
     end
   end
 
   defp fault_button_class(mode) do
-    base = "px-2 py-1 text-xs rounded transition-colors"
+    base = "w-24 py-1 rounded text-sm transition-colors"
 
     if mode == :fault do
-      "#{base} bg-red-600 hover:bg-red-500 text-white"
+      "#{base} bg-red-600 hover:bg-red-500 text-white font-bold"
     else
       "#{base} bg-gray-700 hover:bg-red-600 text-white"
     end

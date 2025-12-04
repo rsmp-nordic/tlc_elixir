@@ -29,18 +29,60 @@ defmodule Tlc.Program.StageBased do
 
   @doc """
   Provides an example stage-based traffic program definition.
+  This is the "quiet" program from the spec that goes through main-side-turn.
+  Leave is set to "main" to match the fixed-time switch point state "GGRRR".
   """
   def example() do
     stages = Stages.example()
 
     %__MODULE__{
-      name: "normal",
+      name: "quiet",
       stages_ref: stages,
       enter: ["main"],
       leave: ["main"],
       flows: %{
-        "main" => [%Flow{to: "side", transition: "default"}],
-        "side" => [%Flow{to: "main", transition: "default"}]
+        "main" => [%Flow{to: "side", transition: "default"}, %Flow{to: "turn", transition: "default"}],
+        "side" => [%Flow{to: "turn", transition: "default"}],
+        "turn" => [%Flow{to: "main", transition: "default"}]
+      }
+    }
+  end
+
+  @doc """
+  Provides a second example stage-based traffic program definition.
+  This is the "event" program from the spec alternating between side and main.
+  Enter/leave at "main" stage to match fixed-time switch point state "GGRRR".
+  """
+  def example2() do
+    stages = Stages.example()
+
+    %__MODULE__{
+      name: "event",
+      stages_ref: stages,
+      enter: ["main"],
+      leave: ["main"],
+      flows: %{
+        "side" => [%Flow{to: "main", transition: "default"}],
+        "main" => [%Flow{to: "side", transition: "quick"}]
+      }
+    }
+  end
+
+  @doc """
+  Provides a third example stage-based traffic program definition.
+  This is the "event" program from the spec alternating between side and turn.
+  """
+  def example3() do
+    stages = Stages.example()
+
+    %__MODULE__{
+      name: "event",
+      stages_ref: stages,
+      enter: ["side"],
+      leave: ["side"],
+      flows: %{
+        "side" => [%Flow{to: "turn", transition: "default"}],
+        "turn" => [%Flow{to: "side", transition: "default"}]
       }
     }
   end

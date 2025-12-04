@@ -208,4 +208,12 @@ defmodule Tlc.Logic.FixedTime do
   def at_switch_point?(logic) do
     logic.cycle_time == logic.program.switch
   end
+
+  @doc """
+  Gets the state at a specific cycle time for a program.
+  This is used to check switch point compatibility.
+  """
+  def get_state_at(program, cycle_time) do
+    Tlc.Program.FixedTime.resolve_state(program, cycle_time)
+  end
 end
