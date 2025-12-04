@@ -392,15 +392,11 @@ defmodule Tlc.Program do
   If the current halt point is at the given cycle, removes it.
   """
   def toggle_halt(nil, _cycle), do: nil
-  def toggle_halt(program, cycle) do
-    current_halt = Map.get(program, :halt)
-
-    if current_halt == cycle do
-      # Use struct update syntax to ensure we maintain the struct type
+  def toggle_halt(%Tlc.Program{} = program, cycle) do
+    if program.halt == cycle do
       %Tlc.Program{program | halt: nil}
     else
-      # Using Map.put is fine for adding/updating fields
-      Map.put(program, :halt, cycle)
+      %Tlc.Program{program | halt: cycle}
     end
   end
 
