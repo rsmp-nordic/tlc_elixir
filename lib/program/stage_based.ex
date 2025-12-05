@@ -236,4 +236,17 @@ defmodule Tlc.Program.StageBased do
   def get_stage(%__MODULE__{stages_ref: stages_ref}, stage_id) do
     Map.get(stages_ref.stages, stage_id)
   end
+
+  @doc """
+  Returns the list of stage IDs that are actually used in this program.
+  This includes stages from the flows map keys and flow destinations.
+  Not all stages defined in stages_ref may be used by every program.
+  """
+  def used_stages(%__MODULE__{flows: flows}) do
+    flow_sources = Map.keys(flows)
+    flow_destinations = flows |> Map.values() |> List.flatten() |> Enum.map(& &1.to)
+
+    (flow_sources ++ flow_destinations)
+    |> Enum.uniq()
+  end
 end

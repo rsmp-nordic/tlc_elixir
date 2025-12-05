@@ -14,6 +14,7 @@ defmodule TlcElixirWeb.LayoutComponents do
   attr :current_program, :any, required: true
   attr :target_program, :string, default: nil
   attr :logic_type, :atom, required: true
+  attr :logic, :any, required: true
   attr :mode, :atom, required: true
   attr :groups, :list, required: true
   attr :current_states, :string, required: true
@@ -24,15 +25,19 @@ defmodule TlcElixirWeb.LayoutComponents do
     ~H"""
     <div class="flex gap-3">
       <%!-- Controller Section --%>
-      <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 flex-1">
+      <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 flex-[2]">
         <h3 class="text-lg font-semibold text-gray-200 mb-2">Controller</h3>
 
         <%!-- State and Speed --%>
         <div class="flex flex-wrap items-center gap-4 mb-3">
           <.mode_indicator mode={@mode} />
           <div class="flex items-center gap-2">
-            <span class="text-xs text-gray-400">Speed:</span>
+            <span class="text-xs text-gray-400">Interval:</span>
             <.interval_buttons interval={@interval} />
+          </div>
+          <div class="flex items-center gap-3 text-xs">
+            <.state_card label="Unix Time" value={@logic.unix_time} />
+            <.state_card label="Unix Delta" value={@logic.unix_delta} />
           </div>
         </div>
 
@@ -56,7 +61,7 @@ defmodule TlcElixirWeb.LayoutComponents do
       </div>
 
       <%!-- Programs Section --%>
-      <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700">
+      <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 flex-1">
         <h3 class="text-lg font-semibold text-gray-200 mb-2">Programs</h3>
         <.program_selector
           programs={@programs}
@@ -80,10 +85,8 @@ defmodule TlcElixirWeb.LayoutComponents do
     ~H"""
     <div class="bg-gray-800 p-2 rounded shadow border border-gray-700">
       <h2 class="text-lg font-semibold text-gray-200 mb-2">Fixed-Time Details</h2>
-      <div class="grid grid-cols-5 gap-1 text-xs">
+      <div class="grid grid-cols-4 gap-1 text-xs">
         <.state_card label="Cycle" value={"#{@logic.cycle_time} / #{@logic.program.length}"} />
-        <.state_card label="Unix Time" value={@logic.unix_time} />
-        <.state_card label="Unix Delta" value={@logic.unix_delta} />
         <.state_card label="Base Time" value={@logic.base_time} />
         <.state_card label="Program Offset" value={@logic.program.offset} />
         <.state_card label="Offset Adjust" value={@logic.offset_adjust} />
@@ -126,8 +129,8 @@ defmodule TlcElixirWeb.LayoutComponents do
   attr :logic, :any, required: true
 
   def stage_based_details(assigns) do
-    # Get all stages and available stages for clickable transition
-    all_stages = Tlc.Program.StageBased.stages(assigns.logic.program) |> Map.keys()
+    # Get stages used in this program and available stages for clickable transition
+    all_stages = Tlc.Program.StageBased.used_stages(assigns.logic.program)
     available_stages = Tlc.Logic.StageBased.available_stages(assigns.logic)
     in_transition = Tlc.Logic.StageBased.in_transition?(assigns.logic)
     transition_target = if in_transition, do: assigns.logic.current_transition.to, else: nil
@@ -156,15 +159,9 @@ defmodule TlcElixirWeb.LayoutComponents do
       <%!-- Elapsed time and duration display using state_card boxes --%>
       <div class="grid grid-cols-4 gap-1 text-xs mb-3">
         <.state_card label="Elapsed" value={@logic.stage_elapsed} />
-        <%= if @duration_min && @duration_min > 0 do %>
-          <.state_card label="Min" value={@duration_min} />
-        <% end %>
-        <%= if @duration_default && @duration_default > 0 do %>
-          <.state_card label="Default" value={@duration_default} />
-        <% end %>
-        <%= if @duration_max && @duration_max > 0 do %>
-          <.state_card label="Max" value={@duration_max} />
-        <% end %>
+        <.state_card label="Min" value={if @duration_min && @duration_min > 0, do: @duration_min, else: nil} />
+        <.state_card label="Default" value={if @duration_default && @duration_default > 0, do: @duration_default, else: nil} />
+        <.state_card label="Max" value={if @duration_max && @duration_max > 0, do: @duration_max, else: nil} />
       </div>
 
       <%!-- All Stages --%>

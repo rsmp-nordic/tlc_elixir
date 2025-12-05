@@ -99,6 +99,7 @@ defmodule Tlc.Server do
   def init({session_id}) do
     Logger.info("[Tlc.Server] Initializing for session_id: #{session_id}")
     # All fixed-time programs use switch point state "GGRRR" to match stage-based "main" stage
+    # Programs are designed to have groups change at different times within the cycle
     programs = [
       %Tlc.Program.FixedTime{
         name: "halt",
@@ -108,70 +109,97 @@ defmodule Tlc.Server do
         switch: 5,
         halt: 0
       },
+      # "calm" - short cycle where a1 and a2 turn off at different times
       %Tlc.Program.FixedTime{
         name: "calm",
-        length: 10,
-        offset: 0,
-        groups: ["a1", "a2", "b1", "b2", "a1_l"],
-        states: %{
-          0 => "GGRRR",   # switch point
-          3 => "YYRRR",
-          4 => "RRRRR",
-          5 => "RRAAR",
-          6 => "RRGGR",
-          8 => "RRYYR",
-          9 => "RRRRR"
-        },
-        switch: 0
-      },
-      %Tlc.Program.FixedTime{
-        name: "normal",
         length: 12,
         offset: 0,
         groups: ["a1", "a2", "b1", "b2", "a1_l"],
         states: %{
-          0 => "GGRRR",   # switch point
-          4 => "YYRRR",
-          5 => "RRRRR",
-          6 => "RRAAR",
-          7 => "RRGGR",
-          10 => "RRYYR",
-          11 => "RRRRR"
+          0 => "GGRRR",   # switch point - both main directions green
+          2 => "GYRRR",   # a2 goes yellow, a1 still green
+          3 => "GRRRR",   # a2 goes red, a1 still green
+          4 => "YRRRR",   # a1 goes yellow
+          5 => "RRRRR",   # all red clearance
+          6 => "RRAAR",   # side directions get amber
+          7 => "RRGGR",   # side directions get green
+          9 => "RRYYR",   # side directions get yellow
+          10 => "RRRRR",  # all red clearance
+          11 => "ARRRR"   # a1 gets amber first (a2 comes with wrap to cycle start)
         },
         switch: 0
       },
+      # "normal" - includes left turn phase with staggered a1/a2
       %Tlc.Program.FixedTime{
-        name: "busy",
+        name: "normal",
         length: 16,
         offset: 0,
         groups: ["a1", "a2", "b1", "b2", "a1_l"],
         states: %{
-          0 => "GGRRR",   # switch point
-          5 => "YYRRR",
-          6 => "RRRRR",
-          7 => "RRAAR",
-          8 => "RRGGR",
-          12 => "RRYYR",
-          13 => "RRRRR",
-          14 => "AARRR",
-          15 => "GGRRR"
+          0 => "GGRRR",   # switch point - main directions green
+          3 => "GYRRR",   # a2 turns yellow (a1 continues)
+          4 => "GRRRY",   # a2 red, a1 still green, left turn yellow
+          5 => "GRRRG",   # left turn green with a1
+          7 => "YRRRY",   # a1 and left turn go yellow
+          8 => "RRRRR",   # all red clearance
+          9 => "RRAAR",   # side gets amber
+          10 => "RRGGR",  # side gets green
+          12 => "RRGYR",  # b2 goes yellow first
+          13 => "RRYYR",  # all side goes yellow
+          14 => "RRRRR",  # all red clearance
+          15 => "AARRR"   # main gets amber
         },
         switch: 0
       },
+      # "busy" - longer cycle with more distinct group changes
       %Tlc.Program.FixedTime{
-        name: "long",
-        length: 24,
+        name: "busy",
+        length: 20,
         offset: 0,
         groups: ["a1", "a2", "b1", "b2", "a1_l"],
         states: %{
-          0 => "GGRRR",   # switch point
-          8 => "YYRRR",
-          9 => "RRRRR",
-          10 => "RRAAR",
-          11 => "RRGGR",
-          18 => "RRYYR",
-          19 => "RRRRR",
-          20 => "AARRR"
+          0 => "GGRRR",   # switch point - main directions green
+          4 => "GYRRR",   # a2 goes yellow (a1 continues)
+          5 => "GRRRR",   # a2 goes red
+          6 => "GRRRA",   # left turn gets amber (a1 still green)
+          7 => "GRRRG",   # left turn gets green
+          9 => "YRRRY",   # a1 and left turn go yellow
+          10 => "RRRRR",  # all red clearance
+          11 => "RRAAR",  # side gets amber
+          12 => "RRGGR",  # side gets green (b1 and b2)
+          14 => "RRGYR",  # b2 goes yellow first
+          15 => "RRGRR",  # b2 red, b1 still green
+          16 => "RRYRA",  # b1 yellow, left turn amber (preparing)
+          17 => "RRRRR",  # all red clearance (left amber can go to R)
+          18 => "ARRRR",  # a1 gets amber
+          19 => "GARRR"   # a1 green, a2 amber
+        },
+        switch: 0
+      },
+      # "long" - extended cycle with multiple distinct phases
+      %Tlc.Program.FixedTime{
+        name: "long",
+        length: 28,
+        offset: 0,
+        groups: ["a1", "a2", "b1", "b2", "a1_l"],
+        states: %{
+          0 => "GGRRR",   # switch point - main directions green
+          6 => "GYRRR",   # a2 goes yellow first
+          7 => "GRRRR",   # a2 goes red, a1 continues
+          9 => "YRRRA",   # a1 goes yellow, left turn amber
+          10 => "RRRRG",  # left turn gets green
+          13 => "RRRRY",  # left turn goes yellow
+          14 => "RRRRR",  # all red clearance
+          15 => "RRAAG",  # side amber, left turn green
+          16 => "RRGGY",  # side green, left turn yellow
+          17 => "RRGGR",  # side green, left turn red
+          21 => "RRGYR",  # b2 goes yellow first
+          22 => "RRYYR",  # both side yellow
+          23 => "RRRRR",  # all red clearance
+          24 => "ARRRR",  # a1 amber first
+          25 => "GARRR",  # a1 green, a2 amber
+          26 => "GGARR",  # both green, extra brief amber on b1 (stays from cycle)
+          27 => "GGARR"   # continues until wrap
         },
         switch: 0
       },
