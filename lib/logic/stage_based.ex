@@ -191,9 +191,10 @@ defmodule Tlc.Logic.StageBased do
     flows = Map.get(logic.program.flows, logic.current_stage, [])
 
     case flows do
-      [first_flow | _] ->
-        # Auto-request the first available stage
-        %{logic | requested_stage: first_flow.to}
+      [_ | _] ->
+        # Auto-request a random stage from available flows
+        selected_flow = Enum.random(flows)
+        %{logic | requested_stage: selected_flow.to}
       [] ->
         # No flows defined, stay in current stage
         logic

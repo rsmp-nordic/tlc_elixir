@@ -8,19 +8,15 @@
 
     logic_type = get_logic_type(@tlc.logic)
     groups = get_groups(@tlc.logic)
-    display_time = get_display_time(@tlc.logic)
-    time_label = get_time_label(logic_type)
   %>
 
-  <!-- Common Header: Program selector, Mode, Time, Signal lamps -->
+  <!-- Common Header: Program selector, Mode, Signal lamps -->
   <.common_header
     programs={@tlc.programs}
     current_program={@tlc.logic.program}
     target_program={@target_program}
     logic_type={logic_type}
     mode={@tlc.logic.mode}
-    time={display_time}
-    time_label={time_label}
     groups={groups}
     current_states={@tlc.logic.current_states}
     interval={@tlc.interval}

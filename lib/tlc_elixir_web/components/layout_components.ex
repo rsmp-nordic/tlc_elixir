@@ -15,8 +15,6 @@ defmodule TlcElixirWeb.LayoutComponents do
   attr :target_program, :string, default: nil
   attr :logic_type, :atom, required: true
   attr :mode, :atom, required: true
-  attr :time, :integer, required: true
-  attr :time_label, :string, default: "Time"
   attr :groups, :list, required: true
   attr :current_states, :string, required: true
   attr :interval, :integer, default: 1000
@@ -29,10 +27,9 @@ defmodule TlcElixirWeb.LayoutComponents do
       <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 flex-1">
         <h3 class="text-lg font-semibold text-gray-200 mb-2">Controller</h3>
 
-        <%!-- State, Cycle, Speed --%>
+        <%!-- State and Speed --%>
         <div class="flex flex-wrap items-center gap-4 mb-3">
           <.mode_indicator mode={@mode} />
-          <.info_pill label={@time_label} value={@time} />
           <div class="flex items-center gap-2">
             <span class="text-xs text-gray-400">Speed:</span>
             <.interval_buttons interval={@interval} />
@@ -84,10 +81,10 @@ defmodule TlcElixirWeb.LayoutComponents do
     <div class="bg-gray-800 p-2 rounded shadow border border-gray-700">
       <h2 class="text-lg font-semibold text-gray-200 mb-2">Fixed-Time Details</h2>
       <div class="grid grid-cols-5 gap-1 text-xs">
+        <.state_card label="Cycle" value={"#{@logic.cycle_time} / #{@logic.program.length}"} />
         <.state_card label="Unix Time" value={@logic.unix_time} />
         <.state_card label="Unix Delta" value={@logic.unix_delta} />
         <.state_card label="Base Time" value={@logic.base_time} />
-        <.state_card label="Cycle Time" value={@logic.cycle_time} />
         <.state_card label="Program Offset" value={@logic.program.offset} />
         <.state_card label="Offset Adjust" value={@logic.offset_adjust} />
         <.state_card label="Current Offset" value={@logic.offset} />
@@ -135,16 +132,40 @@ defmodule TlcElixirWeb.LayoutComponents do
     in_transition = Tlc.Logic.StageBased.in_transition?(assigns.logic)
     transition_target = if in_transition, do: assigns.logic.current_transition.to, else: nil
 
+    # Get current stage duration info (handles both struct and map)
+    current_stage = Tlc.Program.StageBased.get_stage(assigns.logic.program, assigns.logic.current_stage)
+    duration = current_stage && current_stage.duration
+    duration_min = duration && Map.get(duration, :min)
+    duration_default = duration && Map.get(duration, :default)
+    duration_max = duration && Map.get(duration, :max)
+
     assigns = assign(assigns,
       all_stages: all_stages,
       available_stages: available_stages,
       in_transition: in_transition,
-      transition_target: transition_target
+      transition_target: transition_target,
+      duration_min: duration_min,
+      duration_default: duration_default,
+      duration_max: duration_max
     )
 
     ~H"""
     <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700">
       <h2 class="text-lg font-semibold text-gray-200 mb-2">Stage-Based Details</h2>
+
+      <%!-- Elapsed time and duration display using state_card boxes --%>
+      <div class="grid grid-cols-4 gap-1 text-xs mb-3">
+        <.state_card label="Elapsed" value={@logic.stage_elapsed} />
+        <%= if @duration_min && @duration_min > 0 do %>
+          <.state_card label="Min" value={@duration_min} />
+        <% end %>
+        <%= if @duration_default && @duration_default > 0 do %>
+          <.state_card label="Default" value={@duration_default} />
+        <% end %>
+        <%= if @duration_max && @duration_max > 0 do %>
+          <.state_card label="Max" value={@duration_max} />
+        <% end %>
+      </div>
 
       <%!-- All Stages --%>
       <div>
