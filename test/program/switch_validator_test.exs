@@ -207,6 +207,42 @@ defmodule Tlc.Program.SwitchValidatorTest do
 
       assert length(issues) == 1
     end
+
+    test "allows transition switch between stage-based programs with different switch points" do
+      # example: enter/leave at "main" (GGRRR)
+      # example3: enter at "side" (RRGGR), leave at "turn" (RRRRG)
+      example = StageBased.example()
+      example3 = StageBased.example3()
+
+      # Switching from example to example3 should be valid via transition main->side
+      issues = SwitchValidator.validate_switch(example, example3)
+      assert issues == []
+
+      # Switching from example3 to example should be valid via transition turn->main
+      issues = SwitchValidator.validate_switch(example3, example)
+      assert issues == []
+    end
+
+    test "transition_switch_possible? returns true when transition exists" do
+      example = StageBased.example()
+      example3 = StageBased.example3()
+
+      # main->side transition exists
+      assert SwitchValidator.transition_switch_possible?(example, example3, "main", "side")
+
+      # turn->main transition exists
+      assert SwitchValidator.transition_switch_possible?(example3, example, "turn", "main")
+    end
+
+    test "transition_switch_possible? returns false when no transition exists" do
+      example = StageBased.example()
+      example3 = StageBased.example3()
+
+      # No direct transition from main to turn exists in the same direction
+      # Actually main->turn exists, let's check side->main (does exist)
+      # Let's test with oneway which has no transitions defined to it
+      refute SwitchValidator.transition_switch_possible?(example, example3, "main", "oneway")
+    end
   end
 
   describe "validate_all_switches/1" do

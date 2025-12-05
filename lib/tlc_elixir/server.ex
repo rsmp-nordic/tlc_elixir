@@ -321,10 +321,13 @@ defmodule Tlc.Server do
         end
       else
         # Cross-type switch: store target program at server level
-        # If currently halted, set mode to run so it progresses to switch point
+        # If currently halted, set mode to run and sync so it progresses to switch point
         updated_logic = case tlc.logic do
           %Tlc.Logic.FixedTime{mode: :halt} = logic ->
+            # Sync to current cycle_time so we continue from halt position
+            # instead of jumping to wherever base_time happens to be
             %{logic | mode: :run}
+            |> Tlc.Logic.FixedTime.sync(logic.cycle_time)
           logic ->
             logic
         end

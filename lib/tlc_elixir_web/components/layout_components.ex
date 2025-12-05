@@ -135,6 +135,10 @@ defmodule TlcElixirWeb.LayoutComponents do
     in_transition = Tlc.Logic.StageBased.in_transition?(assigns.logic)
     transition_target = if in_transition, do: assigns.logic.current_transition.to, else: nil
 
+    # Get enter and leave stages from the program
+    enter_stages = assigns.logic.program.enter || []
+    leave_stages = assigns.logic.program.leave || []
+
     # Get current stage duration info (handles both struct and map)
     current_stage = Tlc.Program.StageBased.get_stage(assigns.logic.program, assigns.logic.current_stage)
     duration = current_stage && current_stage.duration
@@ -147,6 +151,8 @@ defmodule TlcElixirWeb.LayoutComponents do
       available_stages: available_stages,
       in_transition: in_transition,
       transition_target: transition_target,
+      enter_stages: enter_stages,
+      leave_stages: leave_stages,
       duration_min: duration_min,
       duration_default: duration_default,
       duration_max: duration_max
@@ -174,11 +180,19 @@ defmodule TlcElixirWeb.LayoutComponents do
               is_transition_target = stage_id == @transition_target
               is_available = stage_id in @available_stages
               is_requested = stage_id == @logic.requested_stage
+              is_enter = stage_id in @enter_stages
+              is_leave = stage_id in @leave_stages
+              direction_arrow = cond do
+                is_enter and is_leave -> "↔"
+                is_enter -> "←"
+                is_leave -> "→"
+                true -> nil
+              end
             %>
             <button
               phx-click="request_stage"
               phx-value-stage_id={stage_id}
-              class={"w-24 py-1 rounded text-sm transition-colors flex items-center justify-center gap-1 " <>
+              class={"px-3 py-1 rounded text-sm transition-colors flex items-center justify-center gap-1 " <>
                 cond do
                   is_current -> "bg-purple-700 text-white font-bold"
                   is_requested -> "bg-gray-600 text-white"
@@ -186,9 +200,16 @@ defmodule TlcElixirWeb.LayoutComponents do
                   true -> "bg-gray-800 text-gray-500 cursor-not-allowed"
                 end}
               disabled={@logic.mode == :halt or not is_available}
+              title={cond do
+                is_enter and is_leave -> "Enter and leave stage"
+                is_enter -> "Enter stage"
+                is_leave -> "Leave stage"
+                true -> nil
+              end}
             >
-              <span class={"w-4 text-white " <> if is_transition_target, do: "", else: "invisible"}>→</span>
+              <span class={"w-4 " <> if(direction_arrow, do: "", else: "invisible")}><%= direction_arrow %></span>
               <span><%= stage_id %></span>
+              <span class={"w-4 " <> if(is_transition_target, do: "", else: "invisible")}>◎</span>
             </button>
           <% end %>
         </div>
@@ -298,8 +319,8 @@ defmodule TlcElixirWeb.LayoutComponents do
             class={program_button_class(@mode, @editing, is_current, is_target)}
             disabled={@mode == :fault || @editing || is_current}
           >
-            <span class={"w-4 text-white " <> if is_target, do: "", else: "invisible"}>→</span>
             <span><%= program.name %></span>
+            <span class={"w-4 text-white " <> if is_target, do: "", else: "invisible"}>◎</span>
           </button>
           <%!-- Edit pencil icon - appears on hover for non-current, non-fault programs --%>
           <%= if can_edit do %>
