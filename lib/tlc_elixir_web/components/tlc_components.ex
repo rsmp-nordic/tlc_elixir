@@ -32,4 +32,5 @@ defmodule TlcElixirWeb.TlcComponents do
   defdelegate common_header(assigns), to: TlcElixirWeb.LayoutComponents
   defdelegate fixed_time_details(assigns), to: TlcElixirWeb.LayoutComponents
   defdelegate stage_based_details(assigns), to: TlcElixirWeb.LayoutComponents
+  defdelegate transition_grid(assigns), to: TlcElixirWeb.LayoutComponents
 end

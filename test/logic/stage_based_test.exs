@@ -496,4 +496,213 @@ defmodule Tlc.Logic.StageBasedTest do
       assert logic.current_states == "GGRRR"
     end
   end
+
+  describe "upcoming_stage" do
+    test "new/2 sets upcoming_stage from available flows", %{program: program} do
+      logic = Logic.new(program)
+
+      # upcoming_stage should be set to one of the available flows from main
+      # (either "side" or "turn" since main has flows to both)
+      assert logic.upcoming_stage in ["side", "turn"]
+    end
+
+    test "start_at_enter_stage/1 sets upcoming_stage", %{program: program} do
+      logic = Logic.start_at_enter_stage(program)
+
+      # Should have upcoming_stage set
+      assert logic.upcoming_stage in ["side", "turn"]
+    end
+
+    test "start_at_matching_enter_stage/2 sets upcoming_stage", %{program: program} do
+      logic = Logic.start_at_matching_enter_stage(program, "GGRRR")
+
+      # Should have upcoming_stage set
+      assert logic.upcoming_stage in ["side", "turn"]
+    end
+
+    test "upcoming_stage is updated after transition completes" do
+      stages = Stages.from_config(%{
+        name: "test",
+        groups: ["a", "b"],
+        stages: %{
+          main: %{open: ["a"], duration: %{default: 5}},
+          side: %{open: ["b"], duration: %{default: 5}}
+        },
+        transitions: %{
+          main: %{side: ["10", 2]},
+          side: %{main: ["01", 2]}
+        }
+      })
+
+      program = %Program{
+        name: "test",
+        stages_ref: stages,
+        enter: ["main"],
+        leave: [],
+        flows: %{
+          "main" => [%Flow{to: "side", transition: "default"}],
+          "side" => [%Flow{to: "main", transition: "default"}]
+        }
+      }
+
+      logic = Logic.new(program)
+      assert logic.current_stage == "main"
+      assert logic.upcoming_stage == "side"
+
+      # Tick until stage duration expires (5s) and requested_stage is set
+      logic = Enum.reduce(1..6, logic, fn i, acc -> Logic.tick(acc, 1000 + i) end)
+      assert logic.requested_stage == "side"
+
+      # Next tick starts the transition
+      logic = Logic.tick(logic, 1007)
+      assert Logic.in_transition?(logic)
+      # During transition, upcoming_stage should still be the target
+      assert logic.upcoming_stage == "side"
+
+      # Complete transition (2s duration)
+      logic = Logic.tick(logic, 1009)
+      assert logic.current_stage == "side"
+      # After transition completes, upcoming_stage should be set to next stage
+      assert logic.upcoming_stage == "main"
+    end
+
+    test "upcoming_stage is nil when no flows exist from current stage" do
+      stages = Stages.from_config(%{
+        name: "test",
+        groups: ["a"],
+        stages: %{
+          deadend: %{open: ["a"], duration: %{default: 10}}
+        },
+        transitions: %{}
+      })
+
+      program = %Program{
+        name: "deadend_test",
+        stages_ref: stages,
+        enter: ["deadend"],
+        leave: [],
+        flows: %{}  # No flows from deadend
+      }
+
+      logic = Logic.new(program, stage_id: "deadend")
+      assert logic.upcoming_stage == nil
+    end
+
+    test "switch_to_program/2 sets upcoming_stage when already at enter stage" do
+      stages = Stages.from_config(%{
+        name: "test",
+        groups: ["a", "b"],
+        stages: %{
+          main: %{open: ["a"], duration: %{default: 10}},
+          side: %{open: ["b"], duration: %{default: 10}}
+        },
+        transitions: %{
+          main: %{side: ["10", 2]},
+          side: %{main: ["01", 2]}
+        }
+      })
+
+      program1 = %Program{
+        name: "prog1",
+        stages_ref: stages,
+        enter: ["main"],
+        leave: [],
+        flows: %{
+          "main" => [%Flow{to: "side", transition: "default"}]
+        }
+      }
+
+      program2 = %Program{
+        name: "prog2",
+        stages_ref: stages,
+        enter: ["main"],
+        leave: [],
+        flows: %{
+          "main" => [%Flow{to: "side", transition: "default"}]
+        }
+      }
+
+      # Start at main in program1
+      logic = Logic.new(program1, stage_id: "main")
+      assert logic.upcoming_stage == "side"
+
+      # Switch to program2 (already at enter stage "main")
+      logic = Logic.switch_to_program(logic, program2)
+      assert logic.current_stage == "main"
+      assert logic.upcoming_stage == "side"
+    end
+
+    test "switch_to_program/2 sets upcoming_stage when starting transition" do
+      stages = Stages.from_config(%{
+        name: "test",
+        groups: ["a", "b"],
+        stages: %{
+          main: %{open: ["a"], duration: %{default: 10}},
+          side: %{open: ["b"], duration: %{default: 10}}
+        },
+        transitions: %{
+          main: %{side: ["10", 2]},
+          side: %{main: ["01", 2]}
+        }
+      })
+
+      program1 = %Program{
+        name: "prog1",
+        stages_ref: stages,
+        enter: ["main"],
+        leave: [],
+        flows: %{
+          "main" => [%Flow{to: "side", transition: "default"}],
+          "side" => [%Flow{to: "main", transition: "default"}]
+        }
+      }
+
+      program2 = %Program{
+        name: "prog2",
+        stages_ref: stages,
+        enter: ["main"],
+        leave: [],
+        flows: %{
+          "main" => [%Flow{to: "side", transition: "default"}],
+          "side" => [%Flow{to: "main", transition: "default"}]
+        }
+      }
+
+      # Start at side in program1
+      logic = Logic.new(program1, stage_id: "side")
+      assert logic.upcoming_stage == "main"
+
+      # Switch to program2 (needs to transition from side to main)
+      logic = Logic.switch_to_program(logic, program2)
+      # Should be in transition to main
+      assert Logic.in_transition?(logic)
+      assert logic.current_transition.to == "main"
+      # upcoming_stage should be set to the transition target
+      assert logic.upcoming_stage == "main"
+    end
+
+    test "simulates cross-type switch from fixed-time to stage-based" do
+      # This simulates what the server does when switching from fixed-time to stage-based
+      program = Program.example2()  # The "event" program
+
+      # Simulate start_at_matching_enter_stage with current state "GGRRR" (main stage)
+      logic = Logic.start_at_matching_enter_stage(program, "GGRRR")
+
+      # Verify the state is set correctly
+      assert logic.current_stage == "main"
+      assert logic.current_states == "GGRRR"
+      # upcoming_stage should be set immediately
+      assert logic.upcoming_stage == "side"
+
+      # Simulate what the server does after switching: set unix_time
+      logic = %{logic | unix_time: 1000}
+
+      # First tick after switch
+      logic = Logic.tick(logic, 1001)
+      assert logic.current_stage == "main"
+      # upcoming_stage should still be set
+      assert logic.upcoming_stage == "side"
+      assert logic.stage_elapsed == 1
+    end
+  end
 end

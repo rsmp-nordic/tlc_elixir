@@ -58,4 +58,11 @@
       />
     </div>
   <% end %>
+
+  <!-- Stage-based specific: Transition grid section (always shown for stage-based programs) -->
+  <%= if logic_type == :stage_based do %>
+    <div class="overflow-x-auto">
+      <.transition_grid logic={@tlc.logic} />
+    </div>
+  <% end %>
 </.tlc_page_container>

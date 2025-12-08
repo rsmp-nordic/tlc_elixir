@@ -133,7 +133,13 @@ defmodule TlcElixirWeb.LayoutComponents do
     all_stages = Tlc.Program.StageBased.used_stages(assigns.logic.program)
     available_stages = Tlc.Logic.StageBased.available_stages(assigns.logic)
     in_transition = Tlc.Logic.StageBased.in_transition?(assigns.logic)
-    transition_target = if in_transition, do: assigns.logic.current_transition.to, else: nil
+
+    # Show target: during transition use transition.to, otherwise use upcoming_stage
+    transition_target = cond do
+      in_transition -> assigns.logic.current_transition.to
+      assigns.logic.upcoming_stage -> assigns.logic.upcoming_stage
+      true -> nil
+    end
 
     # Get enter and leave stages from the program
     enter_stages = assigns.logic.program.enter || []
@@ -393,6 +399,193 @@ defmodule TlcElixirWeb.LayoutComponents do
       <% end %>
     </div>
     """
+  end
+
+  # ============================================================================
+  # Transition Grid Component (for stage-based programs)
+  # ============================================================================
+
+  attr :logic, :any, required: true
+
+  def transition_grid(assigns) do
+    current_transition = assigns.logic.current_transition
+    in_transition = current_transition != nil
+    elapsed = assigns.logic.transition_elapsed
+    groups = Tlc.Program.StageBased.groups(assigns.logic.program)
+
+    # Get the upcoming transition if we have an upcoming stage but aren't transitioning yet
+    upcoming_transition = if not in_transition and assigns.logic.upcoming_stage do
+      # Find the flow to get the transition name
+      flows = Map.get(assigns.logic.program.flows, assigns.logic.current_stage, [])
+      flow = Enum.find(flows, fn f -> f.to == assigns.logic.upcoming_stage end)
+      transition_name = if flow, do: flow.transition, else: "default"
+
+      Tlc.Program.StageBased.get_transition(
+        assigns.logic.program,
+        assigns.logic.current_stage,
+        assigns.logic.upcoming_stage,
+        transition_name
+      )
+    else
+      nil
+    end
+
+    # Use current transition if active, otherwise use upcoming transition for display
+    display_transition = current_transition || upcoming_transition
+    has_transition_to_show = display_transition != nil
+
+    # Get total duration from the transition to display
+    total_duration = if display_transition do
+      Tlc.Program.StageBased.transition_duration(display_transition)
+    else
+      0
+    end
+
+    # Get transition info for display
+    {from_stage, to_stage, transition_name} = if display_transition do
+      {display_transition.from, display_transition.to, display_transition.name}
+    else
+      {nil, nil, nil}
+    end
+
+    assigns = assign(assigns,
+      current_transition: current_transition,
+      display_transition: display_transition,
+      in_transition: in_transition,
+      has_transition_to_show: has_transition_to_show,
+      elapsed: elapsed,
+      groups: groups,
+      total_duration: total_duration,
+      from_stage: from_stage,
+      to_stage: to_stage,
+      transition_name: transition_name
+    )
+
+    ~H"""
+    <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700">
+      <h2 class="text-lg font-semibold text-gray-200 mb-2">
+        <%= if @has_transition_to_show do %>
+          Transition: <%= @from_stage %> → <%= @to_stage %>
+          <span class="text-sm font-normal text-gray-400 ml-2">(<%= @transition_name %>)</span>
+          <%= if not @in_transition do %>
+            <span class="text-sm font-normal text-gray-500 ml-2">(upcoming)</span>
+          <% end %>
+        <% else %>
+          Transition
+          <span class="text-sm font-normal text-gray-400 ml-2">(none)</span>
+        <% end %>
+      </h2>
+
+      <div class="overflow-x-auto">
+        <div class="flex border-t border-l border-gray-600">
+          <!-- Labels column -->
+          <div class="w-24 flex flex-col">
+            <div class="p-1 h-8 flex items-center justify-left font-semibold bg-gray-700 text-gray-200 border-r border-b border-gray-600">Time</div>
+            <%= for {group, i} <- Enum.with_index(@groups) do %>
+              <div class={"p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r #{if i == length(@groups) - 1, do: "", else: "border-b"} border-gray-600"}>
+                <%= group %>
+              </div>
+            <% end %>
+          </div>
+
+          <!-- Data columns for each second -->
+          <%= if @has_transition_to_show do %>
+            <%= for time <- 0..(@total_duration - 1) do %>
+              <.transition_column
+                time={time}
+                elapsed={@elapsed}
+                transition={@display_transition}
+                groups={@groups}
+                total_duration={@total_duration}
+                active={@in_transition}
+              />
+            <% end %>
+          <% else %>
+            <!-- Single empty column when no transition to show -->
+            <.transition_column
+              time={nil}
+              elapsed={0}
+              transition={nil}
+              groups={@groups}
+              total_duration={0}
+              active={false}
+            />
+          <% end %>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  attr :time, :any, default: nil
+  attr :elapsed, :integer, required: true
+  attr :transition, :any, default: nil
+  attr :groups, :list, required: true
+  attr :total_duration, :integer, required: true
+  attr :active, :boolean, default: true
+
+  defp transition_column(assigns) do
+    # Determine if this column is the current position (only highlight when active)
+    is_current = assigns.active and assigns.time != nil and assigns.time == assigns.elapsed and assigns.elapsed < assigns.total_duration
+
+    # Get the state for this time point (show states for both active and upcoming transitions)
+    state = if assigns.transition != nil and assigns.time != nil do
+      get_transition_state_at_time(assigns.transition, assigns.time)
+    else
+      nil
+    end
+
+    assigns = assign(assigns,
+      is_current: is_current,
+      state: state
+    )
+
+    ~H"""
+    <div class={"flex-1 flex flex-col relative border-gray-600 #{if @is_current, do: "outline outline-4 outline-offset-0 outline-gray-500 z-10 rounded", else: ""}"}>
+      <!-- Header cell with time -->
+      <div class="p-1 h-8 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200">
+        <%= @time %>
+      </div>
+
+      <!-- Signal cells for each group -->
+      <%= for {_group, i} <- Enum.with_index(@groups) do %>
+        <%
+          signal = if @state, do: String.at(@state, i), else: nil
+          bg_class = if signal, do: signal_bg_class(signal), else: ""
+        %>
+        <div class={"p-1 h-8 flex items-center justify-center border-r #{if i == length(@groups) - 1, do: "", else: "border-b"} border-gray-600 #{bg_class}"}>
+          <span class="text-gray-200 select-none"><%= signal %></span>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+
+  # Get the state string for a specific time in the transition
+  defp get_transition_state_at_time(transition, time) do
+    {state, _} = Enum.reduce_while(transition.sequence, {nil, 0}, fn step, {_state, acc_time} ->
+      new_acc = acc_time + step.duration
+      if time < new_acc do
+        {:halt, {step.state, new_acc}}
+      else
+        {:cont, {step.state, new_acc}}
+      end
+    end)
+
+    # Return the last state if we somehow exceeded
+    state || (List.last(transition.sequence) && List.last(transition.sequence).state) || ""
+  end
+
+  # Shared helper for signal background colors
+  defp signal_bg_class(signal) do
+    case signal do
+      "R" -> "bg-red-600"
+      "Y" -> "bg-yellow-500"
+      "A" -> "bg-orange-500"
+      "G" -> "bg-green-600"
+      "D" -> "bg-gray-800"
+      _ -> "bg-gray-800"
+    end
   end
 
   # ============================================================================

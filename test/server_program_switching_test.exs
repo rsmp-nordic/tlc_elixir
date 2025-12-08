@@ -398,4 +398,109 @@ defmodule Tlc.ServerProgramSwitchingTest do
       GenServer.stop(pid)
     end
   end
+
+  describe "Server: upcoming_stage after cross-type switch" do
+    test "sets upcoming_stage when switching from fixed-time to stage-based" do
+      pid = start_test_server()
+      :timer.sleep(100)
+
+      # Start with a fixed-time program
+      Tlc.Server.switch_program_immediate(pid, "calm")
+      :timer.sleep(50)
+
+      state = get_state(pid)
+      assert state.logic.__struct__ == Tlc.Logic.FixedTime
+
+      # Switch to stage-based program "event"
+      Tlc.Server.switch_program(pid, "event")
+      :timer.sleep(50)
+
+      # Tick until the switch happens (wait for switch point)
+      # The switch point for fixed-time is at cycle_time == switch
+      Enum.reduce_while(1..100, nil, fn _, _ ->
+        tick(pid)
+        state = get_state(pid)
+        if state.logic.__struct__ == Tlc.Logic.StageBased do
+          {:halt, state}
+        else
+          {:cont, nil}
+        end
+      end)
+
+      state = get_state(pid)
+      assert state.logic.__struct__ == Tlc.Logic.StageBased
+      assert state.logic.current_stage == "main"
+
+      # CRITICAL: upcoming_stage should be set immediately after the switch
+      assert state.logic.upcoming_stage == "side"
+
+      GenServer.stop(pid)
+    end
+
+    test "transition lookup works correctly for upcoming_stage" do
+      pid = start_test_server()
+      :timer.sleep(100)
+
+      # Switch directly to stage-based program
+      Tlc.Server.switch_program_immediate(pid, "event")
+      :timer.sleep(50)
+
+      state = get_state(pid)
+      logic = state.logic
+
+      # Verify we're in stage-based mode
+      assert logic.__struct__ == Tlc.Logic.StageBased
+      assert logic.current_stage == "main"
+      assert logic.upcoming_stage == "side"
+
+      # Now simulate what transition_grid does:
+      # 1. Get flows from current stage
+      flows = Map.get(logic.program.flows, logic.current_stage, [])
+      assert length(flows) > 0, "Expected flows from main stage"
+
+      # 2. Find flow to upcoming stage
+      flow = Enum.find(flows, fn f -> f.to == logic.upcoming_stage end)
+      assert flow != nil, "Expected to find flow from main to side"
+      assert flow.to == "side"
+
+      # 3. Get transition name
+      transition_name = flow.transition
+      assert transition_name != nil
+
+      # 4. Get the transition
+      transition = Tlc.Program.StageBased.get_transition(
+        logic.program,
+        logic.current_stage,
+        logic.upcoming_stage,
+        transition_name
+      )
+      assert transition != nil, "Expected to find transition from main to side"
+      assert transition.from == "main"
+      assert transition.to == "side"
+
+      GenServer.stop(pid)
+    end
+
+    test "upcoming_stage is set before any ticks after immediate switch" do
+      pid = start_test_server()
+      # Don't wait, check immediately after initialization
+
+      # First switch to fixed-time
+      Tlc.Server.switch_program_immediate(pid, "calm")
+      state = get_state(pid)
+      assert state.logic.__struct__ == Tlc.Logic.FixedTime
+
+      # Immediately switch to stage-based - no ticks!
+      Tlc.Server.switch_program_immediate(pid, "event")
+
+      # Check state immediately after the switch, before any tick
+      state = get_state(pid)
+      assert state.logic.__struct__ == Tlc.Logic.StageBased, "Should be stage-based after immediate switch"
+      assert state.logic.current_stage == "main", "Should be in main stage"
+      assert state.logic.upcoming_stage != nil, "upcoming_stage should be set immediately after switch"
+      assert state.logic.upcoming_stage == "side", "upcoming_stage should be side (only flow from main)"
+
+      GenServer.stop(pid)
+    end
+  end
 end

@@ -15,6 +15,7 @@ defmodule Tlc.Logic.StageBased do
             transition_elapsed: 0,
             stage_elapsed: 0,
             requested_stage: nil,
+            upcoming_stage: nil,  # Pre-selected stage for UI display
             current_states: "",
             unix_time: nil,
             unix_delta: 0
@@ -28,10 +29,14 @@ defmodule Tlc.Logic.StageBased do
 
     initial_states = Program.get_stage_state(program, stage_id) || ""
 
+    # Pre-select the upcoming stage for UI display
+    upcoming_stage = select_next_stage(program, stage_id)
+
     %__MODULE__{
       program: program,
       current_stage: stage_id,
-      current_states: initial_states
+      current_states: initial_states,
+      upcoming_stage: upcoming_stage
     }
   end
 
@@ -121,12 +126,16 @@ defmodule Tlc.Logic.StageBased do
     target_stage = logic.current_transition.to
     new_states = Program.get_stage_state(logic.program, target_stage) || ""
 
+    # Pre-select the upcoming stage for UI display
+    upcoming_stage = select_next_stage(logic.program, target_stage)
+
     %{logic |
       current_stage: target_stage,
       current_transition: nil,
       transition_elapsed: 0,
       stage_elapsed: 0,
       requested_stage: nil,
+      upcoming_stage: upcoming_stage,
       current_states: new_states
     }
   end
@@ -188,16 +197,26 @@ defmodule Tlc.Logic.StageBased do
   end
 
   defp maybe_auto_request_next_stage(logic) do
-    flows = Map.get(logic.program.flows, logic.current_stage, [])
+    # Use the pre-selected upcoming stage
+    if logic.upcoming_stage do
+      %{logic | requested_stage: logic.upcoming_stage}
+    else
+      logic
+    end
+  end
+
+  # Select the next stage from available flows (used for pre-selection)
+  defp select_next_stage(program, current_stage) do
+    flows = Map.get(program.flows, current_stage, [])
 
     case flows do
       [_ | _] ->
-        # Auto-request a random stage from available flows
+        # Select a random stage from available flows
         selected_flow = Enum.random(flows)
-        %{logic | requested_stage: selected_flow.to}
+        selected_flow.to
       [] ->
-        # No flows defined, stay in current stage
-        logic
+        # No flows defined
+        nil
     end
   end
 
@@ -354,10 +373,14 @@ defmodule Tlc.Logic.StageBased do
 
     initial_states = Program.get_stage_state(program, enter_stage_id) || ""
 
+    # Pre-select the upcoming stage for UI display
+    upcoming_stage = select_next_stage(program, enter_stage_id)
+
     %__MODULE__{
       program: program,
       current_stage: enter_stage_id,
       current_states: initial_states,
+      upcoming_stage: upcoming_stage,
       mode: :run
     }
   end
@@ -380,10 +403,14 @@ defmodule Tlc.Logic.StageBased do
         start_at_enter_stage(program)
 
       stage_id ->
+        # Pre-select the upcoming stage for UI display
+        upcoming_stage = select_next_stage(program, stage_id)
+
         %__MODULE__{
           program: program,
           current_stage: stage_id,
           current_states: current_state,
+          upcoming_stage: upcoming_stage,
           mode: :run
         }
     end
@@ -405,10 +432,14 @@ defmodule Tlc.Logic.StageBased do
     cond do
       # If already at the enter stage, just switch programs
       logic.current_stage == enter_stage_id ->
+        # Pre-select the upcoming stage for UI display
+        upcoming_stage = select_next_stage(new_program, enter_stage_id)
+
         %__MODULE__{
           program: new_program,
           current_stage: enter_stage_id,
           current_states: logic.current_states,
+          upcoming_stage: upcoming_stage,
           mode: :run
         }
 
@@ -425,6 +456,7 @@ defmodule Tlc.Logic.StageBased do
               transition_elapsed: 0,
               stage_elapsed: 0,
               requested_stage: nil,
+              upcoming_stage: enter_stage_id,  # The upcoming stage is the transition target
               current_states: first_step.state,
               unix_time: logic.unix_time,
               unix_delta: logic.unix_delta,
