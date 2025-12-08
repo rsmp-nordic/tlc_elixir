@@ -25,14 +25,14 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
       %{unix_time: unix_time, logic: logic}
     end
 
-    def tick(ticker, logic_module \\ FixedTimeLogic) do
-      unix_time = ticker.unix_time + 1
+    def tick(ticker, logic_module \\ FixedTimeLogic, step \\ 1) do
+      unix_time = ticker.unix_time + step
       logic = logic_module.tick(ticker.logic, unix_time)
       %{ticker | unix_time: unix_time, logic: logic}
     end
 
-    def tick_n(ticker, n, logic_module \\ FixedTimeLogic) do
-      Enum.reduce(1..n, ticker, fn _, t -> tick(t, logic_module) end)
+    def tick_n(ticker, n, logic_module \\ FixedTimeLogic, step \\ 1) do
+      Enum.reduce(1..n, ticker, fn _, t -> tick(t, logic_module, step) end)
     end
   end
 
@@ -1151,6 +1151,85 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
       safety = Tlc.Safety.clear_history(safety)
 
       assert safety.previous_state == nil
+    end
+  end
+
+  describe "Switch safety integration" do
+    test "safety faults when switch jumps across invalid transitions" do
+      fault_program = %FixedTimeProgram{
+        name: "fault",
+        length: 1,
+        groups: ["a", "b"],
+        states: %{0 => "RR"},
+        switch: 0
+      }
+
+      current_program = %FixedTimeProgram{
+        name: "current",
+        length: 4,
+        groups: ["a", "b"],
+        states: %{0 => "GG"},
+        switch: 0
+      }
+
+      target_program = %FixedTimeProgram{
+        name: "target",
+        length: 4,
+        groups: ["a", "b"],
+        states: %{0 => "RR"},
+        switch: 0
+      }
+
+      safety = Tlc.Safety.new()
+
+      ticker = Ticker.new(FixedTimeLogic.new(current_program)) |> Ticker.tick()
+      {safety, logic} = Tlc.Safety.check_transitions(safety, ticker.logic, fault_program)
+
+      logic = FixedTimeLogic.set_target_program(logic, target_program)
+      ticker = %{ticker | logic: logic} |> Ticker.tick_n(current_program.length)
+      {_safety, logic} = Tlc.Safety.check_transitions(safety, ticker.logic, fault_program)
+
+      assert logic.mode == :fault
+      assert logic.program.name == "fault"
+    end
+
+    test "pending switch survives waits before executing" do
+      base_program = %FixedTimeProgram{
+        name: "base",
+        length: 8,
+        offset: 0,
+        groups: ["a", "b"],
+        states: %{0 => "GR", 2 => "YR", 3 => "RR", 5 => "RG"},
+        waits: %{0 => 2},
+        switch: 4
+      }
+
+      target_program = %FixedTimeProgram{
+        name: "target",
+        length: 8,
+        offset: 0,
+        groups: ["a", "b"],
+        states: %{0 => "RG", 2 => "YR", 4 => "RR"},
+        switch: 4
+      }
+
+      ticker =
+        base_program
+        |> FixedTimeLogic.new()
+        |> FixedTimeLogic.set_target_offset(7)
+        |> FixedTimeLogic.set_target_program(target_program)
+        |> Ticker.new()
+
+      ticker = ticker |> Ticker.tick() |> Ticker.tick()
+
+      assert ticker.logic.program.name == "base"
+      assert ticker.logic.target_program == target_program
+      assert ticker.logic.offset != base_program.offset
+      assert ticker.logic.target_distance <= 0
+
+      ticker = Ticker.tick_n(ticker, 4)
+      assert ticker.logic.program.name == target_program.name
+      assert ticker.logic.target_program == nil
     end
   end
 

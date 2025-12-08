@@ -243,6 +243,33 @@ defmodule Tlc.Program.SwitchValidatorTest do
       # Let's test with oneway which has no transitions defined to it
       refute SwitchValidator.transition_switch_possible?(example, example3, "main", "oneway")
     end
+
+    test "skips validation when entering fault but validates leaving fault" do
+      normal = %FixedTime{
+        name: "normal",
+        length: 5,
+        groups: ["a"],
+        states: %{0 => "G", 1 => "Y", 2 => "R"},
+        switch: 0
+      }
+
+      fault = %FixedTime{
+        name: "fault",
+        length: 1,
+        groups: ["a"],
+        states: %{0 => "R"},
+        switch: 0
+      }
+
+      assert [] = SwitchValidator.validate_switch(normal, fault)
+
+      issues = SwitchValidator.validate_switch(fault, normal)
+      assert length(issues) == 1
+
+      [issue] = issues
+      assert issue.source_program == "fault"
+      assert issue.target_program == "normal"
+    end
   end
 
   describe "validate_all_switches/1" do
@@ -289,6 +316,31 @@ defmodule Tlc.Program.SwitchValidatorTest do
 
       # Should have 2 issues (program1->program2 and program2->program1)
       assert length(issues) == 2
+    end
+
+    test "ignores switches into fault but reports leaving fault" do
+      normal = %FixedTime{
+        name: "normal",
+        length: 5,
+        groups: ["a"],
+        states: %{0 => "G", 1 => "Y", 2 => "R"},
+        switch: 0
+      }
+
+      fault = %FixedTime{
+        name: "fault",
+        length: 1,
+        groups: ["a"],
+        states: %{0 => "R"},
+        switch: 0
+      }
+
+      issues = SwitchValidator.validate_all_switches([normal, fault])
+
+      assert length(issues) == 1
+      [issue] = issues
+      assert issue.source_program == "fault"
+      assert issue.target_program == "normal"
     end
 
     test "validates the example programs" do

@@ -63,6 +63,7 @@ defmodule Tlc.Program.SwitchValidator do
     for source <- programs,
         target <- programs,
         source.name != target.name,
+        target.name != "fault",
         issue <- validate_switch(source, target),
         do: issue
   end
@@ -76,7 +77,10 @@ defmodule Tlc.Program.SwitchValidator do
   1. Direct switch: States match exactly at the switch points
   2. Transition switch: A valid transition exists from leave stage to enter stage
      (only for stage-based programs with the same stages_ref)
+  Switching into the special `fault` program is exempt from validation, but
+  leaving `fault` is validated like any other program.
   """
+  def validate_switch(_source, %{name: "fault"}), do: []
   def validate_switch(source, target) do
     source_switch_points = get_switch_points(source, :leave)
     target_switch_points = get_switch_points(target, :enter)
@@ -97,6 +101,8 @@ defmodule Tlc.Program.SwitchValidator do
       # Return issues for all incompatible combinations
       for {source_point, source_state} <- source_switch_points,
           {target_point, target_state} <- target_switch_points,
+          source.name != target.name,
+          target.name != "fault",
           source_state != target_state,
           not transition_switch_possible?(source, target, source_point, target_point) do
         %{
@@ -199,7 +205,12 @@ defmodule Tlc.Program.SwitchValidator do
     end
 
     # Then validate switch compatibility
-    switch_issues = validate_all_switches(programs)
+    switch_issues =
+      programs
+      |> validate_all_switches()
+      # Ignore warnings about leaving the special fault program; entering fault is
+      # already skipped in validation.
+      |> Enum.reject(fn issue -> issue.source_program == "fault" end)
 
     if switch_issues != [] do
       Logger.warning("Found #{length(switch_issues)} program switch compatibility issue(s):")
