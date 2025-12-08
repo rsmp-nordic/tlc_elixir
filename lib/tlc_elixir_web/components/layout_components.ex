@@ -595,16 +595,11 @@ defmodule TlcElixirWeb.LayoutComponents do
   # Supports both fixed-time signals (R, Y, G, A, D) and stage-based signals (0, 1, 2, A)
   defp lamp_states(signal) do
     case signal do
-      # Fixed-time signals
       "R" -> %{red: true, yellow: false, green: false}
       "Y" -> %{red: false, yellow: true, green: false}
+      "A" -> %{red: true, yellow: true, green: false}    # Amber (red + yellow)
       "G" -> %{red: false, yellow: false, green: true}
       "D" -> %{red: false, yellow: false, green: false}
-      # Stage-based signals
-      "0" -> %{red: true, yellow: false, green: false}   # Red/closed
-      "1" -> %{red: false, yellow: true, green: false}   # Yellow
-      "2" -> %{red: true, yellow: true, green: false}    # Red-yellow
-      "A" -> %{red: false, yellow: false, green: true}   # Green/open (same for both)
       _ -> %{red: false, yellow: false, green: false}
     end
   end
