@@ -27,6 +27,15 @@ defmodule Tlc.ServerProgramSwitchingTest do
     Tlc.Server.current_state(pid)
   end
 
+  # Drives the server forward by sending :tick messages synchronously.
+  defp tick(pid, times \\ 1) do
+    Enum.each(1..times, fn _ ->
+      send(pid, :tick)
+      # Call get_state to ensure prior messages (including the tick) are processed
+      get_state(pid)
+    end)
+  end
+
   describe "Server: switch_program/2" do
     test "sets target program for same-type fixed-time switch" do
       pid = start_test_server()
@@ -332,6 +341,28 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
       state = get_state(pid)
       assert state.logic.target_offset == 5
+
+      GenServer.stop(pid)
+    end
+  end
+
+  describe "Server: cross-type state continuity" do
+    test "keeps valid states when switching from stage-based to fixed-time" do
+      pid = start_test_server()
+
+      Tlc.Server.switch_program_immediate(pid, "quiet")
+
+      initial_state = get_state(pid)
+      assert initial_state.logic.__struct__ == Tlc.Logic.StageBased
+      assert initial_state.logic.current_states == "GGRRR"
+
+      Tlc.Server.switch_program(pid, "calm")
+      tick(pid)
+      state = get_state(pid)
+      assert state.logic.__struct__ == Tlc.Logic.FixedTime
+      assert state.logic.current_states == "GGRRR"
+      refute state.logic.current_states == ""
+      assert state.target_program == nil
 
       GenServer.stop(pid)
     end

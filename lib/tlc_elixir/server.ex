@@ -508,6 +508,7 @@ defmodule Tlc.Server do
       :switching ->
         # When switching from another program, sync to the switch point
         Tlc.Logic.FixedTime.sync(logic, program.switch)
+        |> Tlc.Logic.FixedTime.update_states()
       :initial ->
         logic
     end
