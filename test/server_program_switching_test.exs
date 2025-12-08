@@ -207,6 +207,37 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
       GenServer.stop(pid)
     end
+
+    test "handles fault toggle while in stage-based program" do
+      pid = start_test_server()
+      :timer.sleep(100)
+
+      Tlc.Server.switch_program_immediate(pid, "quiet")
+      :timer.sleep(100)
+
+      state = get_state(pid)
+      assert state.logic.__struct__ == Tlc.Logic.StageBased
+      assert state.logic.mode == :run
+
+      Tlc.Server.toggle_fault(pid)
+      :timer.sleep(100)
+
+      state = get_state(pid)
+      assert state.logic.__struct__ == Tlc.Logic.FixedTime
+      assert state.logic.mode == :fault
+      assert state.logic.program.name == "fault"
+      assert state.logic.current_states == "RRRRR"
+
+      Tlc.Server.toggle_fault(pid)
+      :timer.sleep(100)
+
+      state = get_state(pid)
+      assert state.logic.__struct__ == Tlc.Logic.FixedTime
+      assert state.logic.mode == :halt
+      assert state.logic.program.name == "halt"
+
+      GenServer.stop(pid)
+    end
   end
 
   describe "Server: request_stage/2" do

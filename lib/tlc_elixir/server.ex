@@ -402,16 +402,27 @@ defmodule Tlc.Server do
 
   @impl true
   def handle_cast(:toggle_fault, tlc) do
+    halt_program = Enum.find(tlc.programs, fn prog -> prog.name == "halt" end)
+    fault_program = Enum.find(tlc.programs, fn prog -> prog.name == "fault" end)
+
+    fault_logic =
+      create_logic_for_program(fault_program, tlc.virtual_unix_time, :switching)
+      |> Map.put(:mode, :fault)
+
+    halt_logic =
+      create_logic_for_program(halt_program, tlc.virtual_unix_time, :switching)
+      |> Tlc.Logic.FixedTime.sync(halt_program.halt)
+      |> Tlc.Logic.FixedTime.update_states()
+      |> Map.put(:mode, :halt)
+
     updated_tlc =
-      if tlc.logic.mode == :fault do
-        halt_program = Enum.find(tlc.programs, fn prog -> prog.name == "halt" end)
-        updated_logic = Tlc.Logic.FixedTime.recover(tlc.logic, halt_program)
-        updated_safety = Tlc.Safety.clear_history(tlc.safety, updated_logic.program.name)
-        %{tlc | logic: updated_logic, safety: updated_safety}
-      else
-        fault_program = Enum.find(tlc.programs, fn prog -> prog.name == "fault" end)
-        updated_logic = Tlc.Logic.FixedTime.fault(tlc.logic, fault_program)
-        %{tlc | logic: updated_logic}
+      case tlc.logic.mode do
+        :fault ->
+          updated_safety = Tlc.Safety.clear_history(tlc.safety, halt_logic.program.name)
+          %{tlc | logic: halt_logic, safety: updated_safety}
+
+        _ ->
+          %{tlc | logic: fault_logic}
       end
 
     broadcast_update(updated_tlc)
@@ -438,15 +449,30 @@ defmodule Tlc.Server do
 
     fault_program = Enum.find(tlc.programs, fn prog -> prog.name == "fault" end)
 
-    {updated_safety, logic} =
-      Tlc.Safety.check_transitions(tlc.safety, logic, fault_program)
+    tlc =
+      case Tlc.Safety.check_transitions(tlc.safety, logic, fault_program) do
+        {:ok, updated_safety, logic} ->
+          %{tlc |
+            logic: logic,
+            safety: updated_safety,
+            virtual_unix_time: virtual_unix_time,
+            resync: false
+          }
 
-    tlc = %{tlc |
-      logic: logic,
-      safety: updated_safety,
-      virtual_unix_time: virtual_unix_time,
-      resync: false
-    }
+        {:fault, updated_safety} ->
+          fault_logic =
+            create_logic_for_program(fault_program, virtual_unix_time, :switching)
+            |> Map.put(:mode, :fault)
+
+          cleared_safety = Tlc.Safety.clear_history(updated_safety, fault_program.name)
+
+          %{tlc |
+            logic: fault_logic,
+            safety: cleared_safety,
+            virtual_unix_time: virtual_unix_time,
+            resync: false
+          }
+      end
 
     # Check for cross-type program switch
     tlc = maybe_switch_to_target_program(tlc)

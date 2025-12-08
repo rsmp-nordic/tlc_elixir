@@ -51,7 +51,7 @@ defmodule Tlc.Logic.StageBased do
   @doc """
   Advances the logic by one tick (typically 1 second).
   """
-  def tick(logic, unix_time) when logic.mode == :halt do
+  def tick(%__MODULE__{mode: mode} = logic, unix_time) when mode in [:halt, :fault] do
     logic
     |> update_unix_time(unix_time)
   end
@@ -258,13 +258,22 @@ defmodule Tlc.Logic.StageBased do
 
   @doc """
   Puts the logic into fault mode.
-  The fault_program parameter is ignored for stage-based logic (kept for API compatibility).
+  Stage-based logic does not have a dedicated fault program; this simply forces all
+  groups to red. Higher layers (server/safety) are responsible for switching into
+  a fixed-time fault program when one is provided.
   """
   def fault(logic, _fault_program) do
+    red_state =
+      logic.program
+      |> Program.groups()
+      |> length()
+      |> then(&String.duplicate("R", &1))
+
     %{logic |
       mode: :fault,
       requested_stage: nil,
-      current_transition: nil
+      current_transition: nil,
+      current_states: red_state
     }
   end
 

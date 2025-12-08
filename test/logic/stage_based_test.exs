@@ -78,6 +78,17 @@ defmodule Tlc.Logic.StageBasedTest do
       assert logic.stage_elapsed == 0
       assert logic.mode == :halt
     end
+
+    test "does not advance when faulted", %{program: program} do
+      logic = program
+              |> Logic.new()
+              |> Logic.fault(nil)
+              |> Logic.tick(1000)
+              |> Logic.tick(1001)
+
+      assert logic.stage_elapsed == 0
+      assert logic.mode == :fault
+    end
   end
 
   describe "request_stage/2" do

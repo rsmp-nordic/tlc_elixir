@@ -37,3 +37,6 @@ npm-debug.log
 
 # prompts
 /.github/prompts/
+
+# analysis
+/analyses/
