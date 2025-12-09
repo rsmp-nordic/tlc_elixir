@@ -20,10 +20,8 @@ defmodule TlcElixirWeb.LayoutComponentsTest do
     html = render_component(&TlcElixirWeb.LayoutComponents.transition_grid/1, %{logic: logic})
 
     assert html =~ "Transition: turn → main"
-
-    # The static stage columns should show both stage names in the output
-    assert html =~ "turn"
-    assert html =~ "main"
+    # We don't show the explicit transition name when it's the default one
+    refute html =~ "(default)"
 
     # Parse HTML and assert the static stage columns contain the expected states
     doc = Floki.parse_document!(html)
@@ -38,13 +36,39 @@ defmodule TlcElixirWeb.LayoutComponentsTest do
       |> Enum.join()
     end
 
-    turn_col = Enum.find(columns, fn col -> Floki.find(col, "div.font-semibold") |> Floki.text() |> String.trim() == "turn" end)
-    main_col = Enum.find(columns, fn col -> Floki.find(col, "div.font-semibold") |> Floki.text() |> String.trim() == "main" end)
+    # The first and last flex-1 columns correspond to the from/to static stage columns
+    turn_col = List.first(columns)
+    main_col = List.last(columns)
 
     assert turn_col
     assert main_col
 
+    # Stage names are intentionally not shown in the time row/header
+    assert Floki.find(turn_col, "div.font-semibold") |> Floki.text() |> String.trim() == ""
+    assert Floki.find(main_col, "div.font-semibold") |> Floki.text() |> String.trim() == ""
+
     assert get_col_state.(turn_col) == "RRRRG"
     assert get_col_state.(main_col) == "GGRRR"
+
+  end
+
+  test "transition_grid highlights from stage when stage is running (no active transition)" do
+    program = Tlc.Program.StageBased.example()
+
+    # Build a logic struct representing that there is an upcoming transition but no active transition
+    logic = %Tlc.Logic.StageBased{
+      program: program,
+      current_stage: "turn",
+      upcoming_stage: "main",
+      current_transition: nil,
+      transition_elapsed: 0,
+      current_states: Tlc.Program.StageBased.get_stage_state(program, "turn")
+    }
+
+    html = render_component(&TlcElixirWeb.LayoutComponents.transition_grid/1, %{logic: logic})
+
+    # There should be an outlined/styled first column to indicate the running stage
+    assert html =~ "outline outline-4 outline-offset-0 outline-gray-500 z-10 rounded"
+    refute html =~ "(default)"
   end
 end

@@ -482,9 +482,8 @@ defmodule TlcElixirWeb.LayoutComponents do
       <h2 class="text-lg font-semibold text-gray-200 mb-2">
         <%= if @has_transition_to_show do %>
           Transition: <%= @from_stage %> → <%= @to_stage %>
-          <span class="text-sm font-normal text-gray-400 ml-2">(<%= @transition_name %>)</span>
-          <%= if not @in_transition do %>
-            <span class="text-sm font-normal text-gray-500 ml-2">(upcoming)</span>
+          <%= if @transition_name && @transition_name != "default" do %>
+            <span class="text-sm font-normal text-gray-400 ml-2">(<%= @transition_name %>)</span>
           <% end %>
         <% else %>
           Transition
@@ -508,7 +507,7 @@ defmodule TlcElixirWeb.LayoutComponents do
           <%= if @has_transition_to_show do %>
             <%!-- Static column showing the "from" stage state --%>
             <%= if @from_stage do %>
-              <.stage_column stage={@from_stage} groups={@groups} state={@from_state} />
+              <.stage_column stage={@from_stage} groups={@groups} state={@from_state} current={not @in_transition} />
             <% end %>
             <%= for time <- 0..(@total_duration - 1) do %>
               <.transition_column
@@ -523,7 +522,7 @@ defmodule TlcElixirWeb.LayoutComponents do
 
             <%!-- Static column showing the "to" stage state --%>
             <%= if @to_stage do %>
-              <.stage_column stage={@to_stage} groups={@groups} state={@to_state} />
+              <.stage_column stage={@to_stage} groups={@groups} state={@to_state} current={false} />
             <% end %>
           <% else %>
             <!-- Single empty column when no transition to show -->
@@ -591,6 +590,7 @@ defmodule TlcElixirWeb.LayoutComponents do
   attr :stage, :string, required: true
   attr :state, :string, default: nil
   attr :groups, :list, required: true
+  attr :current, :boolean, default: false
 
   defp stage_column(assigns) do
     # state may already be passed in, otherwise try to look it up from program
@@ -599,11 +599,9 @@ defmodule TlcElixirWeb.LayoutComponents do
     assigns = assign(assigns, state: state)
 
     ~H"""
-    <div class="flex-1 flex flex-col relative border-gray-600">
-      <!-- Header cell with stage name -->
-      <div class="p-1 h-8 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200">
-        <%= @stage %>
-      </div>
+    <div class={"flex-1 flex flex-col relative border-gray-600 " <> if(@current, do: "outline outline-4 outline-offset-0 outline-gray-500 z-10 rounded", else: "") }>
+      <!-- Header: keep blank for time row (stage names are not shown here) -->
+      <div class="p-1 h-8 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200"></div>
 
       <!-- Signal cells for each group -->
       <%= for {_group, i} <- Enum.with_index(@groups) do %>
