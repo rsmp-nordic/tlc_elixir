@@ -25,7 +25,7 @@ defmodule Tlc.Logic.StageBased do
   Optionally starts at a specific stage.
   """
   def new(program, opts \\ []) do
-    stage_id = Keyword.get(opts, :stage_id) || get_default_stage_id(program)
+    stage_id = Keyword.get(opts, :stage_id) || first_stage(program)
 
     initial_states = Program.get_stage_state(program, stage_id) || ""
 
@@ -40,18 +40,17 @@ defmodule Tlc.Logic.StageBased do
     }
   end
 
-  defp get_default_stage_id(program) do
-    # Use first enter stage from the program
-    case program.enter do
-      [first | _] -> first
-      [] ->
-        # Fall back to first stage from stages_ref
-        case Map.keys(program.stages_ref.stages) do
-          [first | _] -> first
-          [] -> nil
-        end
+    # Returns the first logical stage to use as a program entry point.
+    # Prefer the program-defined enter list; otherwise use the first stage from
+    # the shared stages_ref (stages map keys). Returns nil when no stage exists.
+    defp first_stage(%{enter: [first | _]}), do: first
+
+    defp first_stage(%{stages_ref: %{stages: stages}}) when is_map(stages) do
+      case Map.keys(stages) do
+        [first | _] -> first
+        [] -> nil
+      end
     end
-  end
 
   @doc """
   Advances the logic by one tick (typically 1 second).
@@ -108,8 +107,12 @@ defmodule Tlc.Logic.StageBased do
   end
 
   defp get_transition_state(transition, elapsed) do
-    # Find which step we're in based on elapsed time
-    {state, _} = Enum.reduce_while(transition.sequence, {nil, 0}, fn step, {_state, acc_time} ->
+    # Walk the sequence accumulating durations and return the matching step.
+    # If elapsed exceeds the total transition duration, we return the last
+    # state's value as a fallback (this keeps behavior safe if callers ever
+    # request states beyond the sequence duration).
+    transition.sequence
+    |> Enum.reduce_while({nil, 0}, fn step, {_acc_state, acc_time} ->
       new_acc = acc_time + step.duration
       if elapsed < new_acc do
         {:halt, {step.state, new_acc}}
@@ -117,9 +120,12 @@ defmodule Tlc.Logic.StageBased do
         {:cont, {step.state, new_acc}}
       end
     end)
-
-    # Return the last state if we somehow exceeded
-    state || (List.last(transition.sequence) && List.last(transition.sequence).state) || ""
+    |> case do
+      {state, _} when is_binary(state) -> state
+      # Fallback to last state's state or empty string
+      _ ->
+        transition.sequence |> List.last() |> then(fn s -> (s && s.state) || "" end)
+    end
   end
 
   defp complete_transition(logic) do
@@ -140,43 +146,40 @@ defmodule Tlc.Logic.StageBased do
     }
   end
 
+  # Attempts to start a transition to the requested stage. If there's no
+  # requested stage we keep the current logic. Uses `with` to keep the flow
+  # clear: find a flow and then find a transition for that flow. If either is
+  # missing the request is cleared.
+  defp maybe_start_transition(%{requested_stage: nil} = logic), do: logic
+
   defp maybe_start_transition(logic) do
-    # Check if there's a valid flow from current stage to requested stage
     flows = Map.get(logic.program.flows, logic.current_stage, [])
-    flow = Enum.find(flows, fn f -> f.to == logic.requested_stage end)
 
-    if flow do
-      # Get the transition
-      transition = Program.get_transition(
-        logic.program,
-        logic.current_stage,
-        logic.requested_stage,
-        flow.transition
-      )
-
-      if transition do
-        start_transition(logic, transition)
-      else
-        # No transition defined, clear the request
-        %{logic | requested_stage: nil}
-      end
+    with %{} = flow <- Enum.find(flows, fn f -> f.to == logic.requested_stage end),
+         transition when not is_nil(transition) <- Program.get_transition(logic.program, logic.current_stage, logic.requested_stage, flow.transition) do
+      start_transition(logic, transition)
     else
-      # No valid flow, clear the request
-      %{logic | requested_stage: nil}
+      _ -> %{logic | requested_stage: nil}
     end
   end
 
-  defp start_transition(logic, transition) do
-    initial_state = if length(transition.sequence) > 0 do
-      hd(transition.sequence).state
-    else
-      logic.current_states
-    end
-
+  # Start running a transition. If the transition contains a non-empty
+  # sequence we set the current_states to the first step's state. If it is
+  # empty, we keep the existing states and start the transition with a
+  # zero-duration sequence (this is used to model immediate transfers).
+  defp start_transition(logic, %{sequence: [first | _]} = transition) do
     %{logic |
       current_transition: transition,
       transition_elapsed: 0,
-      current_states: initial_state
+      current_states: first.state
+    }
+  end
+
+  defp start_transition(logic, %{sequence: []} = transition) do
+    # No explicit sequence defined, keep current states
+    %{logic |
+      current_transition: transition,
+      transition_elapsed: 0
     }
   end
 
@@ -186,7 +189,12 @@ defmodule Tlc.Logic.StageBased do
 
     # Check if the stage duration has expired and auto-transition to next stage
     stage = Program.get_stage(logic.program, logic.current_stage)
-    default_duration = stage && stage.duration && stage.duration.default
+
+    default_duration =
+      case stage do
+        %{duration: %{default: d}} when is_integer(d) -> d
+        _ -> nil
+      end
 
     if default_duration && default_duration > 0 && new_elapsed >= default_duration do
       # Duration expired, request next stage from flows
@@ -207,16 +215,9 @@ defmodule Tlc.Logic.StageBased do
 
   # Select the next stage from available flows (used for pre-selection)
   defp select_next_stage(program, current_stage) do
-    flows = Map.get(program.flows, current_stage, [])
-
-    case flows do
-      [_ | _] ->
-        # Select a random stage from available flows
-        selected_flow = Enum.random(flows)
-        selected_flow.to
-      [] ->
-        # No flows defined
-        nil
+    case Map.get(program.flows, current_stage, []) do
+      [] -> nil
+      flows -> Enum.random(flows).to
     end
   end
 
@@ -234,12 +235,10 @@ defmodule Tlc.Logic.StageBased do
   """
   def get_group_state(logic, group_id) do
     groups = Program.groups(logic.program)
-    index = Enum.find_index(groups, fn g -> g == group_id end)
 
-    if index && index < String.length(logic.current_states) do
-      String.at(logic.current_states, index)
-    else
-      nil
+    case Enum.find_index(groups, fn g -> g == group_id end) do
+      index when is_integer(index) and index < byte_size(logic.current_states) -> String.at(logic.current_states, index)
+      _ -> nil
     end
   end
 
@@ -308,15 +307,14 @@ defmodule Tlc.Logic.StageBased do
   Returns nil if in a transition or stage has no default duration.
   """
   def stage_remaining_time(logic) do
-    if logic.current_transition != nil do
-      nil
-    else
-      stage = Program.get_stage(logic.program, logic.current_stage)
-      if stage && stage.duration.default > 0 do
-        max(0, stage.duration.default - logic.stage_elapsed)
-      else
+    case logic.current_transition do
+      nil ->
+        case Program.get_stage(logic.program, logic.current_stage) do
+          %{duration: %{default: d}} when is_integer(d) and d > 0 -> max(0, d - logic.stage_elapsed)
+          _ -> nil
+        end
+      _ ->
         nil
-      end
     end
   end
 
@@ -361,15 +359,7 @@ defmodule Tlc.Logic.StageBased do
   If no enter stages are defined, falls back to the first available stage.
   """
   def start_at_enter_stage(program) do
-    enter_stage_id = case program.enter do
-      [first | _] -> first
-      [] ->
-        # Fall back to first stage from stages_ref
-        case Map.keys(program.stages_ref.stages) do
-          [first | _] -> first
-          [] -> nil
-        end
-    end
+    enter_stage_id = first_stage(program)
 
     initial_states = Program.get_stage_state(program, enter_stage_id) || ""
 
@@ -424,10 +414,7 @@ defmodule Tlc.Logic.StageBased do
   This should be called when both the old and new program share the same stages_ref.
   """
   def switch_to_program(logic, new_program) do
-    enter_stage_id = case new_program.enter do
-      [first | _] -> first
-      [] -> nil
-    end
+    enter_stage_id = first_stage(new_program)
 
     cond do
       # If already at the enter stage, just switch programs

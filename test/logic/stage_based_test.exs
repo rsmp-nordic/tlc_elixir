@@ -190,6 +190,43 @@ defmodule Tlc.Logic.StageBasedTest do
       logic = Logic.tick(logic, 1006)  # elapsed: 5
       assert logic.current_states == "RRGGR"
     end
+
+    test "handles transitions with empty sequence (immediate transfer)", %{program: _program} do
+      stages = Stages.from_config(%{
+        name: "empty_transition",
+        groups: ["a", "b"],
+        stages: %{
+          main: %{open: ["a"], duration: %{default: 10}},
+          side: %{open: ["b"], duration: %{default: 10}}
+        },
+        transitions: %{
+          main: %{side: []}  # empty sequence -> immediate transition
+        }
+      })
+
+      program = %Program{
+        name: "empty",
+        stages_ref: stages,
+        enter: ["main"],
+        leave: [],
+        flows: %{"main" => [%Flow{to: "side", transition: "default"}], "side" => []}
+      }
+
+      logic = Logic.new(program, stage_id: "main")
+
+      # Request the side stage and start transition
+      logic = logic |> Logic.tick(1000) |> Logic.request_stage("side") |> Logic.tick(1001)
+
+      # Transition has no sequence so current_states should remain
+      assert Logic.in_transition?(logic)
+      assert logic.current_states == "GR"
+
+      # Next tick should immediately complete transition (duration 0)
+      logic = Logic.tick(logic, 1002)
+      assert Logic.in_stage?(logic)
+      assert logic.current_stage == "side"
+      assert logic.current_states == "RG"
+    end
   end
 
   describe "get_group_state/2" do
