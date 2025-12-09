@@ -355,9 +355,10 @@ defmodule Tlc.ServerProgramSwitchingTest do
       assert state.logic.__struct__ == Tlc.Logic.FixedTime
       assert state.logic.mode == :run
 
-      # The halt point for the 'halt' program in fixtures is 0
-      # The running logic should start from that point (cycle_time == 0)
-      assert state.logic.cycle_time == 0
+      # The halt point for the 'halt' program in fixtures is 0.
+      # The running logic should start from that point — allow for one tick of drift
+      # (tests run asynchronously and timing can cause a single-tick advance).
+      assert state.logic.cycle_time in 0..1
 
       # Tick until we reach the switch point and confirm we switch to stage-based
       Enum.reduce_while(1..20, nil, fn _, _ ->

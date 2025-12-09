@@ -171,8 +171,14 @@ defmodule Tlc.Program.Stages do
         {"main", "side"} => %{
           "default" => %Transition{from: "main", to: "side", name: "default", sequence: [%TransitionStep{state: "YYRRR", duration: 3}, %TransitionStep{state: "RRAAR", duration: 2}]}
         },
+        {"main", "turn"} => %{
+          "default" => %Transition{from: "main", to: "turn", name: "default", sequence: [%TransitionStep{state: "YYRRA", duration: 3}]}
+        },
         {"side", "turn"} => %{
           "default" => %Transition{from: "side", to: "turn", name: "default", sequence: [%TransitionStep{state: "RRYYR", duration: 3}, %TransitionStep{state: "RRRRA", duration: 2}]}
+        },
+        {"side", "both"} => %{
+          "default" => %Transition{from: "side", to: "both", name: "default", sequence: [%TransitionStep{state: "RRYYR", duration: 2}, %TransitionStep{state: "GRGRR", duration: 2}]}
         },
         {"turn", "oneway"} => %{
           "default" => %Transition{from: "turn", to: "oneway", name: "default", sequence: [%TransitionStep{state: "RRRRY", duration: 3}, %TransitionStep{state: "GRRRY", duration: 2}]}

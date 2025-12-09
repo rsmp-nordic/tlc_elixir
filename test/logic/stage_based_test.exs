@@ -191,6 +191,53 @@ defmodule Tlc.Logic.StageBasedTest do
       assert logic.current_states == "RRGGR"
     end
 
+    test "starts and completes side -> both transition when flow exists" do
+      stages = Stages.from_config(%{
+        name: "side_to_both",
+        groups: ["a1", "a2", "b1", "b2", "a1_l"],
+        stages: %{
+          main: %{open: ["a1", "a2"], duration: %{default: 6}},
+          side: %{open: ["b1", "b2"], duration: %{default: 6}},
+          both: %{open: ["a1", "b1"], duration: %{default: 4}}
+        },
+        transitions: %{
+          main: %{side: ["YYRRR", 3, "RRAAR", 2]},
+          side: %{both: ["RRRRY", 2, "RGRGR", 2]},
+          both: %{main: ["YRYRR", 3, "GGRRR", 2]}
+        }
+      })
+
+      program = %Program{
+        name: "side_both",
+        stages_ref: stages,
+        enter: ["main"],
+        leave: [],
+        flows: %{
+          "side" => [%Flow{to: "both", transition: "default"}],
+          "both" => [%Flow{to: "main", transition: "default"}]
+        }
+      }
+
+      logic = program
+              |> Logic.new(stage_id: "side")
+              |> Logic.tick(1000)
+              |> Logic.request_stage("both")
+              |> Logic.tick(1001)
+
+      # Should have started transition
+      assert Logic.in_transition?(logic)
+      assert logic.current_transition.to == "both"
+
+      # Transition total duration is 4 seconds
+      logic = Logic.tick(logic, 1002)  # elapsed: 1
+      assert Logic.in_transition?(logic)
+
+      logic = Logic.tick(logic, 1005)  # elapsed: 4
+      assert Logic.in_stage?(logic)
+      assert logic.current_stage == "both"
+      assert logic.current_states == "GRGRR"
+    end
+
     test "handles transitions with empty sequence (immediate transfer)", %{program: _program} do
       stages = Stages.from_config(%{
         name: "empty_transition",

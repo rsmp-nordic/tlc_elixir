@@ -174,7 +174,7 @@ defmodule TlcElixirWeb.LayoutComponents do
 
       <%!-- All Stages --%>
       <div>
-        <span class="text-xs text-gray-400 block mb-2">Stages (click to request)</span>
+        <span class="text-xs text-gray-400 block mb-2">Stages</span>
         <div class="flex flex-wrap gap-2">
           <%= for stage_id <- @all_stages do %>
             <%

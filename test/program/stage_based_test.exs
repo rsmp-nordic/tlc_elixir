@@ -144,6 +144,120 @@ defmodule Tlc.Program.StageBasedTest do
 
       assert {:error, "Program flows reference undefined stages"} = StageBased.validate(program)
     end
+
+    test "rejects program when a flow references a missing transition" do
+      # stages contain main and side but no transition defined from side->both
+      stages = Stages.from_config(%{
+        name: "test_transitions",
+        groups: ["a1", "a2", "b1"],
+        stages: %{
+          main: %{open: ["a1"], duration: %{default: 5}},
+          side: %{open: ["b1"], duration: %{default: 5}},
+          both: %{open: ["a1"], duration: %{default: 5}}
+        },
+        transitions: %{
+          main: %{side: ["10", 2]}
+          # Note: no transition from side -> both
+        }
+      })
+
+      program = %StageBased{
+        name: "missing_transition",
+        stages_ref: stages,
+        enter: ["main"],
+        leave: [],
+        flows: %{
+          "side" => [%Flow{to: "both", transition: "default"}]
+        }
+      }
+
+      assert {:error, message} = StageBased.validate(program)
+      assert message =~ "missing transitions"
+      assert message =~ "side->both"
+    end
+
+    test "rejects program when a flow mentions a non-existent variant" do
+      stages = Stages.from_config(%{
+        name: "variants",
+        groups: ["a"],
+        stages: %{
+          a: %{open: ["a"], duration: %{default: 3}},
+          b: %{open: ["a"], duration: %{default: 3}}
+        },
+        transitions: %{
+          a: %{b: ["G", 1]}  # default only
+        }
+      })
+
+      program = %StageBased{
+        name: "variant_missing",
+        stages_ref: stages,
+        enter: ["a"],
+        leave: [],
+        flows: %{
+          "a" => [%Flow{to: "b", transition: "quick"}]
+        }
+      }
+
+      assert {:error, message} = StageBased.validate(program)
+      assert message =~ "missing transitions"
+      assert message =~ "a->b"
+    end
+
+    test "accepts program when flow omits transition and default exists" do
+      stages = Stages.from_config(%{
+        name: "variant_default",
+        groups: ["a"],
+        stages: %{
+          a: %{open: ["a"], duration: %{default: 3}},
+          b: %{open: ["a"], duration: %{default: 3}}
+        },
+        transitions: %{
+          a: %{b: ["G", 1]}  # default defined
+        }
+      })
+
+      program = %StageBased{
+        name: "variant_default_ok",
+        stages_ref: stages,
+        enter: ["a"],
+        leave: [],
+        flows: %{
+          # omit transition field (Flow struct has default "default")
+          "a" => [%Flow{to: "b"}]
+        }
+      }
+
+      assert {:ok, _} = StageBased.validate(program)
+    end
+
+    test "accepts program when transitions exist for all flows" do
+      stages = Stages.from_config(%{
+        name: "test_transitions_ok",
+        groups: ["a1", "a2", "b1"],
+        stages: %{
+          main: %{open: ["a1"], duration: %{default: 5}},
+          side: %{open: ["b1"], duration: %{default: 5}}
+        },
+        transitions: %{
+          main: %{side: ["10", 2]},
+          side: %{main: ["01", 2]}
+        }
+      })
+
+      program = %StageBased{
+        name: "valid_transitions",
+        stages_ref: stages,
+        enter: ["main"],
+        leave: [],
+        flows: %{
+          "main" => [%Flow{to: "side", transition: "default"}],
+          "side" => [%Flow{to: "main", transition: "default"}]
+        }
+      }
+
+      assert {:ok, _} = StageBased.validate(program)
+    end
   end
 
   describe "delegated functions" do

@@ -194,7 +194,31 @@ defmodule Tlc.Program.StageBased do
       if invalid_flows do
         {:error, "Program flows reference undefined stages"}
       else
-        :ok
+        # Ensure each flow has a corresponding transition defined in the stages
+        missing_transitions =
+          flows
+          |> Enum.flat_map(fn {from, flow_list} ->
+            Enum.map(flow_list, fn %Flow{to: to, transition: transition_name} ->
+              # Treat nil/empty transition names as explicit default per spec
+              variant = case transition_name do
+                t when t in [nil, ""] -> "default"
+                t -> to_string(t)
+              end
+
+              case Map.get(stages_ref.transitions, {from, to}) do
+                nil -> {from, to, variant}
+                variants_map -> if Map.has_key?(variants_map, variant), do: nil, else: {from, to, variant}
+              end
+            end)
+          end)
+          |> Enum.reject(&is_nil/1)
+
+        if missing_transitions != [] do
+          details = missing_transitions |> Enum.map(fn {f, t, name} -> "#{f}->#{t} (#{name})" end) |> Enum.join(", ")
+          {:error, "Program flows reference missing transitions: #{details}"}
+        else
+          :ok
+        end
       end
     end
   end
