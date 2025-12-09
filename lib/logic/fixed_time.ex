@@ -20,9 +20,15 @@ defmodule Tlc.Logic.FixedTime do
             waited: 0,
             current_states: ""
 
-  # Wrap modulo with Integer.mod to provide a consistently non-negative result
-  # keeping the original semantic of rem(...) + y used previously.
-  def mod(x, y), do: Integer.mod(x, y)
+  # Define modulo function since rem() returns negative values for negative inputs
+  # and we want a non-negative result similar to the mathematical modulo.
+  # Original implementation used rem(rem(x,y)+y, y) which keeps behavior simple
+  # and matches the earlier codebase expectations.
+  # Use Integer.mod to compute a non-negative remainder. This mirrors
+  # the mathematical modulo and returns a value in 0..(y-1) for positive y.
+  # Callers must provide integer arguments — Integer.mod/2 will raise on
+  # invalid inputs which keeps failures explicit.
+  # The module no longer defines a helper; use Integer.mod/2 directly.
 
   def new(program, target_program \\ nil) do
     %Tlc.Logic.FixedTime{
@@ -59,18 +65,21 @@ defmodule Tlc.Logic.FixedTime do
   end
 
   def update_base_time(logic) do
-    %{logic | base_time: mod(logic.unix_time, logic.program.length) }
+    %{logic | base_time: Integer.mod(logic.unix_time, logic.program.length) }
   end
 
   def find_target_distance(logic) do
     length = logic.program.length
-    diff = mod(logic.target_offset - logic.offset, length)
+    diff = Integer.mod(logic.target_offset - logic.offset, length)
 
-    # prefer the forward path only when there are defined skips to jump forward
-    if diff < length / 2 and map_size(logic.program.skips || %{}) > 0 do
+    # Prefer the forward path if the computed forward distance isn't larger
+    # than half the cycle and the program defines skips (so jumping forward
+    # is possible). If the program length is invalid or there are no skips
+    # prefer the negative/backward path.
+    if map_size(logic.program.skips || %{}) > 0 and diff <= length / 2 do
       %{logic | target_distance: diff}
     else
-      %{logic | target_distance: -mod(logic.offset - logic.target_offset, length)}
+      %{logic | target_distance: -Integer.mod(logic.offset - logic.target_offset, length)}
     end
   end
 
@@ -82,7 +91,7 @@ defmodule Tlc.Logic.FixedTime do
         if logic.waited < duration do
           # wait by moving offset back by unix_delta
           logic
-          |> Map.update!(:offset_adjust, fn adj -> mod(adj - logic.unix_delta, logic.program.length) end)
+          |> Map.update!(:offset_adjust, fn adj -> Integer.mod(adj - logic.unix_delta, logic.program.length) end)
           |> Map.update!(:waited, &(&1 + logic.unix_delta))
           |> update_offset()
           |> find_target_distance()
@@ -101,7 +110,7 @@ defmodule Tlc.Logic.FixedTime do
 
       duration when is_integer(duration) and duration > 0 ->
         logic
-        |> Map.update!(:offset_adjust, fn adj -> mod(adj + duration, logic.program.length) end)
+        |> Map.update!(:offset_adjust, fn adj -> Integer.mod(adj + duration, logic.program.length) end)
         |> update_offset()
         |> compute_cycle_time()
         |> find_target_distance()
@@ -112,11 +121,11 @@ defmodule Tlc.Logic.FixedTime do
   def apply_skips(logic), do: logic
 
   def compute_cycle_time(logic) do
-    %{logic | cycle_time: mod(logic.base_time + logic.offset, logic.program.length) }
+    %{logic | cycle_time: Integer.mod(logic.base_time + logic.offset, logic.program.length) }
   end
 
   def set_target_offset(logic, target_offset) do
-    %{logic | target_offset: mod(target_offset, logic.program.length)}
+    %{logic | target_offset: Integer.mod(target_offset, logic.program.length)}
     |> find_target_distance
   end
 
@@ -127,7 +136,7 @@ defmodule Tlc.Logic.FixedTime do
   end
 
   def update_offset(logic) do
-    %{logic | offset: mod(logic.program.offset + logic.offset_adjust, logic.program.length) }
+    %{logic | offset: Integer.mod(logic.program.offset + logic.offset_adjust, logic.program.length) }
   end
 
   # When we're halted and asked to set a target program we only accept
@@ -177,14 +186,18 @@ defmodule Tlc.Logic.FixedTime do
   end
 
   def switch(logic) do
-    %{logic | program: logic.target_program, target_program: nil }
+    # Capture the target program value first for clarity and to avoid
+    # referencing mutated fields during the pipeline.
+    target = logic.target_program
+
+    %{logic | program: target, target_program: nil }
     |> update_base_time()
-    |> sync(logic.target_program.switch)
+    |> sync(target.switch)
   end
 
   def sync(logic, target_cycle_time) do
     %{logic |
-      offset_adjust: mod(target_cycle_time - logic.unix_time - logic.program.offset, logic.program.length)
+      offset_adjust: Integer.mod(target_cycle_time - logic.unix_time - logic.program.offset, logic.program.length)
     }
     |> update_offset
     |> compute_cycle_time
@@ -193,7 +206,7 @@ defmodule Tlc.Logic.FixedTime do
   end
 
   def sync_time(logic, sync_time) do
-    target_offset = mod(sync_time - logic.base_time, logic.program.length)
+    target_offset = Integer.mod(sync_time - logic.base_time, logic.program.length)
     logic
       |> set_target_offset(target_offset)
   end

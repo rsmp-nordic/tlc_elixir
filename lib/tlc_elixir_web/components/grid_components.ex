@@ -105,19 +105,19 @@ defmodule TlcElixirWeb.GridComponents do
     is_start_of_skip = has_skip
 
     is_end_of_skip = Enum.any?(assigns.program.skips || %{}, fn {start, duration} ->
-      assigns.cycle == Tlc.Logic.FixedTime.mod(start + duration, assigns.program.length)
+      assigns.cycle == Integer.mod(start + duration, assigns.program.length)
     end)
 
     skip_start_point = if is_end_of_skip && assigns.editing do
       Enum.find_value(assigns.program.skips || %{}, fn {start, duration} ->
-        if assigns.cycle == Tlc.Logic.FixedTime.mod(start + duration, assigns.program.length), do: start, else: nil
+        if assigns.cycle == Integer.mod(start + duration, assigns.program.length), do: start, else: nil
       end)
     else
       nil
     end
 
     current_cell_has_invalid_skip = if assigns.editing && is_end_of_skip && skip_start_point do
-      start_state = Tlc.Program.FixedTime.resolve_state(assigns.program, Tlc.Logic.FixedTime.mod(skip_start_point - 1, assigns.program.length))
+      start_state = Tlc.Program.FixedTime.resolve_state(assigns.program, Integer.mod(skip_start_point - 1, assigns.program.length))
       end_state = Tlc.Program.FixedTime.resolve_state(assigns.program, assigns.cycle)
 
       skip_transitions = Enum.reduce(Enum.with_index(assigns.program.groups), [], fn {group_name, i}, acc ->
@@ -155,7 +155,7 @@ defmodule TlcElixirWeb.GridComponents do
     end
 
     is_within_skip = Enum.any?(assigns.program.skips || %{}, fn {start, duration} ->
-      end_cycle = Tlc.Logic.FixedTime.mod(start + duration, assigns.program.length)
+      end_cycle = Integer.mod(start + duration, assigns.program.length)
       if start < end_cycle do
         assigns.cycle > start && assigns.cycle < end_cycle
       else

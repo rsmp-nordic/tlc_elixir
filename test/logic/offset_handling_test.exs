@@ -74,7 +74,7 @@ defmodule Tlc.Logic.OffsetHandlingTest do
 
       assert logic.offset == 2
       assert logic.target_distance == 0
-      assert logic.cycle_time == Logic.mod(logic.base_time + logic.offset, program.length)
+      assert logic.cycle_time == Integer.mod(logic.base_time + logic.offset, program.length)
     end
 
     test "wait honors multi-second ticks when moving backwards" do
@@ -96,9 +96,9 @@ defmodule Tlc.Logic.OffsetHandlingTest do
       ticker = Ticker.new(logic, -2) |> Ticker.tick(2) |> Ticker.tick(2)
       logic = ticker.logic
 
-      assert logic.offset_adjust == Logic.mod(-2, program.length)
+      assert logic.offset_adjust == Integer.mod(-2, program.length)
       assert logic.target_distance <= 0
-      assert logic.offset == Logic.mod(program.offset + logic.offset_adjust, program.length)
+      assert logic.offset == Integer.mod(program.offset + logic.offset_adjust, program.length)
     end
   end
 end

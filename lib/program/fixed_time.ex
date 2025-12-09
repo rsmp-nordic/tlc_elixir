@@ -193,7 +193,7 @@ defmodule Tlc.Program.FixedTime do
 
           # Check if transition is valid
           if next_signal not in valid_next_signals do
-            next_cycle = Tlc.Logic.FixedTime.mod(cycle + 1, program.length)
+            next_cycle = Integer.mod(cycle + 1, program.length)
             {{next_cycle, group_idx}, "Invalid transition from '#{current_signal}' to '#{next_signal}'. Valid transitions from '#{current_signal}' are: #{Enum.join(valid_next_signals, ", ")}"}
           end
         end
@@ -267,7 +267,7 @@ defmodule Tlc.Program.FixedTime do
   """
   def resolve_state(program, cycle_time) do
     # Apply modulo to wrap cycle_time
-    wrapped_cycle_time = Tlc.Logic.FixedTime.mod(cycle_time, program.length)
+    wrapped_cycle_time = Integer.mod(cycle_time, program.length)
 
     # Get all defined times in descending order
     times = program.states |> Map.keys() |> Enum.sort(:desc)
