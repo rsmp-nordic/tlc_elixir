@@ -20,8 +20,9 @@ defmodule Tlc.Logic.FixedTime do
             waited: 0,
             current_states: ""
 
-  # Define modulo function since rem() returns negative values for negative inputs
-  def mod(x,y), do: rem( rem(x,y)+y, y)
+  # Wrap modulo with Integer.mod to provide a consistently non-negative result
+  # keeping the original semantic of rem(...) + y used previously.
+  def mod(x, y), do: Integer.mod(x, y)
 
   def new(program, target_program \\ nil) do
     %Tlc.Logic.FixedTime{
@@ -62,43 +63,50 @@ defmodule Tlc.Logic.FixedTime do
   end
 
   def find_target_distance(logic) do
-    diff = mod(logic.target_offset - logic.offset, logic.program.length)
-    if diff < logic.program.length/2 && Enum.any?(logic.program.skips) do   # moving forward only possible if skips are defined
-      %{logic | target_distance: diff }
+    length = logic.program.length
+    diff = mod(logic.target_offset - logic.offset, length)
+
+    # prefer the forward path only when there are defined skips to jump forward
+    if diff < length / 2 and map_size(logic.program.skips || %{}) > 0 do
+      %{logic | target_distance: diff}
     else
-      %{logic | target_distance: -mod(logic.offset - logic.target_offset, logic.program.length) }
+      %{logic | target_distance: -mod(logic.offset - logic.target_offset, length)}
     end
   end
 
-  def apply_waits(logic) when logic.target_distance < 0 do
-    case Map.get(logic.program.waits, logic.cycle_time) do
+  def apply_waits(%{target_distance: dist} = logic) when dist < 0 do
+    case Map.get(logic.program.waits || %{}, logic.cycle_time) do
       nil -> %{logic | waited: 0}
-      duration ->
+
+      duration when is_integer(duration) and duration > 0 ->
         if logic.waited < duration do
-          # wait by moving offset back 1
-          %{logic |
-            offset_adjust: mod(logic.offset_adjust - logic.unix_delta, logic.program.length),
-            waited: logic.waited + logic.unix_delta
-          }
-          |> update_offset
-          |> find_target_distance
+          # wait by moving offset back by unix_delta
+          logic
+          |> Map.update!(:offset_adjust, fn adj -> mod(adj - logic.unix_delta, logic.program.length) end)
+          |> Map.update!(:waited, &(&1 + logic.unix_delta))
+          |> update_offset()
+          |> find_target_distance()
         else
-          # wait maxed so continue
-          %{logic | waited: 0 }
+          %{logic | waited: 0}
         end
+
+      _ -> %{logic | waited: 0}
     end
   end
   def apply_waits(logic), do: %{logic | waited: 0 }
 
-  def apply_skips(logic) when logic.target_distance > 0 do
-    case Map.get(logic.program.skips, logic.cycle_time) do
+  def apply_skips(%{target_distance: dist} = logic) when dist > 0 do
+    case Map.get(logic.program.skips || %{}, logic.cycle_time) do
       nil -> logic
-      duration ->
-        # Apply skip and handle wrap-around if the new offset exceeds the cycle length
-        %{logic | offset_adjust: mod(logic.offset_adjust + duration, logic.program.length)}
-        |> update_offset
-        |> compute_cycle_time
-        |> find_target_distance
+
+      duration when is_integer(duration) and duration > 0 ->
+        logic
+        |> Map.update!(:offset_adjust, fn adj -> mod(adj + duration, logic.program.length) end)
+        |> update_offset()
+        |> compute_cycle_time()
+        |> find_target_distance()
+
+      _ -> logic
     end
   end
   def apply_skips(logic), do: logic

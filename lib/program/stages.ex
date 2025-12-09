@@ -325,11 +325,11 @@ defmodule Tlc.Program.Stages do
   defp validate_transitions(%{transitions: transitions, groups: groups}) when is_map(transitions) do
     group_count = length(groups)
 
-    # Verify each transition sequence has valid states
+      # Verify each transition sequence has valid states
     invalid = Enum.find(transitions, fn {_key, variants} ->
       Enum.any?(variants, fn {_name, transition} ->
         Enum.any?(transition.sequence, fn step ->
-          String.length(step.state) != group_count or step.duration <= 0
+          invalid_transition_step?(step, group_count)
         end)
       end)
     end)
@@ -388,7 +388,7 @@ defmodule Tlc.Program.Stages do
   end
 
   defp validate_state_pair(current, next) when byte_size(current) == byte_size(next) do
-    0..(String.length(current) - 1)
+     0..(byte_size(current) - 1)
     |> Enum.reduce_while(:ok, fn idx, _acc ->
       current_signal = String.at(current, idx)
       next_signal = String.at(next, idx)
@@ -437,6 +437,14 @@ defmodule Tlc.Program.Stages do
       variants ->
         Map.get(variants, transition_name) || Map.get(variants, "default")
     end
+  end
+
+  # Helper: return true when a transition step is invalid.
+  # A step is invalid when:
+  # - the state string length doesn't match the number of groups in the program
+  # - the duration is not a positive integer
+  defp invalid_transition_step?(%TransitionStep{state: state, duration: duration}, group_count) do
+    byte_size(state) != group_count or not (is_integer(duration) and duration > 0)
   end
 
   @doc """

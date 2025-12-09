@@ -84,7 +84,7 @@ defimpl Tlc.Logic.Protocol, for: Tlc.Logic.FixedTime do
     groups = logic.program.groups || []
     idx = Enum.find_index(groups, fn g -> g == group_id end)
 
-    if is_integer(idx) and idx < String.length(logic.current_states) do
+    if is_integer(idx) and idx < byte_size(logic.current_states) do
       String.at(logic.current_states, idx)
     else
       nil

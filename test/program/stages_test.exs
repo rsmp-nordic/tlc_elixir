@@ -101,6 +101,38 @@ defmodule Tlc.Program.StagesTest do
       assert Stages.transition_duration(quick_transition) == 3
     end
 
+    test "parse_sequence ignores incomplete pairs" do
+      config = %{
+        name: "incomplete",
+        groups: ["a"],
+        stages: %{ main: %{open: ["a"], duration: %{default: 5}} },
+        transitions: %{ main: %{ side: ["G", 2, "R"] } }
+      }
+
+      stages = Stages.from_config(config)
+
+      # sequence should only contain the complete pair ("G", 2) and ignore the trailing "R"
+      t = stages.transitions[{"main","side"}]["default"]
+      assert length(t.sequence) == 1
+      assert hd(t.sequence).state == "G"
+      assert hd(t.sequence).duration == 2
+    end
+
+    test "parse_flows ignores invalid flow values" do
+      config = %{
+        name: "badflows",
+        groups: ["a"],
+        stages: %{ main: %{open: ["a"], duration: %{default: 5}} },
+        transitions: %{},
+        main: %{ side: "notalist" }
+      }
+
+      stages = Stages.from_config(config)
+
+      # flows created from arbitrary keys should ignore the invalid destination
+      assert Map.get(stages.transitions, {"main","side"}) == nil
+    end
+
     test "parses string keys in configuration" do
       config = %{
         "name" => "string_keys",
@@ -178,6 +210,46 @@ defmodule Tlc.Program.StagesTest do
             name: "default",
             sequence: [
               %TransitionStep{state: "YYRR", duration: 0}
+            ]
+          }
+        }
+      }
+
+      stages = %Stages{stages | transitions: bad_transitions}
+      assert {:error, _} = Stages.validate(stages)
+    end
+
+    test "rejects transition with negative duration" do
+      stages = Stages.example()
+
+      bad_transitions = %{
+        {"main", "side"} => %{
+          "default" => %Transition{
+            from: "main",
+            to: "side",
+            name: "default",
+            sequence: [
+              %TransitionStep{state: "YYRRR", duration: -1}
+            ]
+          }
+        }
+      }
+
+      stages = %Stages{stages | transitions: bad_transitions}
+      assert {:error, _} = Stages.validate(stages)
+    end
+
+    test "rejects transition with non-integer duration" do
+      stages = Stages.example()
+
+      bad_transitions = %{
+        {"main", "side"} => %{
+          "default" => %Transition{
+            from: "main",
+            to: "side",
+            name: "default",
+            sequence: [
+              %TransitionStep{state: "YYRRR", duration: "3"}
             ]
           }
         }

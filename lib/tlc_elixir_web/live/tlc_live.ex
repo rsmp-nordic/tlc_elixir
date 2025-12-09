@@ -109,18 +109,7 @@ defmodule TlcElixirWeb.TlcLive do
         Tlc.Server.clear_target_program(socket.assigns.server)
       end
 
-      program_text = Jason.encode!(program_to_edit, pretty: true)
-
-      socket = assign(socket,
-        editing: true,
-        edited_program: program_to_edit,
-        program_text: program_text,
-        json_error: nil,
-        validation_error: nil
-      )
-      socket = validate_edited_program(socket)
-
-      {:noreply, socket}
+      {:noreply, assign_edit_start(socket, program_to_edit)}
     else
       {:noreply, socket}
     end
@@ -189,15 +178,8 @@ defmodule TlcElixirWeb.TlcLive do
       group_idx = parse_int(group_str)
 
       updated_program = Tlc.Program.FixedTime.set_group_signal(socket.assigns.edited_program, cycle, group_idx, signal)
-      program_text = Jason.encode!(updated_program, pretty: true)
 
-      socket = assign(socket,
-        edited_program: updated_program,
-        program_text: program_text
-      )
-      socket = validate_edited_program(socket)
-
-      {:noreply, socket}
+      {:noreply, assign_edit_update(socket, updated_program)}
     else
       {:noreply, socket}
     end
@@ -275,23 +257,10 @@ defmodule TlcElixirWeb.TlcLive do
 
     {cycle_start, cycle_end} = if start_cycle <= end_cycle, do: {start_cycle, end_cycle}, else: {end_cycle, start_cycle}
 
-    updated_program = Tlc.Program.FixedTime.set_group_signal_range(
-      socket.assigns.edited_program,
-      cycle_start,
-      cycle_end,
-      group_idx,
-      signal
-    )
+    updated_program = Tlc.Program.FixedTime.set_group_signal_range(socket.assigns.edited_program, cycle_start, cycle_end, group_idx, signal)
 
-    program_text = Jason.encode!(updated_program, pretty: true)
-
-    socket = assign(socket,
-      edited_program: updated_program,
-      drag_start: nil,
-      drag_signal: nil,
-      program_text: program_text
-    )
-    socket = validate_edited_program(socket)
+    socket = assign_edit_update(socket, updated_program)
+    socket = assign(socket, drag_start: nil, drag_signal: nil)
 
     {:noreply, socket}
   end
@@ -600,6 +569,22 @@ defmodule TlcElixirWeb.TlcLive do
   defp validate_edited_program(socket) do
     invalid_transitions = Tlc.Program.FixedTime.get_invalid_transitions(socket.assigns.edited_program)
     assign(socket, invalid_transitions: invalid_transitions)
+  end
+
+  defp assign_edit_start(socket, program_to_edit) do
+    program_text = Jason.encode!(program_to_edit, pretty: true)
+
+    socket
+    |> assign(editing: true, edited_program: program_to_edit, program_text: program_text, json_error: nil, validation_error: nil)
+    |> validate_edited_program()
+  end
+
+  defp assign_edit_update(socket, updated_program) do
+    program_text = Jason.encode!(updated_program, pretty: true)
+
+    socket
+    |> assign(edited_program: updated_program, program_text: program_text)
+    |> validate_edited_program()
   end
 
   defp parse_int(value) when is_binary(value) do

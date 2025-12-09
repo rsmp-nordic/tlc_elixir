@@ -100,247 +100,9 @@ defmodule Tlc.Server do
     Logger.info("[Tlc.Server] Initializing for session_id: #{session_id}")
     # All fixed-time programs use switch point state "GGRRR" to match stage-based "main" stage
     # Programs are designed to have groups change at different times within the cycle
-  stages = %Tlc.Program.Stages{
-      name: "example_stages",
-      groups: ["a1", "a2", "b1", "b2", "a1_l"],
-      stages: %{
-        "main" => %Tlc.Program.Stages.Stage{
-          id: "main",
-          open: ["a1", "a2"],
-          duration: %Tlc.Program.Stages.Duration{default: 20, max: 29}
-        },
-        "side" => %Tlc.Program.Stages.Stage{
-          id: "side",
-          open: ["b1", "b2"],
-          duration: %Tlc.Program.Stages.Duration{min: 10, default: 20, max: 26}
-        },
-        "turn" => %Tlc.Program.Stages.Stage{
-          id: "turn",
-          open: ["a1_l"],
-          duration: %Tlc.Program.Stages.Duration{default: 10}
-        },
-        "oneway" => %Tlc.Program.Stages.Stage{
-          id: "oneway",
-          open: ["a1"],
-          duration: %Tlc.Program.Stages.Duration{default: 15}
-        }
-      },
-      transitions: %{
-        {"main", "side"} => %{
-          "default" => %Tlc.Program.Stages.Transition{
-            from: "main",
-            to: "side",
-            name: "default",
-            sequence: [
-              %Tlc.Program.Stages.TransitionStep{state: "YYRRR", duration: 3},
-              %Tlc.Program.Stages.TransitionStep{state: "RRAAR", duration: 2}
-            ]
-          },
-          "quick" => %Tlc.Program.Stages.Transition{
-            from: "main",
-            to: "side",
-            name: "quick",
-            sequence: [
-              %Tlc.Program.Stages.TransitionStep{state: "YYRRR", duration: 5},
-              %Tlc.Program.Stages.TransitionStep{state: "RRAAR", duration: 4}
-            ]
-          }
-        },
-        {"main", "turn"} => %{
-          "default" => %Tlc.Program.Stages.Transition{
-            from: "main",
-            to: "turn",
-            name: "default",
-            sequence: [%Tlc.Program.Stages.TransitionStep{state: "YYRRA", duration: 3}]
-          }
-        },
-        {"side", "turn"} => %{
-          "default" => %Tlc.Program.Stages.Transition{
-            from: "side",
-            to: "turn",
-            name: "default",
-            sequence: [
-              %Tlc.Program.Stages.TransitionStep{state: "RRYYR", duration: 3},
-              %Tlc.Program.Stages.TransitionStep{state: "RRRRA", duration: 2}
-            ]
-          },
-          "quick" => %Tlc.Program.Stages.Transition{
-            from: "side",
-            to: "turn",
-            name: "quick",
-            sequence: [%Tlc.Program.Stages.TransitionStep{state: "RRYYR", duration: 3}]
-          }
-        },
-        {"turn", "main"} => %{
-          "default" => %Tlc.Program.Stages.Transition{
-            from: "turn",
-            to: "main",
-            name: "default",
-            sequence: [%Tlc.Program.Stages.TransitionStep{state: "ARRRY", duration: 3}]
-          }
-        },
-        {"turn", "side"} => %{
-          "default" => %Tlc.Program.Stages.Transition{
-            from: "turn",
-            to: "side",
-            name: "default",
-            sequence: [
-              %Tlc.Program.Stages.TransitionStep{state: "RRRRY", duration: 3},
-              %Tlc.Program.Stages.TransitionStep{state: "RRAAR", duration: 2}
-            ]
-          }
-        },
-        {"side", "main"} => %{
-          "default" => %Tlc.Program.Stages.Transition{
-            from: "side",
-            to: "main",
-            name: "default",
-            sequence: [
-              %Tlc.Program.Stages.TransitionStep{state: "RRYYR", duration: 3},
-              %Tlc.Program.Stages.TransitionStep{state: "AARRR", duration: 2}
-            ]
-          }
-        }
-      }
-    }
+    stages = default_stages()
+    programs = default_programs(stages)
 
-    programs = [
-      %Tlc.Program.FixedTime{
-        name: "halt",
-        length: 12,
-        groups: ["a1", "a2", "b1", "b2", "a1_l"],
-        states: %{ 0 => "DDDDD", 1 => "RRRRR", 3 => "AARRR", 5 => "GGRRR", 8 => "YYRRR", 10 => "RRRRR" },
-        switch: 5,
-        halt: 0
-      },
-      # "calm" - short cycle where a1 and a2 turn off at different times
-      %Tlc.Program.FixedTime{
-        name: "calm",
-        length: 12,
-        offset: 0,
-        groups: ["a1", "a2", "b1", "b2", "a1_l"],
-        states: %{
-          0 => "GGRRR",   # switch point - both main directions green
-          2 => "GYRRR",   # a2 goes yellow, a1 still green
-          3 => "GRRRR",   # a2 goes red, a1 still green
-          4 => "YRRRR",   # a1 goes yellow
-          5 => "RRRRR",   # all red clearance
-          6 => "RRAAR",   # side directions get amber
-          7 => "RRGGR",   # side directions get green
-          9 => "RRYYR",   # side directions get yellow
-          10 => "RRRRR",  # all red clearance
-          11 => "ARRRR"   # a1 gets amber first (a2 comes with wrap to cycle start)
-        },
-        switch: 0
-      },
-      # "normal" - includes left turn phase with staggered a1/a2
-      %Tlc.Program.FixedTime{
-        name: "normal",
-        length: 16,
-        offset: 0,
-        groups: ["a1", "a2", "b1", "b2", "a1_l"],
-        states: %{
-          0 => "GGRRR",   # switch point - main directions green
-          3 => "GYRRR",   # a2 turns yellow (a1 continues)
-          4 => "GRRRY",   # a2 red, a1 still green, left turn yellow
-          5 => "GRRRG",   # left turn green with a1
-          7 => "YRRRY",   # a1 and left turn go yellow
-          8 => "RRRRR",   # all red clearance
-          9 => "RRAAR",   # side gets amber
-          10 => "RRGGR",  # side gets green
-          12 => "RRGYR",  # b2 goes yellow first
-          13 => "RRYYR",  # all side goes yellow
-          14 => "RRRRR",  # all red clearance
-          15 => "AARRR"   # main gets amber
-        },
-        switch: 0
-      },
-      # "busy" - longer cycle with more distinct group changes
-      %Tlc.Program.FixedTime{
-        name: "busy",
-        length: 20,
-        offset: 0,
-        groups: ["a1", "a2", "b1", "b2", "a1_l"],
-        states: %{
-          0 => "GGRRR",   # switch point - main directions green
-          4 => "GYRRR",   # a2 goes yellow (a1 continues)
-          5 => "GRRRR",   # a2 goes red
-          6 => "GRRRA",   # left turn gets amber (a1 still green)
-          7 => "GRRRG",   # left turn gets green
-          9 => "YRRRY",   # a1 and left turn go yellow
-          10 => "RRRRR",  # all red clearance
-          11 => "RRAAR",  # side gets amber
-          12 => "RRGGR",  # side gets green (b1 and b2)
-          14 => "RRGYR",  # b2 goes yellow first
-          15 => "RRGRR",  # b2 red, b1 still green
-          16 => "RRYRA",  # b1 yellow, left turn amber (preparing)
-          17 => "RRRRR",  # all red clearance (left amber can go to R)
-          18 => "ARRRR",  # a1 gets amber
-          19 => "GARRR"   # a1 green, a2 amber
-        },
-        switch: 0
-      },
-      # "long" - extended cycle with multiple distinct phases
-      %Tlc.Program.FixedTime{
-        name: "long",
-        length: 28,
-        offset: 0,
-        groups: ["a1", "a2", "b1", "b2", "a1_l"],
-        states: %{
-          0 => "GGRRR",   # switch point - main directions green
-          6 => "GYRRR",   # a2 goes yellow first
-          7 => "GRRRR",   # a2 goes red, a1 continues
-          9 => "YRRRA",   # a1 goes yellow, left turn amber
-          10 => "RRRRG",  # left turn gets green
-          13 => "RRRRY",  # left turn goes yellow
-          14 => "RRRRR",  # all red clearance
-          15 => "RRAAG",  # side amber, left turn green
-          16 => "RRGGY",  # side green, left turn yellow
-          17 => "RRGGR",  # side green, left turn red
-          21 => "RRGYR",  # b2 goes yellow first
-          22 => "RRYYR",  # both side yellow
-          23 => "RRRRR",  # all red clearance
-          24 => "ARRRR",  # a1 amber first
-          25 => "GARRR",  # a1 green, a2 amber
-          26 => "GGARR",  # both green, extra brief amber on b1 (stays from cycle)
-          27 => "GGARR"   # continues until wrap
-        },
-        switch: 0
-      },
-      %Tlc.Program.FixedTime{
-        name: "fault",
-        length: 1,
-        groups: ["a1", "a2", "b1", "b2", "a1_l"],
-        states: %{ 0 => "RRRRR" },
-        switch: 0
-      },
-      # Stage-based programs (declared inline so server doesn't rely on example helpers)
-      %Tlc.Program.StageBased{
-        name: "quiet",
-        stages_ref: stages,
-        enter: ["main"],
-        leave: ["main"],
-        flows: %{
-          "main" => [
-            %Tlc.Program.StageBased.Flow{to: "side", transition: "default"},
-            %Tlc.Program.StageBased.Flow{to: "turn", transition: "default"}
-          ],
-          "side" => [%Tlc.Program.StageBased.Flow{to: "turn", transition: "default"}],
-          "turn" => [%Tlc.Program.StageBased.Flow{to: "main", transition: "default"}]
-        }
-      },
-
-      %Tlc.Program.StageBased{
-        name: "event",
-        stages_ref: stages,
-        enter: ["main"],
-        leave: ["main"],
-        flows: %{
-          "side" => [%Tlc.Program.StageBased.Flow{to: "main", transition: "default"}],
-          "main" => [%Tlc.Program.StageBased.Flow{to: "side", transition: "quick"}]
-        }
-      },
-     ]
 
     # Validate program switch compatibility. SwitchValidator returns structures
     # describing issues — it does not log directly, allowing the caller control
@@ -379,6 +141,45 @@ defmodule Tlc.Server do
 
     schedule_tick(real_ms, virtual_unix_time, tlc_server_state.interval)
     {:ok, tlc_server_state}
+  end
+
+  # Helpers - keep demo fixtures out of `init/1` to reduce visual noise
+  defp default_stages do
+    %Tlc.Program.Stages{
+      name: "example_stages",
+      groups: ["a1", "a2", "b1", "b2", "a1_l"],
+      stages: %{
+        "main" => %Tlc.Program.Stages.Stage{id: "main", open: ["a1", "a2"], duration: %Tlc.Program.Stages.Duration{default: 20, max: 29}},
+        "side" => %Tlc.Program.Stages.Stage{id: "side", open: ["b1", "b2"], duration: %Tlc.Program.Stages.Duration{min: 10, default: 20, max: 26}},
+        "turn" => %Tlc.Program.Stages.Stage{id: "turn", open: ["a1_l"], duration: %Tlc.Program.Stages.Duration{default: 10}},
+        "oneway" => %Tlc.Program.Stages.Stage{id: "oneway", open: ["a1"], duration: %Tlc.Program.Stages.Duration{default: 15}}
+      },
+      transitions: %{
+        {"main", "side"} => %{
+          "default" => %Tlc.Program.Stages.Transition{from: "main", to: "side", name: "default", sequence: [%Tlc.Program.Stages.TransitionStep{state: "YYRRR", duration: 3}, %Tlc.Program.Stages.TransitionStep{state: "RRAAR", duration: 2}]},
+          "quick" => %Tlc.Program.Stages.Transition{from: "main", to: "side", name: "quick", sequence: [%Tlc.Program.Stages.TransitionStep{state: "YYRRR", duration: 5}, %Tlc.Program.Stages.TransitionStep{state: "RRAAR", duration: 4}]}
+        },
+        {"main", "turn"} => %{ "default" => %Tlc.Program.Stages.Transition{from: "main", to: "turn", name: "default", sequence: [%Tlc.Program.Stages.TransitionStep{state: "YYRRA", duration: 3}] } },
+        {"side", "turn"} => %{ "default" => %Tlc.Program.Stages.Transition{from: "side", to: "turn", name: "default", sequence: [%Tlc.Program.Stages.TransitionStep{state: "RRYYR", duration: 3}, %Tlc.Program.Stages.TransitionStep{state: "RRRRA", duration: 2}]},
+                             "quick" => %Tlc.Program.Stages.Transition{from: "side", to: "turn", name: "quick", sequence: [%Tlc.Program.Stages.TransitionStep{state: "RRYYR", duration: 3}] } },
+        {"turn", "main"} => %{ "default" => %Tlc.Program.Stages.Transition{from: "turn", to: "main", name: "default", sequence: [%Tlc.Program.Stages.TransitionStep{state: "ARRRY", duration: 3}] } },
+        {"turn", "side"} => %{ "default" => %Tlc.Program.Stages.Transition{from: "turn", to: "side", name: "default", sequence: [%Tlc.Program.Stages.TransitionStep{state: "RRRRY", duration: 3}, %Tlc.Program.Stages.TransitionStep{state: "RRAAR", duration: 2}] } },
+        {"side", "main"} => %{ "default" => %Tlc.Program.Stages.Transition{from: "side", to: "main", name: "default", sequence: [%Tlc.Program.Stages.TransitionStep{state: "RRYYR", duration: 3}, %Tlc.Program.Stages.TransitionStep{state: "AARRR", duration: 2}] } }
+      }
+    }
+  end
+
+  defp default_programs(stages) do
+    [
+      %Tlc.Program.FixedTime{name: "halt", length: 12, groups: stages.groups, states: %{ 0 => "DDDDD", 1 => "RRRRR", 3 => "AARRR", 5 => "GGRRR", 8 => "YYRRR", 10 => "RRRRR" }, switch: 5, halt: 0},
+      %Tlc.Program.FixedTime{name: "calm", length: 12, offset: 0, groups: stages.groups, states: %{0 => "GGRRR", 2 => "GYRRR", 3 => "GRRRR", 4 => "YRRRR", 5 => "RRRRR", 6 => "RRAAR", 7 => "RRGGR", 9 => "RRYYR", 10 => "RRRRR", 11 => "ARRRR"}, switch: 0},
+      %Tlc.Program.FixedTime{name: "normal", length: 16, offset: 0, groups: stages.groups, states: %{0 => "GGRRR", 3 => "GYRRR", 4 => "GRRRY", 5 => "GRRRG", 7 => "YRRRY", 8 => "RRRRR", 9 => "RRAAR", 10 => "RRGGR", 12 => "RRGYR", 13 => "RRYYR", 14 => "RRRRR", 15 => "AARRR"}, switch: 0},
+      %Tlc.Program.FixedTime{name: "busy", length: 20, offset: 0, groups: stages.groups, states: %{0 => "GGRRR", 4 => "GYRRR", 5 => "GRRRR", 6 => "GRRRA", 7 => "GRRRG", 9 => "YRRRY", 10 => "RRRRR", 11 => "RRAAR", 12 => "RRGGR", 14 => "RRGYR", 15 => "RRGRR", 16 => "RRYRA", 17 => "RRRRR", 18 => "ARRRR", 19 => "GARRR"}, switch: 0},
+      %Tlc.Program.FixedTime{name: "long", length: 28, offset: 0, groups: stages.groups, states: %{0 => "GGRRR", 6 => "GYRRR", 7 => "GRRRR", 9 => "YRRRA", 10 => "RRRRG", 13 => "RRRRY", 14 => "RRRRR", 15 => "RRAAG", 16 => "RRGGY", 17 => "RRGGR", 21 => "RRGYR", 22 => "RRYYR", 23 => "RRRRR", 24 => "ARRRR", 25 => "GARRR", 26 => "GGARR", 27 => "GGARR"}, switch: 0},
+      %Tlc.Program.FixedTime{name: "fault", length: 1, groups: stages.groups, states: %{0 => "RRRRR"}, switch: 0},
+      %Tlc.Program.StageBased{name: "quiet", stages_ref: stages, enter: ["main"], leave: ["main"], flows: %{"main" => [%Tlc.Program.StageBased.Flow{to: "side", transition: "default"}, %Tlc.Program.StageBased.Flow{to: "turn", transition: "default"}], "side" => [%Tlc.Program.StageBased.Flow{to: "turn", transition: "default"}], "turn" => [%Tlc.Program.StageBased.Flow{to: "main", transition: "default"}] } },
+      %Tlc.Program.StageBased{name: "event", stages_ref: stages, enter: ["main"], leave: ["main"], flows: %{ "side" => [%Tlc.Program.StageBased.Flow{to: "main", transition: "default"}], "main" => [%Tlc.Program.StageBased.Flow{to: "side", transition: "quick"}] }}
+    ]
   end
 
   @impl true
@@ -629,6 +430,7 @@ defmodule Tlc.Server do
     case Tlc.Logic.Protocol.get_target_program(logic) do
       nil -> nil
       %{} = program -> program.name
+      name when is_binary(name) -> name
       _ -> nil
     end
   end
@@ -654,16 +456,15 @@ defmodule Tlc.Server do
       # Programs must be designed so switch point states match
       current_state = Tlc.Logic.Protocol.current_states(logic)
       # Prefer letting the current logic perform the switch via the protocol.
-      new_logic =
-        case Tlc.Logic.Protocol.switch_immediate(logic, target_program, tlc.virtual_unix_time) do
-          ^logic ->
-            # logic did not perform an immediate switch — it must be cross-type
-            created = Tlc.Program.Factory.create_matching(target_program, current_state, tlc.virtual_unix_time)
-            if created, do: created, else: create_logic_for_program(target_program, tlc.virtual_unix_time, :switching)
+      new_logic = Tlc.Logic.Protocol.switch_immediate(logic, target_program, tlc.virtual_unix_time)
 
-          updated ->
-            updated
-        end
+      new_logic = if new_logic == logic do
+        # logic did not perform an immediate switch — it must be cross-type
+        Tlc.Program.Factory.create_matching(target_program, current_state, tlc.virtual_unix_time) ||
+          create_logic_for_program(target_program, tlc.virtual_unix_time, :switching)
+      else
+        new_logic
+      end
       %{tlc | logic: new_logic, target_program: nil}
     else
       # Not at a switch point yet, keep waiting

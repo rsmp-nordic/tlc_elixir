@@ -22,29 +22,27 @@ defmodule Tlc.Safety do
   The fault_program should be provided by the caller (e.g., from Tlc.Server).
   """
   def check_transitions(safety, logic, _fault_program) do
-    if Tlc.Logic.Protocol.mode(logic) != :fault do
-      previous_state = safety.previous_state
+    current = Tlc.Logic.Protocol.current_states(logic)
 
-      cond do
-        previous_state == nil || previous_state == "" ->
-          {:ok, %{safety | previous_state: Tlc.Logic.Protocol.current_states(logic)}, logic}
+    # If already in fault mode we skip validations but still update previous_state
+    if Tlc.Logic.Protocol.mode(logic) == :fault do
+      {:ok, %{safety | previous_state: current}, logic}
+    else
+      case safety.previous_state do
+        nil ->
+          {:ok, %{safety | previous_state: current}, logic}
 
-        previous_state != Tlc.Logic.Protocol.current_states(logic) ->
-          case Tlc.Program.FixedTime.validate_state_transition(previous_state, Tlc.Logic.Protocol.current_states(logic)) do
-            :ok ->
-              {:ok, %{safety | previous_state: Tlc.Logic.Protocol.current_states(logic)}, logic}
+        "" ->
+          {:ok, %{safety | previous_state: current}, logic}
 
-            {:error, reason} ->
-              # Don't log here - return a fault tuple with the reason so callers
-              # (servers / monitoring layers) can decide whether to log or handle it.
-              {:fault, %{safety | previous_state: Tlc.Logic.Protocol.current_states(logic)}, reason}
+        prev when prev != current ->
+          case Tlc.Program.FixedTime.validate_state_transition(prev, current) do
+            :ok -> {:ok, %{safety | previous_state: current}, logic}
+            {:error, reason} -> {:fault, %{safety | previous_state: current}, reason}
           end
 
-        true ->
-          {:ok, safety, logic}
+        _ -> {:ok, safety, logic}
       end
-    else
-      {:ok, %{safety | previous_state: Tlc.Logic.Protocol.current_states(logic)}, logic}
     end
   end
 

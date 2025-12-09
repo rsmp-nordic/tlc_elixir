@@ -36,6 +36,20 @@ defmodule Tlc.ServerProgramSwitchingTest do
   end
 
   describe "Server: switch_program/2" do
+    test "server initializes with expected default programs" do
+      pid = start_test_server()
+      :timer.sleep(50)
+
+      state = get_state(pid)
+      names = Enum.map(state.programs, & &1.name)
+
+      assert "halt" in names
+      assert "calm" in names
+      assert "quiet" in names
+      assert "event" in names
+
+      GenServer.stop(pid)
+    end
     test "sets target program for same-type fixed-time switch" do
       pid = start_test_server()
       :timer.sleep(100)  # Let it initialize

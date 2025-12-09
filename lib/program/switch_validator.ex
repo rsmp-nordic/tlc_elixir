@@ -26,32 +26,29 @@ defmodule Tlc.Program.SwitchValidator do
   Each issue is a map with the program name and error message.
   """
   def validate_all_programs(programs) do
-    Enum.flat_map(programs, fn program ->
-      case validate_program(program) do
-        {:ok, _} -> []
-        {:error, reason} ->
-          [%{
-            type: :program_validation,
-            program: program.name,
-            message: "Program '#{program.name}' is invalid: #{reason}"
-          }]
-      end
-    end)
+    Enum.flat_map(programs, &program_validation_issue/1)
+  end
+
+  defp program_validation_issue(program) do
+    case validate_program(program) do
+      {:ok, _} -> []
+      {:error, reason} ->
+        [%{type: :program_validation, program: program.name, message: "Program '#{program.name}' is invalid: #{reason}"}]
+    end
   end
 
   @doc """
   Validates a single program based on its type.
   """
   def validate_program(%FixedTime{} = program), do: FixedTime.validate(program)
-  def validate_program(%StageBased{} = program) do
-    # Validate the program itself
-    case StageBased.validate(program) do
-      {:ok, _} ->
-        # Also validate the stages_ref
-        Stages.validate(program.stages_ref)
-      error -> error
+    def validate_program(%StageBased{} = program) do
+      with {:ok, _} <- StageBased.validate(program),
+           {:ok, _} <- Stages.validate(program.stages_ref) do
+        {:ok, program}
+      else
+        error -> error
+      end
     end
-  end
   def validate_program(_), do: {:error, "Unknown program type"}
 
   @doc """
@@ -85,36 +82,34 @@ defmodule Tlc.Program.SwitchValidator do
     source_switch_points = get_switch_points(source, :leave)
     target_switch_points = get_switch_points(target, :enter)
 
-    # Check if ANY valid switch path exists
-    has_valid_switch = Enum.any?(source_switch_points, fn {source_point, source_state} ->
-      Enum.any?(target_switch_points, fn {target_point, target_state} ->
-        # Direct switch: states match
-        source_state == target_state ||
-        # Transition switch: valid transition exists between stages
-        transition_switch_possible?(source, target, source_point, target_point)
-      end)
+    # Build all combinations and filter invalid ones. If any combination is valid
+    # we return an empty list (switch ok), otherwise we report all incompatible
+    # combinations as issues.
+    all_pairs = for sp <- source_switch_points, tp <- target_switch_points, do: {sp, tp}
+
+    any_valid = Enum.any?(all_pairs, fn {{s_point, s_state}, {t_point, t_state}} ->
+      s_state == t_state || transition_switch_possible?(source, target, s_point, t_point)
     end)
 
-    if has_valid_switch do
+    if any_valid do
       []
     else
-      # Return issues for all incompatible combinations
-      for {source_point, source_state} <- source_switch_points,
-          {target_point, target_state} <- target_switch_points,
-          source.name != target.name,
-          target.name != "fault",
-          source_state != target_state,
-          not transition_switch_possible?(source, target, source_point, target_point) do
-        %{
-          source_program: source.name,
-          target_program: target.name,
-          source_switch_point: source_point,
-          target_switch_point: target_point,
-          source_state: source_state,
-          target_state: target_state,
-          message: build_error_message(source, target, source_point, target_point, source_state, target_state)
-        }
-      end
+      Enum.flat_map(all_pairs, fn {{s_point, s_state}, {t_point, t_state}} ->
+        if source.name != target.name and target.name != "fault" and s_state != t_state and
+             not transition_switch_possible?(source, target, s_point, t_point) do
+          [%{
+            source_program: source.name,
+            target_program: target.name,
+            source_switch_point: s_point,
+            target_switch_point: t_point,
+            source_state: s_state,
+            target_state: t_state,
+            message: build_error_message(source, target, s_point, t_point, s_state, t_state)
+          }]
+        else
+          []
+        end
+      end)
     end
   end
 

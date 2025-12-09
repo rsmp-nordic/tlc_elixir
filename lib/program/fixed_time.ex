@@ -147,7 +147,7 @@ defmodule Tlc.Program.FixedTime do
   defp validate_waits(_), do: {:error, "Waits must be a map"}
 
   defp validate_switch(%{switch: switch, length: length}) when is_integer(switch) do
-    if not is_integer(switch) or switch < 0 or switch >= length do
+    if switch < 0 or switch >= length do
       {:error, ["Switch time points must be integers between 0 and program length - 1"]}
     else
       :ok
