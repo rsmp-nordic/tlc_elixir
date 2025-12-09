@@ -148,6 +148,8 @@ defmodule TlcElixirWeb.LayoutComponents do
     duration_max = duration && Map.get(duration, :max)
 
 
+    # (no variant UI here; variants handled inside transition grid)
+
     assigns = assign(assigns,
       all_stages: all_stages,
       available_stages: available_stages,
@@ -362,6 +364,16 @@ defmodule TlcElixirWeb.LayoutComponents do
     end
   end
 
+  defp variant_button_class(is_selected) do
+    base = "px-3 py-1 rounded text-sm transition-colors flex items-center justify-center gap-1"
+
+    if is_selected do
+      "#{base} bg-purple-700 text-white font-bold"
+    else
+      "#{base} bg-gray-700 hover:bg-gray-600 text-white"
+    end
+  end
+
   defp fault_button_class(mode) do
     base = "w-24 py-1 rounded text-sm transition-colors"
 
@@ -438,6 +450,30 @@ defmodule TlcElixirWeb.LayoutComponents do
       {nil, nil, nil}
     end
 
+    # Determine available variants for this transition (if any). We will only show
+    # explicit variant buttons when there are multiple variants or when the only
+    # variant is not the implicit "default" one (keeps behaviour where default
+    # is hidden).
+    program = assigns.logic.program
+
+    variants_map =
+      case {from_stage, to_stage} do
+        {nil, _} -> %{}
+        {_, nil} -> %{}
+        {f, t} -> Map.get(program.stages_ref.transitions, {f, t}) || %{}
+      end
+
+    all_variants = variants_map |> Map.keys() |> Enum.map(&to_string/1) |> Enum.sort()
+
+    # Only display buttons when there are more than one variant, or the single
+    # variant is not the implicit "default".
+    # Show all discovered variants as buttons. Even if the only variant is
+    # "default" we want to present it as a selectable button so it's clear
+    # which variant is active.
+    variants = all_variants
+
+    selected_variant = if display_transition, do: display_transition.name, else: nil
+
     assigns = assign(assigns,
       current_transition: current_transition,
       display_transition: display_transition,
@@ -448,7 +484,9 @@ defmodule TlcElixirWeb.LayoutComponents do
       total_duration: total_duration,
       from_stage: from_stage,
       to_stage: to_stage,
-      transition_name: transition_name
+      transition_name: transition_name,
+      variants: variants,
+      selected_variant: selected_variant
     )
 
     # Compute the static stage states for the from/to stages (used in stage columns)
@@ -471,8 +509,22 @@ defmodule TlcElixirWeb.LayoutComponents do
       <h2 class="text-lg font-semibold text-gray-200 mb-2">
         <%= if @has_transition_to_show do %>
           Transition: <%= @from_stage %> → <%= @to_stage %>
-          <%= if @transition_name && @transition_name != "default" do %>
-            <span class="text-sm font-normal text-gray-400 ml-2">(<%= @transition_name %>)</span>
+          <%= if length(@variants) > 0 do %>
+            <div class="inline-flex gap-2 ml-2 items-center">
+              <%= for variant <- @variants do %>
+                <button
+                  type="button"
+                  class={variant_button_class(variant == @selected_variant)}
+                  aria-pressed={variant == @selected_variant}
+                >
+                  <span class="text-sm font-normal"><%= variant %></span>
+                </button>
+              <% end %>
+            </div>
+          <% else %>
+            <%= if @transition_name && @transition_name != "default" do %>
+              <span class="text-sm font-normal text-gray-400 ml-2">(<%= @transition_name %>)</span>
+            <% end %>
           <% end %>
         <% else %>
           Transition

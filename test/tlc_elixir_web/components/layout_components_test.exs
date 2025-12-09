@@ -20,8 +20,12 @@ defmodule TlcElixirWeb.LayoutComponentsTest do
     html = render_component(&TlcElixirWeb.LayoutComponents.transition_grid/1, %{logic: logic})
 
     assert html =~ "Transition: turn → main"
-    # We don't show the explicit transition name when it's the default one
-    refute html =~ "(default)"
+    # When the only variant is default we show it as a button instead of the
+    # parenthesised name; assert there's a default variant button present.
+    doc = Floki.parse_document!(html)
+    variant_buttons = doc |> Floki.find("div.inline-flex button")
+    texts = Enum.map(variant_buttons, &Floki.text/1)
+    assert Enum.any?(texts, fn t -> String.trim(t) == "default" end)
 
     # Parse HTML and assert the static stage columns contain the expected states
     doc = Floki.parse_document!(html)
@@ -69,6 +73,44 @@ defmodule TlcElixirWeb.LayoutComponentsTest do
 
     # There should be an outlined/styled first column to indicate the running stage
     assert html =~ "outline outline-4 outline-offset-0 outline-gray-500 z-10 rounded"
-    refute html =~ "(default)"
+    # The transition for turn->main is default-only: ensure the default variant
+    # is shown as a button (rather than as a parenthesised label).
+    doc = Floki.parse_document!(html)
+    variant_buttons = doc |> Floki.find("div.inline-flex button")
+    texts = Enum.map(variant_buttons, &Floki.text/1)
+    assert Enum.any?(texts, fn t -> String.trim(t) == "default" end)
+  end
+
+  test "transition_grid shows variant buttons and highlights selected variant" do
+    # Use the program that includes a 'quick' variant
+    program = Tlc.Program.StageBased.example2()
+
+    # Build a logic struct representing an upcoming transition from main -> side
+    logic = %Tlc.Logic.StageBased{
+      program: program,
+      current_stage: "main",
+      upcoming_stage: "side",
+      current_transition: nil,
+      transition_elapsed: 0,
+      current_states: Tlc.Program.StageBased.get_stage_state(program, "main")
+    }
+
+    html = render_component(&TlcElixirWeb.LayoutComponents.transition_grid/1, %{logic: logic})
+
+    assert html =~ "Transition: main → side"
+
+    # Parse buttons for the variants
+    doc = Floki.parse_document!(html)
+    variant_buttons = doc |> Floki.find("div.inline-flex button")
+    texts = Enum.map(variant_buttons, &Floki.text/1)
+
+    # The example stages define both default and quick variants so we should see both
+    assert Enum.any?(texts, fn t -> String.trim(t) == "default" end)
+    assert Enum.any?(texts, fn t -> String.trim(t) == "quick" end)
+
+    # The selected variant should be highlighted using the purple class
+    quick_btn = Enum.find(variant_buttons, fn btn -> Floki.text(btn) |> String.contains?("quick") end)
+    assert quick_btn
+    assert Floki.attribute(quick_btn, "class") |> List.first() |> String.contains?("bg-purple-700")
   end
 end
