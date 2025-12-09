@@ -15,7 +15,7 @@ defmodule Tlc.Program.SwitchValidator do
   For stage-based programs, switch points are the enter/leave stages.
   """
 
-  require Logger
+  # Validator no longer logs directly; callers should decide when/where to log
 
   alias Tlc.Program.FixedTime
   alias Tlc.Program.StageBased
@@ -195,14 +195,8 @@ defmodule Tlc.Program.SwitchValidator do
     # First, validate each program individually
     program_issues = validate_all_programs(programs)
 
-    if program_issues != [] do
-      Logger.warning("Found #{length(program_issues)} program validation issue(s):")
-
-      program_issues
-      |> Enum.each(fn issue ->
-        Logger.warning("  #{issue.message}")
-      end)
-    end
+    # Return issues to caller — don't log directly from the validator. Caller may
+    # choose whether or not to log/print them.
 
     # Then validate switch compatibility
     switch_issues =
@@ -211,15 +205,6 @@ defmodule Tlc.Program.SwitchValidator do
       # Ignore warnings about leaving the special fault program; entering fault is
       # already skipped in validation.
       |> Enum.reject(fn issue -> issue.source_program == "fault" end)
-
-    if switch_issues != [] do
-      Logger.warning("Found #{length(switch_issues)} program switch compatibility issue(s):")
-
-      switch_issues
-      |> Enum.each(fn issue ->
-        Logger.warning("  #{issue.message}")
-      end)
-    end
 
     %{program_issues: program_issues, switch_issues: switch_issues}
   end

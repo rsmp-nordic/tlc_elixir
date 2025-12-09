@@ -452,7 +452,7 @@ defmodule TlcElixirWeb.TlcLive do
         case convert_json_to_program(json_data) do
           {:ok, program} ->
             # Validate program structure
-            case Tlc.Program.FixedTime.validate(program) do
+            case Tlc.Program.Protocol.validate(program) do
               {:ok, _} -> nil
               {:error, error} -> error
             end

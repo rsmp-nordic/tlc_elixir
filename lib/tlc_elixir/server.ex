@@ -215,8 +215,20 @@ defmodule Tlc.Server do
       Tlc.Program.StageBased.example2(),
      ]
 
-    # Validate program switch compatibility and log warnings for any issues
-    Tlc.Program.SwitchValidator.validate_and_warn(programs)
+    # Validate program switch compatibility. SwitchValidator returns structures
+    # describing issues — it does not log directly, allowing the caller control
+    # over whether (and how) issues are presented.
+    validation = Tlc.Program.SwitchValidator.validate_and_warn(programs)
+
+    if validation.program_issues != [] do
+      Logger.warning("Found #{length(validation.program_issues)} program validation issue(s):")
+      Enum.each(validation.program_issues, fn issue -> Logger.warning("  #{issue.message}") end)
+    end
+
+    if validation.switch_issues != [] do
+      Logger.warning("Found #{length(validation.switch_issues)} program switch compatibility issue(s):")
+      Enum.each(validation.switch_issues, fn issue -> Logger.warning("  #{issue.message}") end)
+    end
 
     default_interval = @tick_interval
     real_ms = System.os_time(:millisecond)
@@ -459,7 +471,8 @@ defmodule Tlc.Server do
             resync: false
           }
 
-        {:fault, updated_safety} ->
+        {:fault, updated_safety, reason} ->
+          Logger.warning("Safety violation detected: #{reason}")
           fault_logic =
             create_logic_for_program(fault_program, virtual_unix_time, :switching)
             |> Map.put(:mode, :fault)
@@ -509,13 +522,9 @@ defmodule Tlc.Server do
     end
   end
 
-  # Tick the logic based on its type
-  defp tick_logic(%Tlc.Logic.FixedTime{} = logic, unix_time) do
-    Tlc.Logic.FixedTime.tick(logic, unix_time)
-  end
-
-  defp tick_logic(%Tlc.Logic.StageBased{} = logic, unix_time) do
-    Tlc.Logic.StageBased.tick(logic, unix_time)
+  # Tick the logic using the runtime protocol
+  defp tick_logic(logic, unix_time) do
+    Tlc.Logic.Protocol.tick(logic, unix_time)
   end
 
   # Check if logic and program are the same type
@@ -557,10 +566,10 @@ defmodule Tlc.Server do
   defp maybe_switch_to_target_program(%{target_program: nil} = tlc), do: tlc
 
   defp maybe_switch_to_target_program(%{target_program: target_program, logic: logic} = tlc) do
-    if at_switch_point?(logic) do
+    if Tlc.Logic.Protocol.at_switch_point?(logic) do
       # We're at a switch point, perform the switch
       # Programs must be designed so switch point states match
-      current_state = logic.current_states
+      current_state = Tlc.Logic.Protocol.current_states(logic)
       new_logic = case {logic, target_program} do
         {%Tlc.Logic.StageBased{}, %Tlc.Program.StageBased{}} ->
           # Stage-based to stage-based: use switch_to_program for proper transition
@@ -583,11 +592,5 @@ defmodule Tlc.Server do
   end
 
   # Check if the current logic is at a safe switch point
-  defp at_switch_point?(%Tlc.Logic.FixedTime{} = logic) do
-    Tlc.Logic.FixedTime.at_switch_point?(logic)
-  end
-
-  defp at_switch_point?(%Tlc.Logic.StageBased{} = logic) do
-    Tlc.Logic.StageBased.at_switch_point?(logic)
-  end
+  # at_switch_point? uses protocol dispatch where needed
 end

@@ -12,8 +12,7 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
   use ExUnit.Case, async: false  # Not async due to GenServer state
 
-  alias Tlc.Program.FixedTime, as: FixedTimeProgram
-  alias Tlc.Program.StageBased, as: StageBasedProgram
+  # Aliases not required in this test; tests reference full module names
 
   # Test helper to start a server with a unique session ID
   defp start_test_server do
@@ -69,9 +68,11 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
       state = get_state(pid)
       # Wait until we've switched to calm
-      if state.logic.program.name != "calm" do
+      state = if state.logic.program.name != "calm" do
         :timer.sleep(200)
-        state = get_state(pid)
+        get_state(pid)
+      else
+        state
       end
 
       assert state.logic.__struct__ == Tlc.Logic.FixedTime
@@ -365,7 +366,7 @@ defmodule Tlc.ServerProgramSwitchingTest do
       :timer.sleep(100)
 
       state = get_state(pid)
-      initial_target_offset = state.logic.target_offset
+      _initial_target_offset = state.logic.target_offset
 
       Tlc.Server.set_target_offset(pid, 5)
       :timer.sleep(50)

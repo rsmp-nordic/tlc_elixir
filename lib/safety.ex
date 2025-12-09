@@ -4,7 +4,7 @@ defmodule Tlc.Safety do
   Tracks previous states and validates transitions to ensure safe operation.
   """
 
-  require Logger
+  # Safety checks do not log directly — callers decide whether to log.
 
   defstruct previous_state: nil
 
@@ -22,29 +22,29 @@ defmodule Tlc.Safety do
   The fault_program should be provided by the caller (e.g., from Tlc.Server).
   """
   def check_transitions(safety, logic, _fault_program) do
-    if logic.mode != :fault do
+    if Tlc.Logic.Protocol.mode(logic) != :fault do
       previous_state = safety.previous_state
 
       cond do
         previous_state == nil || previous_state == "" ->
-          {:ok, %{safety | previous_state: logic.current_states}, logic}
+          {:ok, %{safety | previous_state: Tlc.Logic.Protocol.current_states(logic)}, logic}
 
-        previous_state != logic.current_states ->
-          case Tlc.Program.FixedTime.validate_state_transition(previous_state, logic.current_states) do
+        previous_state != Tlc.Logic.Protocol.current_states(logic) ->
+          case Tlc.Program.FixedTime.validate_state_transition(previous_state, Tlc.Logic.Protocol.current_states(logic)) do
             :ok ->
-              {:ok, %{safety | previous_state: logic.current_states}, logic}
+              {:ok, %{safety | previous_state: Tlc.Logic.Protocol.current_states(logic)}, logic}
 
             {:error, reason} ->
-              Logger.warning("Safety violation detected: #{reason}")
-              # Caller is responsible for switching to fault logic
-              {:fault, %{safety | previous_state: logic.current_states}}
+              # Don't log here - return a fault tuple with the reason so callers
+              # (servers / monitoring layers) can decide whether to log or handle it.
+              {:fault, %{safety | previous_state: Tlc.Logic.Protocol.current_states(logic)}, reason}
           end
 
         true ->
           {:ok, safety, logic}
       end
     else
-      {:ok, %{safety | previous_state: logic.current_states}, logic}
+      {:ok, %{safety | previous_state: Tlc.Logic.Protocol.current_states(logic)}, logic}
     end
   end
 

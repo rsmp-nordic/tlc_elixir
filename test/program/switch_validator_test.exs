@@ -426,10 +426,12 @@ defmodule Tlc.Program.SwitchValidatorTest do
       log = capture_log(fn ->
         result = SwitchValidator.validate_and_warn(programs)
         assert length(result.switch_issues) == 2
+        # Validator should not log directly; callers may choose to log/print
+        assert Enum.any?(result.switch_issues, fn i -> String.contains?(i.message, "Cannot switch from") end)
       end)
 
-      assert log =~ "program switch compatibility issue"
-      assert log =~ "Cannot switch from"
+      # validate_and_warn should not emit logs itself
+      assert log == ""
     end
 
     test "returns issues without warnings for compatible programs" do

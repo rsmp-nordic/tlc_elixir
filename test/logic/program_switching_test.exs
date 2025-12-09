@@ -1042,12 +1042,12 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
 
       safety = Tlc.Safety.new()
 
-      {safety, logic} = Tlc.Safety.check_transitions(safety, logic, fault_program)
+      {:ok, safety, logic} = Tlc.Safety.check_transitions(safety, logic, fault_program)
       assert logic.mode != :fault
       assert safety.previous_state == "G"
 
       logic = FixedTimeLogic.tick(logic, 1)
-      {safety, logic} = Tlc.Safety.check_transitions(safety, logic, fault_program)
+      {:ok, safety, logic} = Tlc.Safety.check_transitions(safety, logic, fault_program)
       assert logic.mode != :fault
       assert safety.previous_state == "Y"
     end
@@ -1074,14 +1074,19 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
 
       safety = Tlc.Safety.new()
 
-      {safety, logic} = Tlc.Safety.check_transitions(safety, logic, fault_program)
+      {:ok, safety, logic} = Tlc.Safety.check_transitions(safety, logic, fault_program)
       assert logic.mode != :fault
 
       logic = FixedTimeLogic.tick(logic, 1)
-      {_safety, logic} = Tlc.Safety.check_transitions(safety, logic, fault_program)
-
-      # Should trigger fault due to invalid G->R transition
-      assert logic.mode == :fault
+      case Tlc.Safety.check_transitions(safety, logic, fault_program) do
+        {:ok, _safety, _logic} ->
+          flunk("expected a fault for invalid transition")
+        {:fault, updated_safety, _reason} ->
+          # simulate server switching into fault program
+          logic = FixedTimeLogic.fault(logic, fault_program)
+          assert logic.mode == :fault
+          _safety = updated_safety
+      end
     end
 
     test "skips validation when already in fault mode" do
@@ -1108,9 +1113,13 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
       safety = Tlc.Safety.new()
 
       # Should not try to validate when already in fault
-      {safety, logic} = Tlc.Safety.check_transitions(safety, logic, fault_program)
-      assert logic.mode == :fault
-      assert safety.previous_state == "R"
+      case Tlc.Safety.check_transitions(safety, logic, fault_program) do
+        {:ok, safety, logic} ->
+          assert logic.mode == :fault
+          assert safety.previous_state == "R"
+        {:fault, _safety, _reason} ->
+          flunk("unexpected fault return while already in fault mode")
+      end
     end
 
     test "handles first state without validation" do
@@ -1136,7 +1145,7 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
       safety = Tlc.Safety.new()
       assert safety.previous_state == nil
 
-      {safety, logic} = Tlc.Safety.check_transitions(safety, logic, fault_program)
+      {:ok, safety, logic} = Tlc.Safety.check_transitions(safety, logic, fault_program)
 
       # First state should just be stored, no fault
       assert logic.mode != :fault
@@ -1183,14 +1192,18 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
       safety = Tlc.Safety.new()
 
       ticker = Ticker.new(FixedTimeLogic.new(current_program)) |> Ticker.tick()
-      {safety, logic} = Tlc.Safety.check_transitions(safety, ticker.logic, fault_program)
+      {:ok, safety, logic} = Tlc.Safety.check_transitions(safety, ticker.logic, fault_program)
 
       logic = FixedTimeLogic.set_target_program(logic, target_program)
       ticker = %{ticker | logic: logic} |> Ticker.tick_n(current_program.length)
-      {_safety, logic} = Tlc.Safety.check_transitions(safety, ticker.logic, fault_program)
-
-      assert logic.mode == :fault
-      assert logic.program.name == "fault"
+      case Tlc.Safety.check_transitions(safety, ticker.logic, fault_program) do
+        {:ok, _safety, _logic} -> flunk("expected safety to flag fault for invalid switch")
+        {:fault, _updated_safety, _reason} ->
+          # server would switch to fault program; simulate switching here
+          logic = FixedTimeLogic.fault(ticker.logic, fault_program)
+          assert logic.mode == :fault
+          assert logic.program.name == "fault"
+      end
     end
 
     test "pending switch survives waits before executing" do
