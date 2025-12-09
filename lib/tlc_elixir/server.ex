@@ -234,11 +234,12 @@ defmodule Tlc.Server do
     real_ms = System.os_time(:millisecond)
     virtual_unix_time = floor(real_ms / @tick_interval)
     tlc_logic_instance = Tlc.new(programs)
+    # Create an initial logic instance using program factory so the server
+    # doesn't depend on specific logic implementations.
+    initial_program = Enum.at(tlc_logic_instance.programs, 0)
     logic =
-      tlc_logic_instance.logic
-      |> Tlc.Logic.FixedTime.halt()
-      |> Tlc.Logic.FixedTime.update_unix_time(virtual_unix_time)
-      |> Tlc.Logic.FixedTime.update_base_time()
+      Tlc.Program.Factory.create(initial_program, virtual_unix_time, :initial)
+      |> Tlc.Logic.Protocol.halt()
 
     tlc_server_state = %__MODULE__{
       logic: logic,
@@ -309,7 +310,7 @@ defmodule Tlc.Server do
 
   @impl true
   def handle_cast({:set_target_offset, target_offset}, tlc) do
-    updated_logic = Tlc.Logic.FixedTime.set_target_offset(tlc.logic, target_offset)
+    updated_logic = Tlc.Logic.Protocol.set_target_offset(tlc.logic, target_offset)
     updated_tlc = %{tlc | logic: updated_logic}
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
@@ -320,30 +321,21 @@ defmodule Tlc.Server do
     program = Enum.find(tlc.programs, fn prog -> prog.name == program_name end)
 
     if program do
-      updated_tlc = if same_program_type?(tlc.logic, program) do
-        # Same type: use existing in-logic switching mechanism
-        case tlc.logic do
-          %Tlc.Logic.FixedTime{} ->
-            updated_logic = Tlc.Logic.FixedTime.set_target_program(tlc.logic, program)
-            %{tlc | logic: updated_logic, target_program: nil}
+      # Try letting the current logic accept the target program via the protocol.
+      updated_logic = Tlc.Logic.Protocol.set_target_program(tlc.logic, program)
 
-          %Tlc.Logic.StageBased{} ->
-            # Stage-based doesn't switch programs internally, store at server level
-            %{tlc | target_program: program}
-        end
+      updated_tlc = if updated_logic != tlc.logic do
+        # Logic handled the target program itself
+        %{tlc | logic: updated_logic, target_program: nil}
       else
-        # Cross-type switch: store target program at server level
-        # If currently halted, set mode to run and sync so it progresses to switch point
-        updated_logic = case tlc.logic do
-          %Tlc.Logic.FixedTime{mode: :halt} = logic ->
-            # Sync to current cycle_time so we continue from halt position
-            # instead of jumping to wherever base_time happens to be
-            %{logic | mode: :run}
-            |> Tlc.Logic.FixedTime.sync(logic.cycle_time)
-          logic ->
-            logic
+        # Logic did not handle it => store at server level for cross-type switching
+        resumed_logic = if Tlc.Logic.Protocol.mode(tlc.logic) == :halt do
+          Tlc.Logic.Protocol.resume(tlc.logic)
+        else
+          tlc.logic
         end
-        %{tlc | logic: updated_logic, target_program: program}
+
+        %{tlc | logic: resumed_logic, target_program: program}
       end
 
       broadcast_update(updated_tlc)
@@ -358,24 +350,15 @@ defmodule Tlc.Server do
     program = Enum.find(tlc.programs, fn prog -> prog.name == program_name end)
 
     if program do
-      updated_tlc = if same_program_type?(tlc.logic, program) do
-        # Same type: use existing immediate switch mechanism for fixed-time
-        case tlc.logic do
-          %Tlc.Logic.FixedTime{} ->
-            updated_logic =
-              tlc.logic
-              |> Tlc.Logic.FixedTime.set_target_program(program)
-              |> Tlc.Logic.FixedTime.switch()
-            %{tlc | logic: updated_logic}
+      # Let the current logic attempt an immediate switch via protocol
+      immediate_result = Tlc.Logic.Protocol.switch_immediate(tlc.logic, program, tlc.virtual_unix_time)
 
-          %Tlc.Logic.StageBased{} ->
-            # For stage-based, use switch_to_program to properly transition
-            updated_logic = Tlc.Logic.StageBased.switch_to_program(tlc.logic, program)
-            %{tlc | logic: updated_logic, target_program: nil}
-        end
+      updated_tlc = if immediate_result != tlc.logic do
+        # Logic handled it
+        %{tlc | logic: immediate_result, target_program: nil}
       else
-        # Cross-type switch: create new logic immediately (unsafe, use with caution)
-        updated_logic = create_logic_for_program(program, tlc.virtual_unix_time, :switching)
+        # Cross-type: create a new logic instance now
+        updated_logic = Tlc.Program.Factory.create(program, tlc.virtual_unix_time, :switching)
         %{tlc | logic: updated_logic, target_program: nil}
       end
 
@@ -389,10 +372,7 @@ defmodule Tlc.Server do
   @impl true
   def handle_cast(:clear_target_program, tlc) do
     # Clear target program at both server and logic level
-    updated_logic = case tlc.logic do
-      %Tlc.Logic.FixedTime{} -> Tlc.Logic.FixedTime.clear_target_program(tlc.logic)
-      %Tlc.Logic.StageBased{} -> tlc.logic
-    end
+    updated_logic = Tlc.Logic.Protocol.clear_target_program(tlc.logic)
     updated_tlc = %{tlc | logic: updated_logic, target_program: nil}
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
@@ -401,12 +381,7 @@ defmodule Tlc.Server do
   @impl true
   def handle_cast({:request_stage, stage_id}, tlc) do
     # Only handle for stage-based logic
-    updated_logic = case tlc.logic do
-      %Tlc.Logic.StageBased{} ->
-        Tlc.Logic.StageBased.request_stage(tlc.logic, stage_id)
-      _ ->
-        tlc.logic
-    end
+    updated_logic = Tlc.Logic.Protocol.request_stage(tlc.logic, stage_id)
     updated_tlc = %{tlc | logic: updated_logic}
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
@@ -418,13 +393,13 @@ defmodule Tlc.Server do
     fault_program = Enum.find(tlc.programs, fn prog -> prog.name == "fault" end)
 
     fault_logic =
-      create_logic_for_program(fault_program, tlc.virtual_unix_time, :switching)
+      Tlc.Program.Factory.create(fault_program, tlc.virtual_unix_time, :switching)
       |> Map.put(:mode, :fault)
 
     halt_logic =
-      create_logic_for_program(halt_program, tlc.virtual_unix_time, :switching)
-      |> Tlc.Logic.FixedTime.sync(halt_program.halt)
-      |> Tlc.Logic.FixedTime.update_states()
+      Tlc.Program.Factory.create(halt_program, tlc.virtual_unix_time, :switching)
+      |> Tlc.Logic.Protocol.sync_time(halt_program.halt)
+      |> Tlc.Logic.Protocol.update_states()
       |> Map.put(:mode, :halt)
 
     updated_tlc =
@@ -449,10 +424,7 @@ defmodule Tlc.Server do
     logic = tlc.logic
     logic = if tlc.resync do
       sync_time = floor(real_ms / tlc.interval)
-      case logic do
-        %Tlc.Logic.FixedTime{} -> Tlc.Logic.FixedTime.sync_time(logic, sync_time)
-        _ -> logic
-      end
+      Tlc.Logic.Protocol.sync_time(logic, sync_time)
     else
       logic
     end
@@ -474,7 +446,7 @@ defmodule Tlc.Server do
         {:fault, updated_safety, reason} ->
           Logger.warning("Safety violation detected: #{reason}")
           fault_logic =
-            create_logic_for_program(fault_program, virtual_unix_time, :switching)
+            Tlc.Program.Factory.create(fault_program, virtual_unix_time, :switching)
             |> Map.put(:mode, :fault)
 
           cleared_safety = Tlc.Safety.clear_history(updated_safety, fault_program.name)
@@ -515,10 +487,10 @@ defmodule Tlc.Server do
   end
 
   defp get_target_program_from_logic(logic) do
-    case logic do
-      %Tlc.Logic.FixedTime{target_program: nil} -> nil
-      %Tlc.Logic.FixedTime{target_program: program} -> program.name
-      %Tlc.Logic.StageBased{} -> nil
+    case Tlc.Logic.Protocol.get_target_program(logic) do
+      nil -> nil
+      %{} = program -> program.name
+      _ -> nil
     end
   end
 
@@ -527,39 +499,11 @@ defmodule Tlc.Server do
     Tlc.Logic.Protocol.tick(logic, unix_time)
   end
 
-  # Check if logic and program are the same type
-  defp same_program_type?(%Tlc.Logic.FixedTime{}, %Tlc.Program.FixedTime{}), do: true
-  defp same_program_type?(%Tlc.Logic.StageBased{}, %Tlc.Program.StageBased{}), do: true
-  defp same_program_type?(_, _), do: false
-
-  # Create a new logic instance for a program
-  # The mode indicates whether this is an initial creation or a switch from another program
-  defp create_logic_for_program(%Tlc.Program.FixedTime{} = program, unix_time, mode) do
-    logic = Tlc.Logic.FixedTime.new(program)
-      |> Tlc.Logic.FixedTime.update_unix_time(unix_time)
-      |> Tlc.Logic.FixedTime.update_base_time()
-
-    case mode do
-      :switching ->
-        # When switching from another program, sync to the switch point
-        Tlc.Logic.FixedTime.sync(logic, program.switch)
-        |> Tlc.Logic.FixedTime.update_states()
-      :initial ->
-        logic
-    end
-  end
-
-  defp create_logic_for_program(%Tlc.Program.StageBased{} = program, unix_time, mode) do
-    logic = case mode do
-      :switching ->
-        # When switching from another program, start at the first enter stage
-        Tlc.Logic.StageBased.start_at_enter_stage(program)
-      :initial ->
-        Tlc.Logic.StageBased.new(program)
-    end
-
-    # Update unix time
-    %{logic | unix_time: unix_time}
+  # Create a new logic instance for a program using the program factory
+  # The factory handles the per-program creation details so Server doesn't
+  # need to know about program/logic internals.
+  defp create_logic_for_program(program, unix_time, mode) do
+    Tlc.Program.Factory.create(program, unix_time, mode)
   end
 
   # Check if we should switch to a target program at the server level (cross-type switch or stage-based)
@@ -570,20 +514,17 @@ defmodule Tlc.Server do
       # We're at a switch point, perform the switch
       # Programs must be designed so switch point states match
       current_state = Tlc.Logic.Protocol.current_states(logic)
-      new_logic = case {logic, target_program} do
-        {%Tlc.Logic.StageBased{}, %Tlc.Program.StageBased{}} ->
-          # Stage-based to stage-based: use switch_to_program for proper transition
-          Tlc.Logic.StageBased.switch_to_program(logic, target_program)
+      # Prefer letting the current logic perform the switch via the protocol.
+      new_logic =
+        case Tlc.Logic.Protocol.switch_immediate(logic, target_program, tlc.virtual_unix_time) do
+          ^logic ->
+            # logic did not perform an immediate switch — it must be cross-type
+            created = Tlc.Program.Factory.create_matching(target_program, current_state, tlc.virtual_unix_time)
+            if created, do: created, else: create_logic_for_program(target_program, tlc.virtual_unix_time, :switching)
 
-        {_, %Tlc.Program.StageBased{}} ->
-          # Switching to stage-based: find matching enter stage
-          Tlc.Logic.StageBased.start_at_matching_enter_stage(target_program, current_state)
-          |> then(fn l -> %{l | unix_time: tlc.virtual_unix_time} end)
-
-        _ ->
-          # Switching to fixed-time: create new logic
-          create_logic_for_program(target_program, tlc.virtual_unix_time, :switching)
-      end
+          updated ->
+            updated
+        end
       %{tlc | logic: new_logic, target_program: nil}
     else
       # Not at a switch point yet, keep waiting

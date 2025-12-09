@@ -3,7 +3,9 @@ defmodule Tlc do
 
   def new(programs) do
     program = Enum.at(programs,0)
-    logic = Tlc.Logic.FixedTime.new(program)
+    # Create an initial logic instance using the program factory. This keeps
+    # Tlc.new program-agnostic instead of hard-coding FixedTime logic.
+    logic = Tlc.Program.Factory.create(program, 0, :initial) || Tlc.Logic.FixedTime.new(program)
     %Tlc{
       logic: logic,
       programs: programs
