@@ -152,6 +152,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     duration_default = duration && Map.get(duration, :default)
     duration_max = duration && Map.get(duration, :max)
 
+
     assigns = assign(assigns,
       all_stages: all_stages,
       available_stages: available_stages,
@@ -461,6 +462,21 @@ defmodule TlcElixirWeb.LayoutComponents do
       transition_name: transition_name
     )
 
+    # Compute the static stage states for the from/to stages (used in stage columns)
+    from_state = if assigns.display_transition && assigns.from_stage do
+      Tlc.Program.StageBased.get_stage_state(assigns.logic.program, assigns.from_stage)
+    else
+      nil
+    end
+
+    to_state = if assigns.display_transition && assigns.to_stage do
+      Tlc.Program.StageBased.get_stage_state(assigns.logic.program, assigns.to_stage)
+    else
+      nil
+    end
+
+    assigns = assign(assigns, from_state: from_state, to_state: to_state)
+
     ~H"""
     <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700">
       <h2 class="text-lg font-semibold text-gray-200 mb-2">
@@ -490,6 +506,10 @@ defmodule TlcElixirWeb.LayoutComponents do
 
           <!-- Data columns for each second -->
           <%= if @has_transition_to_show do %>
+            <%!-- Static column showing the "from" stage state --%>
+            <%= if @from_stage do %>
+              <.stage_column stage={@from_stage} groups={@groups} state={@from_state} />
+            <% end %>
             <%= for time <- 0..(@total_duration - 1) do %>
               <.transition_column
                 time={time}
@@ -499,6 +519,11 @@ defmodule TlcElixirWeb.LayoutComponents do
                 total_duration={@total_duration}
                 active={@in_transition}
               />
+            <% end %>
+
+            <%!-- Static column showing the "to" stage state --%>
+            <%= if @to_stage do %>
+              <.stage_column stage={@to_stage} groups={@groups} state={@to_state} />
             <% end %>
           <% else %>
             <!-- Single empty column when no transition to show -->
@@ -523,6 +548,7 @@ defmodule TlcElixirWeb.LayoutComponents do
   attr :groups, :list, required: true
   attr :total_duration, :integer, required: true
   attr :active, :boolean, default: true
+  attr :state, :string, default: nil
 
   defp transition_column(assigns) do
     # Determine if this column is the current position (only highlight when active)
@@ -542,15 +568,47 @@ defmodule TlcElixirWeb.LayoutComponents do
 
     ~H"""
     <div class={"flex-1 flex flex-col relative border-gray-600 #{if @is_current, do: "outline outline-4 outline-offset-0 outline-gray-500 z-10 rounded", else: ""}"}>
-      <!-- Header cell with time -->
+      <!-- Header cell with time / stage name -->
       <div class="p-1 h-8 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200">
         <%= @time %>
       </div>
 
       <!-- Signal cells for each group -->
-      <%= for {_group, i} <- Enum.with_index(@groups) do %>
+          <%= for {_group, i} <- Enum.with_index(@groups) do %>
         <%
           signal = if @state, do: String.at(@state, i), else: nil
+          bg_class = if signal, do: signal_bg_class(signal), else: ""
+        %>
+        <div class={"p-1 h-8 flex items-center justify-center border-r #{if i == length(@groups) - 1, do: "", else: "border-b"} border-gray-600 #{bg_class}"}>
+          <span class="text-gray-200 select-none"><%= signal %></span>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+
+  # Static column that shows the signal states for a whole stage (no transition)
+  attr :stage, :string, required: true
+  attr :state, :string, default: nil
+  attr :groups, :list, required: true
+
+  defp stage_column(assigns) do
+    # state may already be passed in, otherwise try to look it up from program
+    state = assigns.state || ""
+
+    assigns = assign(assigns, state: state)
+
+    ~H"""
+    <div class="flex-1 flex flex-col relative border-gray-600">
+      <!-- Header cell with stage name -->
+      <div class="p-1 h-8 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200">
+        <%= @stage %>
+      </div>
+
+      <!-- Signal cells for each group -->
+      <%= for {_group, i} <- Enum.with_index(@groups) do %>
+        <%
+          signal = if @state != nil, do: String.at(@state, i), else: nil
           bg_class = if signal, do: signal_bg_class(signal), else: ""
         %>
         <div class={"p-1 h-8 flex items-center justify-center border-r #{if i == length(@groups) - 1, do: "", else: "border-b"} border-gray-600 #{bg_class}"}>
