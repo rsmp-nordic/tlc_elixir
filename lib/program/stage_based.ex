@@ -146,11 +146,38 @@ defmodule Tlc.Program.StageBased do
   end
 
   defp parse_flows(destinations) when is_map(destinations) do
-    Enum.map(destinations, fn {to, transition} ->
+    # Support several input styles for destination -> transition mapping:
+    #  - "dest": "default"    (single transition name)
+    #  - "dest": nil/false     (defaults to "default")
+    #  - "dest": ["a", "b"]  (list of transition variant names -> multiple flows)
+    #  - "dest": %{"a" => ..., "b" => ...} (map where keys are variant names)
+    Enum.flat_map(destinations, fn {to, transition} ->
       to_str = to_string(to)
-      transition_str = if transition, do: to_string(transition), else: "default"
-      %Flow{to: to_str, transition: transition_str}
+
+      cond do
+        transition == nil ->
+          [%Flow{to: to_str, transition: "default"}]
+
+        is_binary(transition) or is_atom(transition) ->
+          [%Flow{to: to_str, transition: to_string(transition)}]
+
+        is_list(transition) ->
+          # treat as a list of variant names (strings or atoms)
+          Enum.map(transition, fn v -> %Flow{to: to_str, transition: to_string(v)} end)
+
+        is_map(transition) ->
+          # map keys are variant names (values ignored for program flows)
+          Enum.map(Map.keys(transition), fn k -> %Flow{to: to_str, transition: to_string(k)} end)
+
+        true ->
+          []
+      end
     end)
+  end
+
+  defp parse_flows(destinations) when is_list(destinations) do
+    # support list-of-targets shorthand, e.g. main: ["side", "turn"] -> both default flows
+    Enum.map(destinations, fn to -> %Flow{to: to_string(to), transition: "default"} end)
   end
   defp parse_flows(_), do: []
 

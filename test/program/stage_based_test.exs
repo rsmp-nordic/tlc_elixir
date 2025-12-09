@@ -66,6 +66,48 @@ defmodule Tlc.Program.StageBasedTest do
       assert hd(program.flows["main"]).to == "side"
     end
 
+    test "parses flows with multiple transition variants for same destination" do
+      stages = Stages.from_config(%{
+        name: "var_stages",
+        groups: ["a"],
+        stages: %{a: %{open: ["a"], duration: %{default: 3}}, b: %{open: ["a"], duration: %{default: 3}}},
+        transitions: %{a: %{b: %{default: ["G", 1], quick: ["G", 2]}}}
+      })
+
+      config = %{
+        name: "multi_variant_program",
+        enter: ["a"],
+        a: %{b: ["default", "quick"]}
+      }
+
+      program = StageBased.from_config(config, stages)
+
+      assert length(program.flows["a"]) == 2
+      transitions = Enum.map(program.flows["a"], & &1.transition) |> Enum.sort()
+      assert transitions == ["default", "quick"]
+    end
+
+    test "parses flows when destinations are given as a list" do
+      stages = Stages.from_config(%{
+        name: "list_dest_stages",
+        groups: ["a"],
+        stages: %{main: %{open: ["a"], duration: %{default: 3}}, side: %{open: ["a"], duration: %{default: 3}}, turn: %{open: ["a"], duration: %{default: 3}}},
+        transitions: %{main: %{side: ["G", 1], turn: ["G", 1]}}
+      })
+
+      config = %{
+        name: "list_dest_program",
+        enter: ["main"],
+        main: ["side", "turn"]
+      }
+
+      program = StageBased.from_config(config, stages)
+
+      assert length(program.flows["main"]) == 2
+      assert Enum.any?(program.flows["main"], fn f -> f.to == "side" end)
+      assert Enum.any?(program.flows["main"], fn f -> f.to == "turn" end)
+    end
+
     test "parses program with string keys" do
       stages = Stages.example()
 

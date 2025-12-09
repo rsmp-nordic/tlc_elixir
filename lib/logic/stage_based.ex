@@ -139,11 +139,17 @@ defmodule Tlc.Logic.StageBased do
   defp maybe_start_transition(logic) do
     flows = Map.get(logic.program.flows, logic.current_stage, [])
 
-    with %{} = flow <- Enum.find(flows, fn f -> f.to == logic.requested_stage end),
-         transition when not is_nil(transition) <- Program.get_transition(logic.program, logic.current_stage, logic.requested_stage, flow.transition) do
-      start_transition(logic, transition)
-    else
-      _ -> %{logic | requested_stage: nil}
+    # Find all candidate flows targeting the requested stage, and pick one randomly
+    candidates = flows
+    |> Enum.filter(fn f -> f.to == logic.requested_stage end)
+    |> Enum.filter(fn f -> Program.get_transition(logic.program, logic.current_stage, logic.requested_stage, f.transition) != nil end)
+
+    case candidates do
+      [] -> %{logic | requested_stage: nil}
+      _ ->
+        flow = Enum.random(candidates)
+        transition = Program.get_transition(logic.program, logic.current_stage, logic.requested_stage, flow.transition)
+        if transition, do: start_transition(logic, transition), else: %{logic | requested_stage: nil}
     end
   end
 

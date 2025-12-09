@@ -238,6 +238,71 @@ defmodule Tlc.Logic.StageBasedTest do
       assert logic.current_states == "GRGRR"
     end
 
+    test "when multiple flow variants exist, a selected transition uses one of them" do
+      stages = Stages.from_config(%{
+        name: "multi_variant",
+        groups: ["a1", "a2", "b1", "b2", "a1_l"],
+        stages: %{
+          main: %{open: ["a1", "a2"], duration: %{default: 6}},
+          side: %{open: ["b1", "b2"], duration: %{default: 6}}
+        },
+        transitions: %{
+          main: %{side: %{default: ["YYRRR", 3, "RRAAR", 2], quick: ["YYRRR", 5, "RRAAR", 4]}},
+          side: %{main: ["RRGGR", 3, "AARRR", 2]}
+        }
+      })
+
+      program = %Program{
+        name: "multi",
+        stages_ref: stages,
+        enter: ["main"],
+        leave: [],
+        flows: %{
+          "main" => [%Flow{to: "side", transition: "default"}, %Flow{to: "side", transition: "quick"}],
+          "side" => [%Flow{to: "main", transition: "default"}]
+        }
+      }
+
+      # Request side; selected transition must be one of the program's variant names
+      logic = program
+              |> Logic.new()
+              |> Logic.tick(1000)
+              |> Logic.request_stage("side")
+              |> Logic.tick(1001)
+
+      assert Logic.in_transition?(logic)
+      assert logic.current_transition.name in ["default","quick"]
+    end
+
+    test "ignores flow variants that don't exist in stages transitions" do
+      stages = Stages.from_config(%{
+        name: "variant_missing",
+        groups: ["a1", "a2"],
+        stages: %{ main: %{open: ["a1"], duration: %{default: 4}}, side: %{open: ["a2"], duration: %{default: 4}} },
+        transitions: %{ main: %{side: ["YY", 2]} }
+      })
+
+      program = %Program{
+        name: "variant_ignore",
+        stages_ref: stages,
+        enter: ["main"],
+        leave: [],
+        flows: %{
+          "main" => [%Flow{to: "side", transition: "default"}, %Flow{to: "side", transition: "quick"}]
+        }
+      }
+
+      logic = program
+              |> Logic.new()
+              |> Logic.tick(1000)
+              |> Logic.request_stage("side")
+              |> Logic.tick(1001)
+
+      assert Logic.in_transition?(logic)
+      # only existing variant is "default"
+      assert logic.current_transition.name == "default"
+    end
+
     test "handles transitions with empty sequence (immediate transfer)", %{program: _program} do
       stages = Stages.from_config(%{
         name: "empty_transition",
