@@ -122,9 +122,21 @@ defmodule Tlc.Logic.FixedTime do
     %{logic | offset: mod(logic.program.offset + logic.offset_adjust, logic.program.length) }
   end
 
-  def set_target_program(logic, program) when logic.mode == :halt do
+  # When we're halted and asked to set a target program we only accept
+  # same-type (FixedTime) targets. Cross-type targets should be handled at
+  # server-level so the server can perform a safe cross-type switch at the
+  # switch point. Returning the unchanged logic will cause the server to
+  # fall back to resuming the halted logic and storing the target program
+  # at the server level.
+  def set_target_program(logic, %Tlc.Program.FixedTime{} = program) when logic.mode == :halt do
     %{logic | target_program: program, mode: :run}
     |> sync(logic.cycle_time)
+  end
+
+  # Ignore cross-type set_target_program attempts while halted — server will
+  # handle storing the target program and resuming the logic.
+  def set_target_program(logic, _other) when logic.mode == :halt do
+    logic
   end
   def set_target_program(logic, program) do
     %{logic | target_program: program}

@@ -525,8 +525,20 @@ defmodule Tlc.Server do
 
     halt_logic =
       Tlc.Program.Factory.create(halt_program, tlc.virtual_unix_time, :switching)
-      |> Tlc.Logic.Protocol.sync_time(halt_program.halt)
-      |> Tlc.Logic.Protocol.update_states()
+      # Ensure the halt logic is actually synced to the program's halt point.
+      # Factory.create(:switching) sets the logic into the switch position; we
+      # need to move it to the halt point for a proper halted state. Use the
+      # FixedTime sync/update functions directly for the halt program instance.
+      |> case do
+        %Tlc.Logic.FixedTime{} = logic ->
+          Tlc.Logic.FixedTime.sync(logic, halt_program.halt)
+          |> Tlc.Logic.FixedTime.update_states()
+
+        # Fallback to protocol helper for any other logic types
+        logic ->
+          Tlc.Logic.Protocol.sync_time(logic, halt_program.halt)
+          |> Tlc.Logic.Protocol.update_states()
+      end
       |> Map.put(:mode, :halt)
 
     updated_tlc =

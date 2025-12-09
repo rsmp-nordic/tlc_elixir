@@ -313,6 +313,54 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
       GenServer.stop(pid)
     end
+
+    test "switching from halt to stage-based resumes from halt point and switches at switch" do
+      pid = start_test_server()
+      :timer.sleep(100)
+
+      # Ensure we've formally entered the synced halt state (toggle fault -> back)
+      # This ensures the halt logic is created and synced to the halt point.
+      Tlc.Server.toggle_fault(pid)
+      :timer.sleep(50)
+      Tlc.Server.toggle_fault(pid)
+      :timer.sleep(50)
+
+      state = get_state(pid)
+      assert state.logic.mode == :halt
+      assert state.logic.program.name == "halt"
+
+      # Request a switch to a stage-based program
+      Tlc.Server.switch_program(pid, "quiet")
+      :timer.sleep(50)
+
+      state = get_state(pid)
+
+      # After requesting a cross-type switch from halt the server should resume
+      # the halt (fixed-time) program and run from the halt point, not jump
+      # to an arbitrary cycle location.
+      assert state.logic.__struct__ == Tlc.Logic.FixedTime
+      assert state.logic.mode == :run
+
+      # The halt point for the 'halt' program in fixtures is 0
+      # The running logic should start from that point (cycle_time == 0)
+      assert state.logic.cycle_time == 0
+
+      # Tick until we reach the switch point and confirm we switch to stage-based
+      Enum.reduce_while(1..20, nil, fn _, _ ->
+        tick(pid)
+        s = get_state(pid)
+        if s.logic.__struct__ == Tlc.Logic.StageBased do
+          {:halt, s}
+        else
+          {:cont, nil}
+        end
+      end)
+
+      state = get_state(pid)
+      assert state.logic.__struct__ == Tlc.Logic.StageBased
+
+      GenServer.stop(pid)
+    end
   end
 
   describe "Server: get_target_program/1" do
