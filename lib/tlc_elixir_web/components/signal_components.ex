@@ -43,12 +43,7 @@ defmodule TlcElixirWeb.SignalComponents do
 
   defp lamp_class(is_on, color) do
     if is_on do
-      case color do
-        :red -> "bg-red-600"
-        :yellow -> "bg-yellow-500"
-        :green -> "bg-green-600"
-        _ -> "bg-gray-800"
-      end
+      TlcElixirWeb.UIHelpers.signal_bg_class(color)
     else
       "bg-gray-800"
     end

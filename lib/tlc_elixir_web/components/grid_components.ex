@@ -120,25 +120,9 @@ defmodule TlcElixirWeb.GridComponents do
       start_state = Tlc.Program.FixedTime.resolve_state(assigns.program, Integer.mod(skip_start_point - 1, assigns.program.length))
       end_state = Tlc.Program.FixedTime.resolve_state(assigns.program, assigns.cycle)
 
-      skip_transitions = Enum.reduce(Enum.with_index(assigns.program.groups), [], fn {group_name, i}, acc ->
-        start_signal = String.at(start_state, i)
-        end_signal = String.at(end_state, i)
+        skip_transitions = Tlc.Safety.invalid_transitions(start_state, end_state, assigns.program.groups)
 
-        is_invalid = case {start_signal, end_signal} do
-          {"G", "R"} -> true
-          {"R", "G"} -> true
-          _ -> false
-        end
-
-        if is_invalid do
-          error_msg = "Invalid transition from #{start_signal} to #{end_signal}"
-          [{group_name, i, error_msg} | acc]
-        else
-          acc
-        end
-      end)
-
-      length(skip_transitions) > 0 && skip_transitions
+        length(skip_transitions) > 0 && skip_transitions
     else
       false
     end
@@ -241,14 +225,7 @@ defmodule TlcElixirWeb.GridComponents do
         state = Tlc.Program.FixedTime.resolve_state(@program, @cycle)
         signal = String.at(state, i)
 
-        bg_class = case signal do
-          "R" -> "bg-red-600"
-          "Y" -> "bg-yellow-500"
-          "A" -> "bg-orange-500"
-          "G" -> "bg-green-600"
-          "D" -> "bg-gray-800"
-          _ -> "bg-gray-800"
-        end
+        bg_class = TlcElixirWeb.UIHelpers.signal_bg_class(signal)
 
         has_invalid_transition = @editing && Map.has_key?(@invalid_transitions, {@cycle, i})
         error_tooltip = if has_invalid_transition, do: Map.get(@invalid_transitions, {@cycle, i}), else: nil

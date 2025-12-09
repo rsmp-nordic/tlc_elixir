@@ -53,4 +53,35 @@ defmodule Tlc.Safety do
   def clear_history(safety, _program_name \\ nil) do
     %{safety | previous_state: nil}
   end
+
+  @doc """
+  Detect invalid transitions between two state strings.
+
+  This is a general-purpose detection function used by UI and safety
+  checks. It inspects each group's signal transition and returns a list of
+  tuples {group_name, index, error_msg} for transitions considered invalid.
+
+  For now the invalid transitions are defined as R->G or G->R. Returns an
+  empty list when no invalid transitions are found.
+  """
+  def invalid_transitions(start_state, end_state, groups) do
+    Enum.reduce(Enum.with_index(groups), [], fn {group_name, i}, acc ->
+      start_signal = String.at(start_state, i)
+      end_signal = String.at(end_state, i)
+
+      is_invalid = case {start_signal, end_signal} do
+        {"G", "R"} -> true
+        {"R", "G"} -> true
+        _ -> false
+      end
+
+      if is_invalid do
+        error_msg = "Invalid transition from #{start_signal} to #{end_signal}"
+        [{group_name, i, error_msg} | acc]
+      else
+        acc
+      end
+    end)
+    |> Enum.reverse()
+  end
 end

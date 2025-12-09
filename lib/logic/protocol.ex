@@ -1,52 +1,21 @@
 defprotocol Tlc.Logic.Protocol do
   @fallback_to_any true
 
-  @spec tick(logic :: any(), unix_time :: integer()) :: any()
   def tick(logic, unix_time)
-
-  @spec set_target_offset(logic :: any(), offset :: integer()) :: any()
   def set_target_offset(logic, offset)
-
-  @spec set_target_program(logic :: any(), program :: any()) :: any()
   def set_target_program(logic, program)
-
-  @spec clear_target_program(logic :: any()) :: any()
   def clear_target_program(logic)
-
-  @spec request_stage(logic :: any(), stage_id :: any()) :: any()
   def request_stage(logic, stage_id)
-
-  @spec switch_immediate(logic :: any(), program :: any(), unix_time :: integer()) :: any()
   def switch_immediate(logic, program, unix_time)
-
-  @spec halt(logic :: any()) :: any()
   def halt(logic)
-
-  @spec sync_time(logic :: any(), sync_time :: integer()) :: any()
   def sync_time(logic, sync_time)
-
-  @spec update_states(logic :: any()) :: any()
   def update_states(logic)
-
-  @spec get_target_program(logic :: any()) :: any()
   def get_target_program(logic)
-
-  @spec resume(logic :: any()) :: any()
   def resume(logic)
-
-  @spec mode(logic :: any()) :: :run | :halt | :fault | any()
   def mode(logic)
-
-  @spec program(logic :: any()) :: any()
   def program(logic)
-
-  @spec current_states(logic :: any()) :: String.t()
   def current_states(logic)
-
-  @spec at_switch_point?(logic :: any()) :: boolean()
   def at_switch_point?(logic)
-
-  @spec get_group_state(logic :: any(), group_id :: String.t()) :: String.t() | nil
   def get_group_state(logic, group_id)
 end
 

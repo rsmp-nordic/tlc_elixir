@@ -16,10 +16,8 @@ defprotocol Tlc.Program.Factory do
   """
   @fallback_to_any true
 
-  @spec create(program :: any(), unix_time :: integer(), mode :: atom()) :: any()
   def create(program, unix_time, mode)
 
-  @spec create_matching(program :: any(), current_state :: String.t(), unix_time :: integer()) :: any()
   def create_matching(program, current_state, unix_time)
 end
 

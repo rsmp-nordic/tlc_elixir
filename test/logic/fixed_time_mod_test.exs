@@ -1,8 +1,6 @@
 defmodule Tlc.Logic.FixedTimeModTest do
   use ExUnit.Case, async: true
 
-  alias Tlc.Logic.FixedTime, as: Logic
-
   test "mod returns non-negative result for negative inputs" do
     assert Integer.mod(-1, 6) == 5
     assert Integer.mod(-6, 6) == 0

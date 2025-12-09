@@ -175,7 +175,7 @@ defmodule TlcElixirWeb.TlcLive do
   def handle_event("update_cell_signal", %{"cycle" => cycle_str, "group" => group_str, "signal" => signal}, socket) do
     if socket.assigns.editing do
       cycle = parse_int(cycle_str)
-      group_idx = parse_int(group_str)
+    group_idx = parse_int(group_str)
 
       updated_program = Tlc.Program.FixedTime.set_group_signal(socket.assigns.edited_program, cycle, group_idx, signal)
 
@@ -464,7 +464,6 @@ defmodule TlcElixirWeb.TlcLive do
   end
 
   @impl true
-  @spec handle_info({:tlc_updated, any()}, any()) :: {:noreply, any()}
   def handle_info({:tlc_updated, new_tlc_state}, socket) do
     if socket.assigns.mount_error do
       {:noreply, socket}
@@ -595,10 +594,6 @@ defmodule TlcElixirWeb.TlcLive do
   end
   defp parse_int(value) when is_integer(value), do: value
   defp parse_int(_), do: 0
-
-  # ============================================================================
-  # Helper functions for common header
-  # ============================================================================
 
   @doc """
   Returns the logic type as an atom based on the logic struct type.

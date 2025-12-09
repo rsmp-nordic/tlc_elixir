@@ -1,16 +1,12 @@
 defprotocol Tlc.Program.Protocol do
   @fallback_to_any true
 
-  @spec validate(program :: any()) :: {:ok, any()} | {:error, any()}
   def validate(program)
 
-  @spec groups(program :: any()) :: [String.t()]
   def groups(program)
 
-  @spec switch_points(program :: any()) :: [any()]
   def switch_points(program)
 
-  @spec compatible_with?(program :: any(), other :: any()) :: boolean()
   def compatible_with?(program, other)
 end
 

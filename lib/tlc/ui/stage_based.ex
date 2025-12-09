@@ -10,13 +10,10 @@ defmodule Tlc.UI.StageBased do
   alias Tlc.Program.StageBased, as: Program
   alias Tlc.Logic.StageBased, as: Logic
 
-  @spec available_stages(logic :: Logic.t()) :: [String.t()]
   def available_stages(%Logic{} = logic) do
     Logic.available_stages(logic)
   end
 
-  @spec upcoming_stage(program :: Program.t(), current_stage :: String.t() | nil)
-    :: String.t() | nil
   def upcoming_stage(%Program{} = program, current_stage) do
     flows = Map.get(program.flows, current_stage, [])
 
@@ -26,8 +23,6 @@ defmodule Tlc.UI.StageBased do
     end
   end
 
-  @spec transition_preview(program :: Program.t(), from_stage :: String.t(), to_stage :: String.t())
-    :: any() | {:error, any()}
   def transition_preview(%Program{} = program, from_stage, to_stage) do
     Program.get_transition(program, from_stage, to_stage)
     |> case do
@@ -36,9 +31,7 @@ defmodule Tlc.UI.StageBased do
     end
   end
 
-  @spec transition_duration(transition :: any()) :: non_neg_integer()
   def transition_duration(transition), do: Program.transition_duration(transition)
 
-  @spec request_stage(logic :: Logic.t(), stage_id :: String.t()) :: Logic.t()
   def request_stage(%Logic{} = logic, stage_id), do: Logic.request_stage(logic, stage_id)
 end
