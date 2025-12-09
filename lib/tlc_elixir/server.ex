@@ -100,6 +100,110 @@ defmodule Tlc.Server do
     Logger.info("[Tlc.Server] Initializing for session_id: #{session_id}")
     # All fixed-time programs use switch point state "GGRRR" to match stage-based "main" stage
     # Programs are designed to have groups change at different times within the cycle
+  stages = %Tlc.Program.Stages{
+      name: "example_stages",
+      groups: ["a1", "a2", "b1", "b2", "a1_l"],
+      stages: %{
+        "main" => %Tlc.Program.Stages.Stage{
+          id: "main",
+          open: ["a1", "a2"],
+          duration: %Tlc.Program.Stages.Duration{default: 20, max: 29}
+        },
+        "side" => %Tlc.Program.Stages.Stage{
+          id: "side",
+          open: ["b1", "b2"],
+          duration: %Tlc.Program.Stages.Duration{min: 10, default: 20, max: 26}
+        },
+        "turn" => %Tlc.Program.Stages.Stage{
+          id: "turn",
+          open: ["a1_l"],
+          duration: %Tlc.Program.Stages.Duration{default: 10}
+        },
+        "oneway" => %Tlc.Program.Stages.Stage{
+          id: "oneway",
+          open: ["a1"],
+          duration: %Tlc.Program.Stages.Duration{default: 15}
+        }
+      },
+      transitions: %{
+        {"main", "side"} => %{
+          "default" => %Tlc.Program.Stages.Transition{
+            from: "main",
+            to: "side",
+            name: "default",
+            sequence: [
+              %Tlc.Program.Stages.TransitionStep{state: "YYRRR", duration: 3},
+              %Tlc.Program.Stages.TransitionStep{state: "RRAAR", duration: 2}
+            ]
+          },
+          "quick" => %Tlc.Program.Stages.Transition{
+            from: "main",
+            to: "side",
+            name: "quick",
+            sequence: [
+              %Tlc.Program.Stages.TransitionStep{state: "YYRRR", duration: 5},
+              %Tlc.Program.Stages.TransitionStep{state: "RRAAR", duration: 4}
+            ]
+          }
+        },
+        {"main", "turn"} => %{
+          "default" => %Tlc.Program.Stages.Transition{
+            from: "main",
+            to: "turn",
+            name: "default",
+            sequence: [%Tlc.Program.Stages.TransitionStep{state: "YYRRA", duration: 3}]
+          }
+        },
+        {"side", "turn"} => %{
+          "default" => %Tlc.Program.Stages.Transition{
+            from: "side",
+            to: "turn",
+            name: "default",
+            sequence: [
+              %Tlc.Program.Stages.TransitionStep{state: "RRYYR", duration: 3},
+              %Tlc.Program.Stages.TransitionStep{state: "RRRRA", duration: 2}
+            ]
+          },
+          "quick" => %Tlc.Program.Stages.Transition{
+            from: "side",
+            to: "turn",
+            name: "quick",
+            sequence: [%Tlc.Program.Stages.TransitionStep{state: "RRYYR", duration: 3}]
+          }
+        },
+        {"turn", "main"} => %{
+          "default" => %Tlc.Program.Stages.Transition{
+            from: "turn",
+            to: "main",
+            name: "default",
+            sequence: [%Tlc.Program.Stages.TransitionStep{state: "ARRRY", duration: 3}]
+          }
+        },
+        {"turn", "side"} => %{
+          "default" => %Tlc.Program.Stages.Transition{
+            from: "turn",
+            to: "side",
+            name: "default",
+            sequence: [
+              %Tlc.Program.Stages.TransitionStep{state: "RRRRY", duration: 3},
+              %Tlc.Program.Stages.TransitionStep{state: "RRAAR", duration: 2}
+            ]
+          }
+        },
+        {"side", "main"} => %{
+          "default" => %Tlc.Program.Stages.Transition{
+            from: "side",
+            to: "main",
+            name: "default",
+            sequence: [
+              %Tlc.Program.Stages.TransitionStep{state: "RRYYR", duration: 3},
+              %Tlc.Program.Stages.TransitionStep{state: "AARRR", duration: 2}
+            ]
+          }
+        }
+      }
+    }
+
     programs = [
       %Tlc.Program.FixedTime{
         name: "halt",
@@ -210,9 +314,32 @@ defmodule Tlc.Server do
         states: %{ 0 => "RRRRR" },
         switch: 0
       },
-      # Stage-based programs
-      Tlc.Program.StageBased.example(),
-      Tlc.Program.StageBased.example2(),
+      # Stage-based programs (declared inline so server doesn't rely on example helpers)
+      %Tlc.Program.StageBased{
+        name: "quiet",
+        stages_ref: stages,
+        enter: ["main"],
+        leave: ["main"],
+        flows: %{
+          "main" => [
+            %Tlc.Program.StageBased.Flow{to: "side", transition: "default"},
+            %Tlc.Program.StageBased.Flow{to: "turn", transition: "default"}
+          ],
+          "side" => [%Tlc.Program.StageBased.Flow{to: "turn", transition: "default"}],
+          "turn" => [%Tlc.Program.StageBased.Flow{to: "main", transition: "default"}]
+        }
+      },
+
+      %Tlc.Program.StageBased{
+        name: "event",
+        stages_ref: stages,
+        enter: ["main"],
+        leave: ["main"],
+        flows: %{
+          "side" => [%Tlc.Program.StageBased.Flow{to: "main", transition: "default"}],
+          "main" => [%Tlc.Program.StageBased.Flow{to: "side", transition: "quick"}]
+        }
+      },
      ]
 
     # Validate program switch compatibility. SwitchValidator returns structures
