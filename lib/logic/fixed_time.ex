@@ -20,15 +20,7 @@ defmodule Tlc.Logic.FixedTime do
             waited: 0,
             current_states: ""
 
-  # Define modulo function since rem() returns negative values for negative inputs
-  # and we want a non-negative result similar to the mathematical modulo.
-  # Original implementation used rem(rem(x,y)+y, y) which keeps behavior simple
-  # and matches the earlier codebase expectations.
-  # Use Integer.mod to compute a non-negative remainder. This mirrors
-  # the mathematical modulo and returns a value in 0..(y-1) for positive y.
-  # Callers must provide integer arguments — Integer.mod/2 will raise on
-  # invalid inputs which keeps failures explicit.
-  # The module no longer defines a helper; use Integer.mod/2 directly.
+  # use Integer.mod/2 for non-negative modulo results
 
   def new(program, target_program \\ nil) do
     %Tlc.Logic.FixedTime{
@@ -72,10 +64,7 @@ defmodule Tlc.Logic.FixedTime do
     length = logic.program.length
     diff = Integer.mod(logic.target_offset - logic.offset, length)
 
-    # Prefer the forward path if the computed forward distance isn't larger
-    # than half the cycle and the program defines skips (so jumping forward
-    # is possible). If the program length is invalid or there are no skips
-    # prefer the negative/backward path.
+    # choose forward/backward target distance based on skips and cycle length
     if map_size(logic.program.skips || %{}) > 0 and diff <= length / 2 do
       %{logic | target_distance: diff}
     else
@@ -89,7 +78,7 @@ defmodule Tlc.Logic.FixedTime do
 
       duration when is_integer(duration) and duration > 0 ->
         if logic.waited < duration do
-          # wait by moving offset back by unix_delta
+          # apply wait by adjusting offset_adjust
           logic
           |> Map.update!(:offset_adjust, fn adj -> Integer.mod(adj - logic.unix_delta, logic.program.length) end)
           |> Map.update!(:waited, &(&1 + logic.unix_delta))
@@ -139,12 +128,7 @@ defmodule Tlc.Logic.FixedTime do
     %{logic | offset: Integer.mod(logic.program.offset + logic.offset_adjust, logic.program.length) }
   end
 
-  # When we're halted and asked to set a target program we only accept
-  # same-type (FixedTime) targets. Cross-type targets should be handled at
-  # server-level so the server can perform a safe cross-type switch at the
-  # switch point. Returning the unchanged logic will cause the server to
-  # fall back to resuming the halted logic and storing the target program
-  # at the server level.
+  # while halted accept same-type FixedTime target_program; otherwise ignore
   def set_target_program(logic, %Tlc.Program.FixedTime{} = program) when logic.mode == :halt do
     %{logic | target_program: program, mode: :run}
     |> sync(logic.cycle_time)
@@ -186,8 +170,7 @@ defmodule Tlc.Logic.FixedTime do
   end
 
   def switch(logic) do
-    # Capture the target program value first for clarity and to avoid
-    # referencing mutated fields during the pipeline.
+    # capture target program, then switch
     target = logic.target_program
 
     %{logic | program: target, target_program: nil }

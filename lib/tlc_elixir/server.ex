@@ -149,10 +149,12 @@ defmodule Tlc.Server do
       name: "example_stages",
       groups: ["a1", "a2", "b1", "b2", "a1_l"],
       stages: %{
-        "main" => %Tlc.Program.Stages.Stage{id: "main", open: ["a1", "a2"], duration: %Tlc.Program.Stages.Duration{default: 20, max: 29}},
-        "side" => %Tlc.Program.Stages.Stage{id: "side", open: ["b1", "b2"], duration: %Tlc.Program.Stages.Duration{min: 10, default: 20, max: 26}},
-        "turn" => %Tlc.Program.Stages.Stage{id: "turn", open: ["a1_l"], duration: %Tlc.Program.Stages.Duration{default: 10}},
-        "oneway" => %Tlc.Program.Stages.Stage{id: "oneway", open: ["a1"], duration: %Tlc.Program.Stages.Duration{default: 15}}
+        "main" => %Tlc.Program.Stages.Stage{id: "main", open: ["a1", "a2"], duration: %Tlc.Program.Stages.Duration{default: 6, max: 9}},
+        "side" => %Tlc.Program.Stages.Stage{id: "side", open: ["b1", "b2"], duration: %Tlc.Program.Stages.Duration{min: 4, default: 6, max: 9}},
+        "turn" => %Tlc.Program.Stages.Stage{id: "turn", open: ["a1_l"], duration: %Tlc.Program.Stages.Duration{default: 5}},
+        "oneway" => %Tlc.Program.Stages.Stage{id: "oneway", open: ["a1"], duration: %Tlc.Program.Stages.Duration{default: 7}},
+        "both" => %Tlc.Program.Stages.Stage{id: "both", open: ["a1", "b1"], duration: %Tlc.Program.Stages.Duration{default: 4}},
+        "crossing" => %Tlc.Program.Stages.Stage{id: "crossing", open: ["a2", "b2"], duration: %Tlc.Program.Stages.Duration{default: 5}}
       },
       transitions: %{
         {"main", "side"} => %{
@@ -164,7 +166,11 @@ defmodule Tlc.Server do
                              "quick" => %Tlc.Program.Stages.Transition{from: "side", to: "turn", name: "quick", sequence: [%Tlc.Program.Stages.TransitionStep{state: "RRYYR", duration: 3}] } },
         {"turn", "main"} => %{ "default" => %Tlc.Program.Stages.Transition{from: "turn", to: "main", name: "default", sequence: [%Tlc.Program.Stages.TransitionStep{state: "ARRRY", duration: 3}] } },
         {"turn", "side"} => %{ "default" => %Tlc.Program.Stages.Transition{from: "turn", to: "side", name: "default", sequence: [%Tlc.Program.Stages.TransitionStep{state: "RRRRY", duration: 3}, %Tlc.Program.Stages.TransitionStep{state: "RRAAR", duration: 2}] } },
-        {"side", "main"} => %{ "default" => %Tlc.Program.Stages.Transition{from: "side", to: "main", name: "default", sequence: [%Tlc.Program.Stages.TransitionStep{state: "RRYYR", duration: 3}, %Tlc.Program.Stages.TransitionStep{state: "AARRR", duration: 2}] } }
+        {"side", "main"} => %{ "default" => %Tlc.Program.Stages.Transition{from: "side", to: "main", name: "default", sequence: [%Tlc.Program.Stages.TransitionStep{state: "RRYYR", duration: 3}, %Tlc.Program.Stages.TransitionStep{state: "AARRR", duration: 2}] } },
+        {"turn", "oneway"} => %{ "default" => %Tlc.Program.Stages.Transition{from: "turn", to: "oneway", name: "default", sequence: [%Tlc.Program.Stages.TransitionStep{state: "RRRRY", duration: 3}, %Tlc.Program.Stages.TransitionStep{state: "GRRRY", duration: 2}] } },
+        {"oneway", "both"} => %{ "default" => %Tlc.Program.Stages.Transition{from: "oneway", to: "both", name: "default", sequence: [%Tlc.Program.Stages.TransitionStep{state: "GRGRR", duration: 2}] } },
+        {"both", "crossing"} => %{ "default" => %Tlc.Program.Stages.Transition{from: "both", to: "crossing", name: "default", sequence: [%Tlc.Program.Stages.TransitionStep{state: "YRYRR", duration: 3}, %Tlc.Program.Stages.TransitionStep{state: "RGRGR", duration: 2}] } },
+        {"crossing", "main"} => %{ "default" => %Tlc.Program.Stages.Transition{from: "crossing", to: "main", name: "default", sequence: [%Tlc.Program.Stages.TransitionStep{state: "RGRYR", duration: 3}, %Tlc.Program.Stages.TransitionStep{state: "GGRRR", duration: 2}] } }
       }
     }
   end
@@ -178,7 +184,15 @@ defmodule Tlc.Server do
       %Tlc.Program.FixedTime{name: "long", length: 28, offset: 0, groups: stages.groups, states: %{0 => "GGRRR", 6 => "GYRRR", 7 => "GRRRR", 9 => "YRRRA", 10 => "RRRRG", 13 => "RRRRY", 14 => "RRRRR", 15 => "RRAAG", 16 => "RRGGY", 17 => "RRGGR", 21 => "RRGYR", 22 => "RRYYR", 23 => "RRRRR", 24 => "ARRRR", 25 => "GARRR", 26 => "GGARR", 27 => "GGARR"}, switch: 0},
       %Tlc.Program.FixedTime{name: "fault", length: 1, groups: stages.groups, states: %{0 => "RRRRR"}, switch: 0},
       %Tlc.Program.StageBased{name: "quiet", stages_ref: stages, enter: ["main"], leave: ["main"], flows: %{"main" => [%Tlc.Program.StageBased.Flow{to: "side", transition: "default"}, %Tlc.Program.StageBased.Flow{to: "turn", transition: "default"}], "side" => [%Tlc.Program.StageBased.Flow{to: "turn", transition: "default"}], "turn" => [%Tlc.Program.StageBased.Flow{to: "main", transition: "default"}] } },
-      %Tlc.Program.StageBased{name: "event", stages_ref: stages, enter: ["main"], leave: ["main"], flows: %{ "side" => [%Tlc.Program.StageBased.Flow{to: "main", transition: "default"}], "main" => [%Tlc.Program.StageBased.Flow{to: "side", transition: "quick"}] }}
+      %Tlc.Program.StageBased{name: "event", stages_ref: stages, enter: ["main"], leave: ["main"], flows: %{ "side" => [%Tlc.Program.StageBased.Flow{to: "main", transition: "default"}], "main" => [%Tlc.Program.StageBased.Flow{to: "side", transition: "quick"}] }},
+      %Tlc.Program.StageBased{name: "friday", stages_ref: stages, enter: ["main"], leave: ["main"], flows: %{
+        "main" => [%Tlc.Program.StageBased.Flow{to: "side", transition: "default"}, %Tlc.Program.StageBased.Flow{to: "turn", transition: "default"}],
+        "side" => [%Tlc.Program.StageBased.Flow{to: "turn", transition: "default"}, %Tlc.Program.StageBased.Flow{to: "both", transition: "default"}],
+        "turn" => [%Tlc.Program.StageBased.Flow{to: "oneway", transition: "default"}],
+        "oneway" => [%Tlc.Program.StageBased.Flow{to: "both", transition: "default"}],
+        "both" => [%Tlc.Program.StageBased.Flow{to: "crossing", transition: "default"}],
+        "crossing" => [%Tlc.Program.StageBased.Flow{to: "main", transition: "default"}]
+      }}
     ]
   end
 

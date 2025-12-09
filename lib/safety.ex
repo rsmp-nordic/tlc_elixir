@@ -4,7 +4,7 @@ defmodule Tlc.Safety do
   Tracks previous states and validates transitions to ensure safe operation.
   """
 
-  # Safety checks do not log directly — callers decide whether to log.
+  # callers decide whether to log
 
   defstruct previous_state: nil
 
@@ -16,15 +16,12 @@ defmodule Tlc.Safety do
   end
 
   @doc """
-  Checks the traffic light state transitions and returns an updated logic.
-  If an invalid transition is detected, switches the logic to fault mode.
-
-  The fault_program should be provided by the caller (e.g., from Tlc.Server).
+  Validate transitions; returns {:ok, safety, logic} or {:fault, safety, reason}.
   """
   def check_transitions(safety, logic, _fault_program) do
     current = Tlc.Logic.Protocol.current_states(logic)
 
-    # If already in fault mode we skip validations but still update previous_state
+    # already in :fault -> update previous_state without validations
     if Tlc.Logic.Protocol.mode(logic) == :fault do
       {:ok, %{safety | previous_state: current}, logic}
     else
@@ -47,22 +44,14 @@ defmodule Tlc.Safety do
   end
 
   @doc """
-  Clears the safety history.
-  Useful when recovering from a fault condition.
+  Reset saved previous_state.
   """
   def clear_history(safety, _program_name \\ nil) do
     %{safety | previous_state: nil}
   end
 
   @doc """
-  Detect invalid transitions between two state strings.
-
-  This is a general-purpose detection function used by UI and safety
-  checks. It inspects each group's signal transition and returns a list of
-  tuples {group_name, index, error_msg} for transitions considered invalid.
-
-  For now the invalid transitions are defined as R->G or G->R. Returns an
-  empty list when no invalid transitions are found.
+  Return list of invalid group transitions between start and end states.
   """
   def invalid_transitions(start_state, end_state, groups) do
     Enum.reduce(Enum.with_index(groups), [], fn {group_name, i}, acc ->

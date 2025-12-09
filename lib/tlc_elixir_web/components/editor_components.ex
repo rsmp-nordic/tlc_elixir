@@ -175,27 +175,18 @@ defmodule TlcElixirWeb.EditorComponents do
   end
 
   def interval_controls(assigns) do
+    intervals = [1000, 300, 100, 30, 10, 3]
+
+    assigns = assign(assigns, :intervals, intervals)
+
     ~H"""
     <div class="flex space-x-2 mb-3">
       <span class="text-gray-300 self-center mr-1">interval (ms):</span>
-      <button phx-click="set_interval" phx-value-interval="1000" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @interval == 1000, do: "bg-purple-700"}"}>
-        1000
-      </button>
-      <button phx-click="set_interval" phx-value-interval="300" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @interval == 300, do: "bg-purple-700"}"}>
-        300
-      </button>
-      <button phx-click="set_interval" phx-value-interval="100" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @interval == 100, do: "bg-purple-700"}"}>
-        100
-      </button>
-      <button phx-click="set_interval" phx-value-interval="30" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @interval == 30, do: "bg-purple-700"}"}>
-        30
-      </button>
-      <button phx-click="set_interval" phx-value-interval="10" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @interval == 10, do: "bg-purple-700"}"}>
-        10
-      </button>
-      <button phx-click="set_interval" phx-value-interval="3" class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @interval == 3, do: "bg-purple-700"}"}>
-        3
-      </button>
+      <%= for i <- @intervals do %>
+        <button phx-click="set_interval" phx-value-interval={i} class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @interval == i, do: "bg-purple-700"}"}>
+          <%= i %>
+        </button>
+      <% end %>
     </div>
     """
   end

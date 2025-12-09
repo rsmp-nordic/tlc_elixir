@@ -27,11 +27,7 @@ defmodule Tlc.Program.StageBased do
               transition: "default"
   end
 
-  @doc """
-  Provides an example stage-based traffic program definition.
-  This is the "quiet" program from the spec that goes through main-side-turn.
-  Leave is set to "main" to match the fixed-time switch point state "GGRRR".
-  """
+  @doc "Example 'quiet' program."
   def example() do
     stages = Stages.example()
 
@@ -48,11 +44,7 @@ defmodule Tlc.Program.StageBased do
     }
   end
 
-  @doc """
-  Provides a second example stage-based traffic program definition.
-  This is the "event" program from the spec alternating between side and main.
-  Enter/leave at "main" stage to match fixed-time switch point state "GGRRR".
-  """
+  @doc "Example 'event' program."
   def example2() do
     stages = Stages.example()
 
@@ -68,16 +60,7 @@ defmodule Tlc.Program.StageBased do
     }
   end
 
-  @doc """
-  Provides a third example stage-based traffic program definition.
-  This program demonstrates different enter and leave stages.
-
-  Enter at "side" (state "RRGGR") - requires programs to have a switch point at RRGGR
-  Leave at "turn" (state "RRRRG") - requires target programs to have an enter point at RRRRG
-
-  The fixed-time programs have been updated with multiple switch points to support this.
-  Flow: side -> turn -> side (cycles between side and turn)
-  """
+  @doc "Example 'holiday' program with different enter/leave stages."
   def example3() do
     stages = Stages.example()
 
@@ -93,6 +76,27 @@ defmodule Tlc.Program.StageBased do
     }
   end
 
+  @doc "Example stage-based program using the six-stage stages set. All stages are reachable and unique."
+  def example_six() do
+    stages = Stages.example_six()
+
+    %__MODULE__{
+      name: "six_stage",
+      stages_ref: stages,
+      enter: ["main"],
+      leave: ["main"],
+      flows: %{
+        # Create a ring that visits all stages so they're all reachable
+        "main" => [%Flow{to: "side", transition: "default"}, %Flow{to: "turn", transition: "default"}],
+        "side" => [%Flow{to: "turn", transition: "default"}, %Flow{to: "both", transition: "default"}],
+        "turn" => [%Flow{to: "oneway", transition: "default"}],
+        "oneway" => [%Flow{to: "both", transition: "default"}],
+        "both" => [%Flow{to: "left_right", transition: "default"}],
+        "left_right" => [%Flow{to: "main", transition: "default"}]
+      }
+    }
+  end
+
   @doc """
   Creates a stage-based program from a map/keyword list configuration.
   Requires a Stages struct to reference.
@@ -100,14 +104,14 @@ defmodule Tlc.Program.StageBased do
   def from_config(config, %Stages{} = stages_ref) when is_map(config) do
     name = Map.get(config, :name, Map.get(config, "name", Map.get(config, :id, Map.get(config, "id", ""))))
 
-    # Parse enter stages
+    # parse enter stages
     enter = case Map.get(config, :enter, Map.get(config, "enter", %{})) do
       stages when is_map(stages) -> Map.keys(stages) |> Enum.map(&to_string/1)
       stages when is_list(stages) -> Enum.map(stages, &to_string/1)
       _ -> []
     end
 
-    # Parse flows (stages with their destinations)
+    # parse flows
     flows = config
     |> Enum.reject(fn {key, _} -> key in [:enter, "enter", :id, "id", :name, "name"] end)
     |> Enum.map(fn {from, destinations} ->
@@ -117,14 +121,14 @@ defmodule Tlc.Program.StageBased do
     end)
     |> Map.new()
 
-    # Extract leave stages (stages that have "leave" as a destination)
+    # extract leave stages
     leave = flows
     |> Enum.filter(fn {_from, flow_list} ->
       Enum.any?(flow_list, fn flow -> flow.to == "leave" end)
     end)
     |> Enum.map(fn {from, _} -> from end)
 
-    # Remove "leave" flows from the flows map
+    # remove leave flows from map
     flows = flows
     |> Enum.map(fn {from, flow_list} ->
       filtered_flows = Enum.reject(flow_list, fn flow -> flow.to == "leave" end)

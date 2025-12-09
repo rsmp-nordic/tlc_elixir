@@ -14,7 +14,20 @@ defmodule Tlc.Server.SwitchController do
       else
         # Logic did not handle it => store at server level for cross-type switching
         resumed_logic = if Tlc.Logic.Protocol.mode(tlc.logic) == :halt do
-          Tlc.Logic.Protocol.resume(tlc.logic)
+          # When resuming from a halt state for a FixedTime program we must
+          # ensure the logic is synced to the program's configured halt point
+          # before leaving halt. Otherwise the FixedTime instance may start
+          # running from an arbitrary cycle location when resuming.
+          case tlc.logic do
+            %Tlc.Logic.FixedTime{} = logic ->
+              logic
+              |> Tlc.Logic.FixedTime.sync(logic.program.halt)
+              |> Tlc.Logic.FixedTime.update_states()
+              |> Map.put(:mode, :run)
+
+            other ->
+              Tlc.Logic.Protocol.resume(other)
+          end
         else
           tlc.logic
         end

@@ -375,6 +375,30 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
       GenServer.stop(pid)
     end
+
+    test "switching from initial halt at startup to stage-based resumes from halt point" do
+      pid = start_test_server()
+      :timer.sleep(50)
+
+      state = get_state(pid)
+      # Server starts in halt mode (initial) - ensure it's the halt program
+      assert state.logic.mode == :halt
+      assert state.logic.program.name == "halt"
+
+      # Request a cross-type switch directly from the initial halt
+      Tlc.Server.switch_program(pid, "quiet")
+      :timer.sleep(50)
+
+      state = get_state(pid)
+
+      # After requesting a cross-type switch from halt the server should resume
+      # the halt (fixed-time) program and run from the halt point (cycle_time == 0)
+      assert state.logic.__struct__ == Tlc.Logic.FixedTime
+      assert state.logic.mode == :run
+      assert state.logic.cycle_time == 0
+
+      GenServer.stop(pid)
+    end
   end
 
   describe "Server: get_target_program/1" do

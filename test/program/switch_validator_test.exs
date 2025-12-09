@@ -77,6 +77,25 @@ defmodule Tlc.Program.SwitchValidatorTest do
       assert issue.program == "invalid_stage_based"
       assert issue.message =~ "Invalid signal change"
     end
+
+    test "six-stage example has unique states and valid transitions" do
+      stages = Tlc.Program.Stages.example_six()
+      # Build the program which touches all stages
+      program = Tlc.Program.StageBased.example_six()
+
+      # Stages should all have unique state strings
+      states = Map.keys(stages.stages) |> Enum.map(&Tlc.Program.Stages.get_stage_state(stages, &1))
+      assert Enum.uniq(states) |> length() == length(states)
+
+      # Validate stage definitions are valid
+      assert {:ok, _} = Tlc.Program.Stages.validate(stages)
+
+      # Validate program itself
+      assert {:ok, _} = Tlc.Program.StageBased.validate(program)
+
+      # Validator should find no program issues for the new program
+      assert [] = SwitchValidator.validate_all_programs([program])
+    end
   end
 
   describe "get_switch_points/2" do
@@ -269,6 +288,17 @@ defmodule Tlc.Program.SwitchValidatorTest do
       [issue] = issues
       assert issue.source_program == "fault"
       assert issue.target_program == "normal"
+    end
+
+    test "six-stage program is compatible with fixed-time programs at main switch point" do
+      # fixed-time matches the 'main' stage (GGRRR)
+      fixed_program = %Tlc.Program.FixedTime{name: "fixed", length: 10, groups: ["a1", "a2", "b1", "b2", "a1_l"], states: %{0 => "GGRRR"}, switch: 0}
+
+      stage_program = Tlc.Program.StageBased.example_six()
+
+      # should be able to switch directly because 'main' state is GGRRR
+      assert [] = SwitchValidator.validate_switch(fixed_program, stage_program)
+      assert [] = SwitchValidator.validate_switch(stage_program, fixed_program)
     end
   end
 

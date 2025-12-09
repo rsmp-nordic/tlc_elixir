@@ -13,7 +13,7 @@ defmodule Tlc.Program.FixedTime do
     "D" => ["R", "Y", "G", "D"]
   }
 
-  # Add @derive to enable JSON encoding for the struct
+    # JSON encoding for the struct
   @derive {Jason.Encoder, only: [:name, :length, :offset, :groups, :states, :skips, :waits, :switch, :halt]}
   defstruct name: "",
             length: 0,
@@ -34,7 +34,7 @@ defmodule Tlc.Program.FixedTime do
       length: 8,
       offset: 3,
       groups: ["a", "b"],
-      # Fixed states to follow valid transitions: Red→Yellow→Green→Yellow→Red
+        # Fixed states following valid transitions
       states: %{ 0 => "RR", 1 => "YR", 2 => "GR", 4 => "YR", 5 => "RY", 6 => "RG", 7 => "RY"},
       skips: %{0 => 2},
       waits: %{5 => 2},
@@ -203,7 +203,7 @@ defmodule Tlc.Program.FixedTime do
     end
   end
 
-  def get_invalid_transitions(_), do: %{} # Programs with 0-1 states have no transitions
+    def get_invalid_transitions(_), do: %{}
 
   @doc """
   Validates that all state transitions follow the allowed transitions defined in @valid_transitions.

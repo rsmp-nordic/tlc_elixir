@@ -8,7 +8,7 @@ export function setupSignalDragHandlers(hook) {
   document.addEventListener('mousedown', (e) => {
     const cell = e.target.closest('[phx-mousedown="drag_start"]');
     if (cell && cell.hasAttribute('phx-value-current_signal')) {
-      console.log("Drag started");
+      
       isDragging = true;
       startCell = cell;
       
@@ -39,14 +39,14 @@ export function setupSignalDragHandlers(hook) {
         
         // Only send update if this is a new cycle
         if (!visitedCycles.has(currentCycle)) {
-          console.log(`Real-time update: cycle=${currentCycle}, group=${group}, signal=${signal}`);
+          
           
           // Check if we've skipped any cycles (fast movement)
           const cycleDistance = Math.abs(currentCycle - lastVisitedCycle);
           
           if (cycleDistance > 1) {
             // We moved too fast - fill in the gap with signal_stretch
-            console.log(`Fast movement detected! Filling gap from ${lastVisitedCycle} to ${currentCycle}`);
+            
             
             hook.pushEvent("fill_gap", {
               start_cycle: lastVisitedCycle.toString(),

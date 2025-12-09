@@ -5,10 +5,9 @@ defmodule TlcElixirWeb.LayoutComponents do
 
   use Phoenix.Component
   import TlcElixirWeb.CoreComponents
+  import TlcElixirWeb.UIHelpers, only: [signal_bg_class: 1]
 
-  # ============================================================================
-  # Common Header Component
-  # ============================================================================
+  # Common header component (controller & programs overview)
 
   attr :programs, :list, required: true
   attr :current_program, :any, required: true
@@ -75,9 +74,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     """
   end
 
-  # ============================================================================
-  # Fixed-Time Details Component
-  # ============================================================================
+  # Fixed-time details component
 
   attr :logic, :any, required: true
 
@@ -122,9 +119,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     """
   end
 
-  # ============================================================================
-  # Stage-Based Details Component
-  # ============================================================================
+  # Stage-based details component
 
   attr :logic, :any, required: true
 
@@ -225,9 +220,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     """
   end
 
-  # ============================================================================
-  # Page Container
-  # ============================================================================
+  # Page container
 
   def tlc_page_container(assigns) do
     ~H"""
@@ -241,9 +234,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     """
   end
 
-  # ============================================================================
-  # Private Helper Components
-  # ============================================================================
+  # Private helper components
 
   attr :type, :atom, required: true
 
@@ -402,9 +393,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     """
   end
 
-  # ============================================================================
-  # Transition Grid Component (for stage-based programs)
-  # ============================================================================
+  # Transition grid for stage-based programs
 
   attr :logic, :any, required: true
 
@@ -632,21 +621,9 @@ defmodule TlcElixirWeb.LayoutComponents do
     state || (List.last(transition.sequence) && List.last(transition.sequence).state) || ""
   end
 
-  # Shared helper for signal background colors
-  defp signal_bg_class(signal) do
-    case signal do
-      "R" -> "bg-red-600"
-      "Y" -> "bg-yellow-500"
-      "A" -> "bg-orange-500"
-      "G" -> "bg-green-600"
-      "D" -> "bg-gray-800"
-      _ -> "bg-gray-800"
-    end
-  end
+  # signal_bg_class is provided by TlcElixirWeb.UIHelpers
 
-  # ============================================================================
-  # Signal Lamp Helpers
-  # ============================================================================
+  # Signal lamp helpers
 
   # Supports both fixed-time signals (R, Y, G, A, D) and stage-based signals (0, 1, 2, A)
   defp lamp_states(signal) do

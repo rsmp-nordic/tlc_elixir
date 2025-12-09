@@ -1,13 +1,6 @@
 defmodule Tlc.Program.Stages do
   @moduledoc """
-  Struct representing stage definitions for traffic light control.
-  Contains stages, transitions, and groups - the shared definitions that
-  multiple programs can reference.
-
-  Stage-based control is an alternative to fixed-time control where:
-  - Stages define which signal groups can have green simultaneously
-  - Transitions define how to move between stages with explicit state changes
-  - All state changes occur during transitions, states remain static during stages
+  Stage definitions and transitions for stage-based programs.
   """
 
   @derive {Jason.Encoder, only: [:name, :groups, :stages, :transitions]}
@@ -17,10 +10,7 @@ defmodule Tlc.Program.Stages do
             transitions: %{}
 
   defmodule Stage do
-    @moduledoc """
-    Represents a stage definition.
-    A stage defines which groups are open and for how long.
-    """
+    @moduledoc "Stage definition: open groups and durations."
     @derive Jason.Encoder
     defstruct id: nil,
               open: [],
@@ -28,9 +18,7 @@ defmodule Tlc.Program.Stages do
   end
 
   defmodule Duration do
-    @moduledoc """
-    Represents duration settings for a stage.
-    """
+    @moduledoc "Duration settings for a stage."
     @derive Jason.Encoder
     defstruct default: 0,
               min: nil,
@@ -38,11 +26,7 @@ defmodule Tlc.Program.Stages do
   end
 
   defmodule Transition do
-    @moduledoc """
-    Represents a transition between two stages.
-    A transition defines how to move from one stage to another by explicitly listing
-    all state changes, including intermediate states like yellow.
-    """
+    @moduledoc "Transition between stages with an explicit sequence."
     @derive Jason.Encoder
     defstruct from: nil,
               to: nil,
@@ -51,19 +35,13 @@ defmodule Tlc.Program.Stages do
   end
 
   defmodule TransitionStep do
-    @moduledoc """
-    Represents a step in a transition sequence.
-    Each step has a state string and duration.
-    """
+    @moduledoc "A single step in a transition sequence."
     @derive Jason.Encoder
     defstruct state: "",
               duration: 0
   end
 
-  @doc """
-  Provides an example stages definition based on the stage-based programming spec.
-  Contains stages: main, side, turn, and oneway with groups: a1, a2, b1, b2, a1_l.
-  """
+  @doc "Example stages definition."
   def example() do
     %__MODULE__{
       name: "example_stages",
@@ -176,9 +154,43 @@ defmodule Tlc.Program.Stages do
     }
   end
 
-  @doc """
-  Creates stages from a map/keyword list configuration.
-  """
+  @doc "Example with six different stages (used for tests and server fixtures)."
+  def example_six() do
+    %__MODULE__{
+      name: "example_stages_six",
+      groups: ["a1", "a2", "b1", "b2", "a1_l"],
+      stages: %{
+        "main" => %Stage{id: "main", open: ["a1", "a2"], duration: %Duration{default: 18}},
+        "side" => %Stage{id: "side", open: ["b1", "b2"], duration: %Duration{default: 16}},
+        "turn" => %Stage{id: "turn", open: ["a1_l"], duration: %Duration{default: 10}},
+        "oneway" => %Stage{id: "oneway", open: ["a1"], duration: %Duration{default: 12}},
+        "both" => %Stage{id: "both", open: ["a1", "b1"], duration: %Duration{default: 12}},
+        "left_right" => %Stage{id: "left_right", open: ["a2", "b2"], duration: %Duration{default: 14}}
+      },
+      transitions: %{
+        {"main", "side"} => %{
+          "default" => %Transition{from: "main", to: "side", name: "default", sequence: [%TransitionStep{state: "YYRRR", duration: 3}, %TransitionStep{state: "RRAAR", duration: 2}]}
+        },
+        {"side", "turn"} => %{
+          "default" => %Transition{from: "side", to: "turn", name: "default", sequence: [%TransitionStep{state: "RRYYR", duration: 3}, %TransitionStep{state: "RRRRA", duration: 2}]}
+        },
+        {"turn", "oneway"} => %{
+          "default" => %Transition{from: "turn", to: "oneway", name: "default", sequence: [%TransitionStep{state: "RRRRY", duration: 3}, %TransitionStep{state: "GRRRY", duration: 2}]}
+        },
+        {"oneway", "both"} => %{
+          "default" => %Transition{from: "oneway", to: "both", name: "default", sequence: [%TransitionStep{state: "GRGRR", duration: 2}]}
+        },
+        {"both", "left_right"} => %{
+          "default" => %Transition{from: "both", to: "left_right", name: "default", sequence: [%TransitionStep{state: "YRYRR", duration: 3}, %TransitionStep{state: "RGRGR", duration: 2}]}
+        },
+        {"left_right", "main"} => %{
+          "default" => %Transition{from: "left_right", to: "main", name: "default", sequence: [%TransitionStep{state: "RGRYR", duration: 3}, %TransitionStep{state: "GGRRR", duration: 2}]}
+        }
+      }
+    }
+  end
+
+  @doc "Create a %Tlc.Program.Stages{} from config."
   def from_config(config) when is_map(config) do
     groups = Map.get(config, :groups, Map.get(config, "groups", []))
     stages = parse_stages(Map.get(config, :stages, Map.get(config, "stages", %{})))
@@ -247,7 +259,7 @@ defmodule Tlc.Program.Stages do
   end
 
   defp parse_transition_variants(from, to, config) when is_list(config) do
-    # Single transition as a sequence
+    # single unnamed transition
     [{{from, to}, %Transition{
       from: from,
       to: to,
@@ -256,7 +268,7 @@ defmodule Tlc.Program.Stages do
     }}]
   end
   defp parse_transition_variants(from, to, config) when is_map(config) do
-    # Multiple named transitions
+    # multiple named transitions
     Enum.map(config, fn {name, sequence} ->
       name_str = to_string(name)
       {{from, to}, %Transition{
@@ -309,7 +321,7 @@ defmodule Tlc.Program.Stages do
   defp validate_groups(_), do: {:error, "Stages must have at least one signal group defined as a list"}
 
   defp validate_stages(%{stages: stages}) when is_map(stages) and map_size(stages) > 0 do
-    # Verify each stage has valid open groups and duration
+    # check stage open list and duration type
     invalid = Enum.find(stages, fn {_id, stage} ->
       not is_list(stage.open) or not is_struct(stage.duration, Duration)
     end)
@@ -325,7 +337,7 @@ defmodule Tlc.Program.Stages do
   defp validate_transitions(%{transitions: transitions, groups: groups}) when is_map(transitions) do
     group_count = length(groups)
 
-      # Verify each transition sequence has valid states
+      # verify sequence lengths and durations
     invalid = Enum.find(transitions, fn {_key, variants} ->
       Enum.any?(variants, fn {_name, transition} ->
         Enum.any?(transition.sequence, fn step ->
@@ -342,7 +354,7 @@ defmodule Tlc.Program.Stages do
   end
   defp validate_transitions(_), do: :ok
 
-  # Valid signal state transitions (same as in FixedTime)
+  # Valid signal state transitions
   @valid_transitions %{
     "R" => ["G", "Y", "A", "D"],
     "Y" => ["R", "G", "A"],
@@ -352,7 +364,7 @@ defmodule Tlc.Program.Stages do
   }
 
   defp validate_transition_state_changes(%{transitions: transitions} = stages) when is_map(transitions) do
-    # Check all transitions for valid state changes
+    # check transitions for valid state changes
     errors = Enum.flat_map(transitions, fn {{from_stage, to_stage}, variants} ->
       from_state = get_stage_state(stages, from_stage)
       to_state = get_stage_state(stages, to_stage)
@@ -370,10 +382,10 @@ defmodule Tlc.Program.Stages do
   defp validate_transition_state_changes(_), do: :ok
 
   defp validate_transition_sequence(from_state, to_state, sequence, from_stage, to_stage, variant_name) do
-    # Build the full sequence: from_state -> steps -> to_state
+    # build states list: from_state + steps + to_state
     states = [from_state | Enum.map(sequence, & &1.state)] ++ [to_state]
 
-    # Check each consecutive pair of states
+    # validate each adjacent state pair
     states
     |> Enum.chunk_every(2, 1, :discard)
     |> Enum.with_index()
@@ -439,10 +451,7 @@ defmodule Tlc.Program.Stages do
     end
   end
 
-  # Helper: return true when a transition step is invalid.
-  # A step is invalid when:
-  # - the state string length doesn't match the number of groups in the program
-  # - the duration is not a positive integer
+  # Returns true if a transition step is invalid (length mismatch or non-positive duration)
   defp invalid_transition_step?(%TransitionStep{state: state, duration: duration}, group_count) do
     byte_size(state) != group_count or not (is_integer(duration) and duration > 0)
   end

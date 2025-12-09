@@ -19,9 +19,9 @@ defmodule TlcElixirWeb.TlcLive do
       switch_dragging: false,
       invalid_transitions: %{},
       mount_error: nil,
-      program_text: nil,  # Initialize program_text as nil
-      json_error: nil,    # Initialize json_error as nil
-      validation_error: nil  # Initialize validation_error as nil
+      program_text: nil,
+      json_error: nil,
+      validation_error: nil
     }
 
     case ensure_server_started(live_instance_id) do
@@ -73,10 +73,10 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("request_stage", %{"stage_id" => stage_id}, socket) do
-    # Request a stage transition for stage-based programs
+    # request a stage transition for stage-based logic
     case socket.assigns.tlc.logic do
       %Tlc.Logic.StageBased{} ->
-        # We need to add this to the server
+        # forward request to server
         Tlc.Server.request_stage(socket.assigns.server, stage_id)
       _ ->
         :ok
@@ -417,10 +417,10 @@ defmodule TlcElixirWeb.TlcLive do
   def handle_event("update_program_definition", %{"value" => text}, socket) do
       json_error = case Jason.decode(text) do
       {:ok, json_data} ->
-        # Check if the structure matches what we expect
+        # validate JSON structure
         case convert_json_to_program(json_data) do
           {:ok, program} ->
-            # Validate program structure
+            # validate program struct
             case Tlc.Program.Protocol.validate(program) do
               {:ok, _} -> nil
               {:error, error} -> error
@@ -431,7 +431,7 @@ defmodule TlcElixirWeb.TlcLive do
     end
 
     validation_error = if is_nil(json_error) do
-      # We already validated above, so we know there's no error
+      # no json error at this point
       nil
     else
       "Please fix the JSON error first"
@@ -442,7 +442,7 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("apply_program_definition", _params, socket) do
-    # Only apply if there are no errors
+    # only apply if validation passed
     if is_nil(socket.assigns.json_error) && is_nil(socket.assigns.validation_error) do
       case Jason.decode(socket.assigns.program_text) do
         {:ok, json_data} ->
@@ -474,10 +474,10 @@ defmodule TlcElixirWeb.TlcLive do
     end
   end
 
-  # Add a helper function to convert JSON data to a Program struct
+  # Convert JSON to a Tlc.Program.FixedTime struct
   defp convert_json_to_program(json_data) do
     try do
-      # Convert string keys to atoms where needed
+      # convert string keys where needed
       program = %Tlc.Program.FixedTime{
         name: json_data["name"],
         length: json_data["length"],
@@ -495,7 +495,7 @@ defmodule TlcElixirWeb.TlcLive do
     end
   end
 
-  # Helper to convert string keys to integers in maps
+  # Convert string-keyed maps to integer keys for cycle maps
   defp string_keys_to_integers(map) when is_map(map) do
     Enum.reduce(map, %{}, fn {k, v}, acc ->
       new_key = if is_binary(k), do: String.to_integer(k), else: k

@@ -1,10 +1,5 @@
 defmodule Tlc.Logic.StageBased do
-  @moduledoc """
-  A module to simulate a stage-based traffic light program.
-
-  This module handles the runtime logic for a Tlc.Program.StageBased.
-  It manages stage switching and transition execution.
-  """
+  @moduledoc "Runtime logic for stage-based programs."
 
   alias Tlc.Program.StageBased, as: Program
 
@@ -15,21 +10,18 @@ defmodule Tlc.Logic.StageBased do
             transition_elapsed: 0,
             stage_elapsed: 0,
             requested_stage: nil,
-            upcoming_stage: nil,  # Pre-selected stage for UI display
+            upcoming_stage: nil,
             current_states: "",
             unix_time: nil,
             unix_delta: 0
 
-  @doc """
-  Creates a new stage-based logic instance from a program.
-  Optionally starts at a specific stage.
-  """
+  @doc "Create new logic instance; option :stage_id to start at another stage."
   def new(program, opts \\ []) do
     stage_id = Keyword.get(opts, :stage_id) || first_stage(program)
 
     initial_states = Program.get_stage_state(program, stage_id) || ""
 
-    # Pre-select the upcoming stage for UI display
+    # select next stage for UI pre-selection
     upcoming_stage = select_next_stage(program, stage_id)
 
     %__MODULE__{
@@ -40,9 +32,7 @@ defmodule Tlc.Logic.StageBased do
     }
   end
 
-    # Returns the first logical stage to use as a program entry point.
-    # Prefer the program-defined enter list; otherwise use the first stage from
-    # the shared stages_ref (stages map keys). Returns nil when no stage exists.
+    # Pick initial stage: prefer program.enter then stages_ref keys
     defp first_stage(%{enter: [first | _]}), do: first
 
     defp first_stage(%{stages_ref: %{stages: stages}}) when is_map(stages) do
@@ -76,15 +66,15 @@ defmodule Tlc.Logic.StageBased do
   defp process_tick(logic) do
     cond do
       logic.current_transition != nil ->
-        # We're in a transition
+        # in-transition path
         process_transition(logic)
 
       logic.requested_stage != nil and logic.requested_stage != logic.current_stage ->
-        # Stage change requested, check if we can start transition
+        # requested stage path
         maybe_start_transition(logic)
 
       true ->
-        # We're in a stage, just advance time
+        # in-stage path
         advance_stage(logic)
     end
   end
@@ -95,10 +85,10 @@ defmodule Tlc.Logic.StageBased do
     total_duration = Program.transition_duration(transition)
 
     if new_elapsed >= total_duration do
-      # Transition complete, enter the target stage
+      # transition complete
       complete_transition(logic)
     else
-      # Still in transition, update state
+      # update transition-state
       %{logic |
         transition_elapsed: new_elapsed,
         current_states: get_transition_state(transition, new_elapsed)
@@ -107,10 +97,7 @@ defmodule Tlc.Logic.StageBased do
   end
 
   defp get_transition_state(transition, elapsed) do
-    # Walk the sequence accumulating durations and return the matching step.
-    # If elapsed exceeds the total transition duration, we return the last
-    # state's value as a fallback (this keeps behavior safe if callers ever
-    # request states beyond the sequence duration).
+    # return transition state for elapsed time; fallback to last state
     transition.sequence
     |> Enum.reduce_while({nil, 0}, fn step, {_acc_state, acc_time} ->
       new_acc = acc_time + step.duration
@@ -132,7 +119,7 @@ defmodule Tlc.Logic.StageBased do
     target_stage = logic.current_transition.to
     new_states = Program.get_stage_state(logic.program, target_stage) || ""
 
-    # Pre-select the upcoming stage for UI display
+    # select next stage for UI pre-selection
     upcoming_stage = select_next_stage(logic.program, target_stage)
 
     %{logic |
@@ -146,10 +133,7 @@ defmodule Tlc.Logic.StageBased do
     }
   end
 
-  # Attempts to start a transition to the requested stage. If there's no
-  # requested stage we keep the current logic. Uses `with` to keep the flow
-  # clear: find a flow and then find a transition for that flow. If either is
-  # missing the request is cleared.
+  # Try to start transition to requested_stage; clear request if no flow/transition
   defp maybe_start_transition(%{requested_stage: nil} = logic), do: logic
 
   defp maybe_start_transition(logic) do
@@ -163,10 +147,7 @@ defmodule Tlc.Logic.StageBased do
     end
   end
 
-  # Start running a transition. If the transition contains a non-empty
-  # sequence we set the current_states to the first step's state. If it is
-  # empty, we keep the existing states and start the transition with a
-  # zero-duration sequence (this is used to model immediate transfers).
+  # Start running a transition; if sequence present set initial state
   defp start_transition(logic, %{sequence: [first | _]} = transition) do
     %{logic |
       current_transition: transition,
@@ -176,7 +157,7 @@ defmodule Tlc.Logic.StageBased do
   end
 
   defp start_transition(logic, %{sequence: []} = transition) do
-    # No explicit sequence defined, keep current states
+    # empty sequence -> keep current states
     %{logic |
       current_transition: transition,
       transition_elapsed: 0
@@ -187,7 +168,7 @@ defmodule Tlc.Logic.StageBased do
     new_elapsed = logic.stage_elapsed + logic.unix_delta
     logic = %{logic | stage_elapsed: new_elapsed}
 
-    # Check if the stage duration has expired and auto-transition to next stage
+    # check stage duration and auto-request next stage
     stage = Program.get_stage(logic.program, logic.current_stage)
 
     default_duration =
@@ -197,7 +178,7 @@ defmodule Tlc.Logic.StageBased do
       end
 
     if default_duration && default_duration > 0 && new_elapsed >= default_duration do
-      # Duration expired, request next stage from flows
+      # duration expired -> auto request next stage
       maybe_auto_request_next_stage(logic)
     else
       logic
@@ -205,7 +186,7 @@ defmodule Tlc.Logic.StageBased do
   end
 
   defp maybe_auto_request_next_stage(logic) do
-    # Use the pre-selected upcoming stage
+    # use pre-selected upcoming stage
     if logic.upcoming_stage do
       %{logic | requested_stage: logic.upcoming_stage}
     else
@@ -213,7 +194,7 @@ defmodule Tlc.Logic.StageBased do
     end
   end
 
-  # Select the next stage from available flows (used for pre-selection)
+  # Select next stage for pre-selection
   defp select_next_stage(program, current_stage) do
     case Map.get(program.flows, current_stage, []) do
       [] -> nil
@@ -221,18 +202,12 @@ defmodule Tlc.Logic.StageBased do
     end
   end
 
-  @doc """
-  Requests a transition to a specific stage.
-  The transition will occur when conditions are met.
-  """
+  @doc "Request a staged transition by id."
   def request_stage(logic, stage_id) do
     %{logic | requested_stage: stage_id}
   end
 
-  @doc """
-  Gets the current state of a specific signal group.
-  Returns a single character representing the state.
-  """
+  @doc "Return current state character for a group or nil."
   def get_group_state(logic, group_id) do
     groups = Program.groups(logic.program)
 
@@ -242,31 +217,23 @@ defmodule Tlc.Logic.StageBased do
     end
   end
 
-  @doc """
-  Returns true if the logic is currently in a transition.
-  """
+  @doc "True when in transition."
   def in_transition?(logic) do
     logic.current_transition != nil
   end
 
-  @doc """
-  Returns true if the logic is currently in a stage (not transitioning).
-  """
+  @doc "True when in stage (not transitioning)."
   def in_stage?(logic) do
     logic.current_transition == nil
   end
 
-  @doc """
-  Gets all available stages from the current stage based on the program flows.
-  """
+  @doc "Return available stages from current stage flows."
   def available_stages(logic) do
     flows = Map.get(logic.program.flows, logic.current_stage, [])
     Enum.map(flows, fn f -> f.to end)
   end
 
-  @doc """
-  Halts the logic at the current position.
-  """
+  @doc "Halt logic (mode :halt)."
   def halt(logic) do
     %{logic |
       mode: :halt,
@@ -274,12 +241,7 @@ defmodule Tlc.Logic.StageBased do
     }
   end
 
-  @doc """
-  Puts the logic into fault mode.
-  Stage-based logic does not have a dedicated fault program; this simply forces all
-  groups to red. Higher layers (server/safety) are responsible for switching into
-  a fixed-time fault program when one is provided.
-  """
+  @doc "Enter :fault mode and set all groups to red."
   def fault(logic, _fault_program) do
     red_state =
       logic.program
@@ -295,17 +257,12 @@ defmodule Tlc.Logic.StageBased do
     }
   end
 
-  @doc """
-  Resumes the logic from a halted state.
-  """
+  @doc "Resume logic (mode :run)."
   def resume(logic) do
     %{logic | mode: :run}
   end
 
-  @doc """
-  Gets the remaining time in the current stage based on default duration.
-  Returns nil if in a transition or stage has no default duration.
-  """
+  @doc "Remaining stage time or nil."
   def stage_remaining_time(logic) do
     case logic.current_transition do
       nil ->
@@ -318,10 +275,7 @@ defmodule Tlc.Logic.StageBased do
     end
   end
 
-  @doc """
-  Gets the remaining time in the current transition.
-  Returns nil if not in a transition.
-  """
+  @doc "Remaining transition time or nil."
   def transition_remaining_time(logic) do
     if logic.current_transition do
       total = Program.transition_duration(logic.current_transition)
@@ -331,14 +285,7 @@ defmodule Tlc.Logic.StageBased do
     end
   end
 
-  @doc """
-  Returns true when the logic is at a switch point, which is when:
-  - The current stage is a "leave" stage, AND
-  - Not currently in a transition
-
-  This is the safe moment to switch out of a stage-based program.
-  If no leave stages are defined, any stage (when not transitioning) is considered a switch point.
-  """
+  @doc "True when at a program switch point (leave stage and not transitioning)."
   def at_switch_point?(logic) do
     not in_transition?(logic) and is_leave_stage?(logic)
   end
@@ -353,11 +300,7 @@ defmodule Tlc.Logic.StageBased do
     end
   end
 
-  @doc """
-  Creates a new stage-based logic instance starting at the first enter stage.
-  This is used when switching from another program type to stage-based.
-  If no enter stages are defined, falls back to the first available stage.
-  """
+  @doc "Start logic at an enter stage, falling back to the first available."
   def start_at_enter_stage(program) do
     enter_stage_id = first_stage(program)
 
@@ -375,12 +318,7 @@ defmodule Tlc.Logic.StageBased do
     }
   end
 
-  @doc """
-  Creates a new stage-based logic instance starting at an enter stage that matches
-  the given current state. This is used when switching from another program type
-  (like fixed-time) to stage-based, ensuring the switch point states match.
-  Falls back to start_at_enter_stage if no matching enter stage is found.
-  """
+  @doc "Start at an enter stage matching a given state, fallback to default."
   def start_at_matching_enter_stage(program, current_state) do
     # Find an enter stage whose state matches the current state
     matching_stage = Enum.find(program.enter, fn stage_id ->
@@ -406,13 +344,7 @@ defmodule Tlc.Logic.StageBased do
     end
   end
 
-  @doc """
-  Switches from the current stage-based logic to a new program.
-  If the current stage can transition to the new program's enter stage, it starts
-  a transition. Otherwise, it falls back to start_at_enter_stage (immediate switch).
-
-  This should be called when both the old and new program share the same stages_ref.
-  """
+  @doc "Switch logic to a new program, using transition into enter stage when available."
   def switch_to_program(logic, new_program) do
     enter_stage_id = first_stage(new_program)
 

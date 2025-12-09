@@ -21,10 +21,6 @@ import "phoenix_html"
 import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
-import { setupSwitchDragHandlers } from "./hooks/switch_drag"
-import { setupSignalDragHandlers } from "./hooks/signal_drag"
-import { setupInputHandlers } from "./hooks/input_handlers"
-import { setupPromptHandlers } from "./hooks/prompt_handlers"
 
 // Define hooks for LiveView
 let Hooks = {}

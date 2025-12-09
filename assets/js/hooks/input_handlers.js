@@ -1,12 +1,12 @@
 export function setupInputHandlers(hook) {
-  console.log("NumberInputHandler mounted for", hook.el.dataset.field);
+  // Number input handler used to push immediate updates when mounted
   
   // Listen for any changes including keyboard, mouse clicks, arrow buttons, etc.
   hook.el.addEventListener('input', (e) => {
     const field = hook.el.dataset.field;
     const value = hook.el.value;
     
-    console.log(`Input changed: ${field} = ${value}`);
+    
     
     // Send update to server
     if (field === "length") {
