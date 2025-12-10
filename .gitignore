@@ -40,3 +40,5 @@ npm-debug.log
 
 # analysis
 /analysis/
+/.playwright-mcp/
+/node_modules/

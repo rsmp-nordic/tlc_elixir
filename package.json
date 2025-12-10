@@ -1,0 +1,28 @@
+{
+  "name": "tlc_elixir",
+  "version": "1.0.0",
+  "description": "A web app to experiment with and validate the RSMP draft specification for traffic light controller fixed-time programs, see: See https://github.com/rsmp-nordic/tlc_programming for more on the specification.",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rsmp-nordic/tlc_elixir.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/rsmp-nordic/tlc_elixir/issues"
+  },
+  "homepage": "https://github.com/rsmp-nordic/tlc_elixir#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@types/node": "^24.10.2"
+  }
+}
