@@ -211,9 +211,9 @@ defmodule TlcElixirWeb.LayoutComponents do
               class={"px-3 py-1 rounded text-sm transition-colors flex items-center justify-center gap-1 " <>
                 cond do
                   is_current -> "bg-purple-700 text-white font-bold"
-                  is_requested -> "bg-gray-600 text-white"
+                  is_requested -> "bg-gray-700 text-white"
                   is_available -> "bg-gray-700 hover:bg-gray-600 text-white"
-                  true -> "bg-gray-800 text-gray-500 cursor-not-allowed"
+                  true -> "bg-gray-700 text-gray-400 cursor-not-allowed"
                 end}
               disabled={@logic.mode == :halt or not is_available}
               title={cond do
@@ -367,7 +367,7 @@ defmodule TlcElixirWeb.LayoutComponents do
 
     cond do
       mode == :fault || editing ->
-        "#{base} bg-gray-800 text-gray-500 cursor-not-allowed"
+        "#{base} bg-gray-700 text-gray-400 cursor-not-allowed"
       is_current ->
         "#{base} bg-purple-700 text-white font-bold"
       is_target ->
