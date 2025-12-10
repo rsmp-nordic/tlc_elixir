@@ -44,7 +44,7 @@ Test can be run with 'mix test', but prefer running test using the runTests tool
 Playwright MCP can be used to view and interact with the web app UI. 
 Playwright MCP depends on Playwright which is based on node. The node dependencies are in package.json.
 
-Before using Playwright MCP, the server must be running.
+Before using Playwright MCP, the server must be running, but assume that it is already running.
 
 We do not use Playwright tests, don't add any.
 

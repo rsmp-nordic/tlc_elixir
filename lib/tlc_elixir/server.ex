@@ -56,6 +56,13 @@ defmodule Tlc.Server do
   end
 
   @doc """
+  Advance the server by a number of manual ticks (useful when interval is 0 / paused).
+  """
+  def step(server, steps \\ 1) do
+    GenServer.cast(server, {:step, steps})
+  end
+
+  @doc """
   Immediately switches to the specified program and syncs it to the switch point.
   """
   def switch_program_immediate(server, program_name) do
@@ -119,7 +126,8 @@ defmodule Tlc.Server do
       Enum.each(validation.switch_issues, fn issue -> Logger.warning("  #{issue.message}") end)
     end
 
-    default_interval = @tick_interval
+    # Start the app paused for manual stepping convenience
+    default_interval = 0
     real_ms = System.os_time(:millisecond)
     virtual_unix_time = floor(real_ms / @tick_interval)
     tlc_logic_instance = Tlc.new(programs)
@@ -221,6 +229,14 @@ defmodule Tlc.Server do
   @impl true
   def handle_call({:set_interval, interval}, _from, tlc) do
     tlc = %{tlc | interval: interval, resync: true}
+
+    # If interval > 0 we need to schedule the next automatic tick.
+    # When switching from paused (0) to a positive interval the
+    # TickScheduler won't be invoked until the next tick occurs, so
+    # proactively schedule the next tick here.
+    real_ms = System.os_time(:millisecond)
+    Tlc.Server.TickScheduler.schedule_tick(real_ms, tlc.virtual_unix_time, tlc.interval)
+
     broadcast_update(tlc)
     {:reply, :ok, tlc}
   end
@@ -333,12 +349,58 @@ defmodule Tlc.Server do
   end
 
   @impl true
+  def handle_cast({:step, steps}, tlc) do
+    steps = if is_integer(steps) and steps > 0, do: steps, else: 1
+
+    tlc = Enum.reduce(1..steps, tlc, fn _, acc ->
+      virtual_unix_time = acc.virtual_unix_time + 1
+
+      logic = acc.logic
+      logic = tick_logic(logic, virtual_unix_time)
+
+      fault_program = Enum.find(acc.programs, fn prog -> prog.name == "fault" end)
+
+      acc =
+        case Tlc.Safety.check_transitions(acc.safety, logic, fault_program) do
+          {:ok, updated_safety, logic} ->
+            %{acc |
+              logic: logic,
+              safety: updated_safety,
+              virtual_unix_time: virtual_unix_time,
+              resync: false
+            }
+
+          {:fault, updated_safety, _reason} ->
+            Logger.warning("Safety violation detected: manual step triggered fault")
+            fault_logic =
+              Tlc.Program.Factory.create(fault_program, virtual_unix_time, :switching)
+              |> Map.put(:mode, :fault)
+
+            cleared_safety = Tlc.Safety.clear_history(updated_safety, fault_program.name)
+
+            %{acc |
+              logic: fault_logic,
+              safety: cleared_safety,
+              virtual_unix_time: virtual_unix_time,
+              resync: false
+            }
+        end
+
+      # Apply any potential cross-type switch after the tick
+      Tlc.Server.SwitchController.maybe_switch_to_target_program(acc)
+    end)
+
+    broadcast_update(tlc)
+    {:noreply, tlc}
+  end
+
+  @impl true
   def handle_info(:tick, tlc) do
     real_ms = System.os_time(:millisecond)
     virtual_unix_time = tlc.virtual_unix_time + 1
 
     logic = tlc.logic
-    logic = if tlc.resync do
+    logic = if tlc.resync and is_integer(tlc.interval) and tlc.interval > 0 do
       sync_time = floor(real_ms / tlc.interval)
       Tlc.Logic.Protocol.sync_time(logic, sync_time)
     else

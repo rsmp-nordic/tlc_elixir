@@ -175,18 +175,28 @@ defmodule TlcElixirWeb.EditorComponents do
   end
 
   def interval_controls(assigns) do
-    intervals = [1000, 300, 100, 30, 10, 3]
+    intervals = [1000, 300, 100, 30, 10, 3, 0]
 
     assigns = assign(assigns, :intervals, intervals)
 
     ~H"""
-    <div class="flex space-x-2 mb-3">
+    <div class="flex space-x-2 mb-3 items-center">
       <span class="text-gray-300 self-center mr-1">interval (ms):</span>
       <%= for i <- @intervals do %>
-        <button phx-click="set_interval" phx-value-interval={i} class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @interval == i, do: "bg-purple-700"}"}>
-          <%= i %>
+        <button phx-click="set_interval" phx-value-interval={i} class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @interval == i, do: "bg-purple-700"}"} title={if i == 0, do: "paused", else: to_string(i)}>
+          <%= if i == 0 do %>
+            paused
+          <% else %>
+            <%= i %>
+          <% end %>
         </button>
       <% end %>
+      <div class="flex items-center gap-1 ml-2">
+        <form id="manual-step-form-editor" phx-submit="step" phx-update="ignore" class="flex items-center gap-1">
+          <input type="number" name="steps" value="1" min="1" class="w-16 px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 border border-gray-600" />
+          <button type="submit" class="px-2 py-0.5 text-xs rounded bg-gray-700 hover:bg-gray-600 text-gray-300">Step</button>
+        </form>
+      </div>
     </div>
     """
   end

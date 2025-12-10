@@ -23,25 +23,36 @@ defmodule TlcElixirWeb.LayoutComponents do
   def common_header(assigns) do
     ~H"""
     <div class="flex gap-3">
-      <%!-- Controller Section --%>
-      <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 flex-[2]">
-        <h3 class="text-lg font-semibold text-gray-200 mb-2">Controller</h3>
-
-        <%!-- State and Speed --%>
-        <div class="flex flex-wrap items-center gap-4 mb-3">
-          <.mode_indicator mode={@mode} />
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-gray-400">Interval:</span>
-            <.interval_buttons interval={@interval} />
-          </div>
-          <div class="flex items-center gap-3 text-xs">
-            <.state_card label="Unix Time" value={@logic.unix_time} />
-            <.state_card label="Unix Delta" value={@logic.unix_delta} />
+      <%!-- Left column: Time card above Controller --%>
+      <div class="flex-[2] flex flex-col gap-3">
+        <%!-- Time Section --%>
+        <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700">
+          <h3 class="text-lg font-semibold text-gray-200 mb-2">Time</h3>
+          <div class="flex flex-wrap items-center gap-4 mb-3">
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-400">Interval:</span>
+              <.interval_buttons interval={@interval} />
+            </div>
+            <div class="flex-1" />
+            <div class="flex-1" />
           </div>
         </div>
 
-        <%!-- Signal Heads --%>
-        <div class="flex justify-start gap-4">
+        <%!-- Controller Section --%>
+        <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700">
+          <h3 class="text-lg font-semibold text-gray-200 mb-2">Controller</h3>
+
+          <%!-- State --%>
+          <div class="flex flex-wrap items-center gap-4 mb-3">
+            <.mode_indicator mode={@mode} />
+            <div class="flex items-center gap-3 text-xs">
+              <.state_card label="Unix Time" value={@logic.unix_time} />
+              <.state_card label="Unix Delta" value={@logic.unix_delta} />
+            </div>
+          </div>
+
+          <%!-- Signal Heads --%>
+          <div class="flex justify-start gap-4">
           <%= for {group, i} <- Enum.with_index(@groups) do %>
             <div class="flex flex-col items-center">
               <div class="signal-head flex flex-col gap-1.5 p-1.5 bg-gray-900 rounded border border-gray-700">
@@ -56,6 +67,7 @@ defmodule TlcElixirWeb.LayoutComponents do
               <span class="text-gray-400 text-xs font-medium mt-1"><%= group %></span>
             </div>
           <% end %>
+          </div>
         </div>
       </div>
 
@@ -314,6 +326,7 @@ defmodule TlcElixirWeb.LayoutComponents do
         %>
         <div class="relative group">
           <button
+            data-program={program.name}
             phx-click={if is_target, do: "clear_target_program", else: "switch_program"}
             phx-value-program_name={program.name}
             class={program_button_class(@mode, @editing, is_current, is_target)}
@@ -387,7 +400,8 @@ defmodule TlcElixirWeb.LayoutComponents do
   attr :interval, :integer, required: true
 
   defp interval_buttons(assigns) do
-    intervals = [1000, 300, 100, 30, 10, 3]
+    # Add 0 so agents can pause automatic ticking and use manual steps
+    intervals = [1000, 300, 100, 30, 10, 3, 0]
     assigns = assign(assigns, intervals: intervals)
 
     ~H"""
@@ -397,10 +411,36 @@ defmodule TlcElixirWeb.LayoutComponents do
           phx-click="set_interval"
           phx-value-interval={i}
           class={"px-2 py-0.5 text-xs rounded #{if @interval == i, do: "bg-purple-700 text-white", else: "bg-gray-700 hover:bg-gray-600 text-gray-300"}"}
+          title={if i == 0, do: "paused", else: to_string(i)}
         >
-          <%= i %>
+          <%= if i == 0 do %>
+            paused
+          <% else %>
+            <%= i %>
+          <% end %>
         </button>
       <% end %>
+
+      <%!-- Manual step input for paused/manual mode --%>
+      <div class="flex items-center gap-1 ml-2">
+        <form id="manual-step-form-header" phx-submit="step" class="flex items-center gap-1">
+          <input id="manual-step-input" phx-update="ignore" type="number" name="steps" value="1" min="1" class="w-16 px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 border border-gray-600" />
+          <button
+            type="submit"
+            disabled={@interval != 0}
+            class={"px-2 py-0.5 text-xs rounded " <>
+              if @interval != 0 do
+                "bg-gray-800 text-gray-500 cursor-not-allowed"
+              else
+                "bg-gray-700 hover:bg-gray-600 text-gray-300"
+              end
+            }
+            aria-disabled={@interval != 0}
+          >
+            Step
+          </button>
+        </form>
+      </div>
     </div>
     """
   end

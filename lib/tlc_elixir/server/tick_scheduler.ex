@@ -13,7 +13,13 @@ defmodule Tlc.Server.TickScheduler do
 
   @doc "Schedule a :tick message to the current process at the next tick boundary."
   def schedule_tick(real_ms, _virtual_unix_time, interval) do
-    ms = ms_to_wait(real_ms, interval)
-    Process.send_after(self(), :tick, ms)
+    # When interval is 0 or negative the server is effectively paused; do
+    # not schedule automatic ticks in that case.
+    if is_integer(interval) and interval > 0 do
+      ms = ms_to_wait(real_ms, interval)
+      Process.send_after(self(), :tick, ms)
+    else
+      :ok
+    end
   end
 end

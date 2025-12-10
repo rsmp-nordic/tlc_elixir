@@ -99,6 +99,18 @@ defmodule TlcElixirWeb.TlcLive do
   end
 
   @impl true
+  def handle_event("step", %{"steps" => steps_str}, socket) do
+    steps = case Integer.parse(steps_str) do
+      {v, _} when v > 0 -> v
+      _ -> 1
+    end
+
+    # Request the server to advance the virtual time by `steps` ticks
+    Tlc.Server.step(socket.assigns.server, steps)
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_event("start_editing", %{"program_name" => program_name}, socket) do
     program_to_edit = Enum.find(socket.assigns.tlc.programs, fn prog ->
       prog.name == program_name
