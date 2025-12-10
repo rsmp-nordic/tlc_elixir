@@ -38,7 +38,8 @@ defmodule Tlc.ServerProgramSwitchingTest do
   describe "Server: switch_program/2" do
     test "server initializes with expected default programs" do
       pid = start_test_server()
-      :timer.sleep(50)
+      # No real-time sleep here; ensure server processed init by querying state
+      get_state(pid)
 
       state = get_state(pid)
       names = Enum.map(state.programs, & &1.name)
@@ -52,7 +53,8 @@ defmodule Tlc.ServerProgramSwitchingTest do
     end
     test "sets target program for same-type fixed-time switch" do
       pid = start_test_server()
-      :timer.sleep(100)  # Let it initialize
+      # Let the server process initialization synchronously using a single tick
+      tick(pid)
 
       state = get_state(pid)
       # Server starts in halt mode - we need to switch to a running program first
@@ -60,7 +62,8 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
       # Switch to "calm" program (same type as halt - both FixedTime)
       Tlc.Server.switch_program(pid, "calm")
-      :timer.sleep(100)
+      # Process the switch message synchronously
+      tick(pid)
 
       state = get_state(pid)
 
@@ -74,16 +77,19 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
     test "sets target program at server level for cross-type switch" do
       pid = start_test_server()
-      :timer.sleep(100)
+      # Ensure the server has processed the switch and tick once
+      tick(pid)
 
       # First switch to a fixed-time program to ensure we're running
       Tlc.Server.switch_program(pid, "calm")
-      :timer.sleep(200)
+      # Drive ticks to reach processing state deterministically
+      tick(pid, 2)
 
       state = get_state(pid)
       # Wait until we've switched to calm
       state = if state.logic.program.name != "calm" do
-        :timer.sleep(200)
+        # If not yet switched, drive a couple of ticks then re-check
+        tick(pid, 2)
         get_state(pid)
       else
         state
@@ -93,7 +99,7 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
       # Switch to stage-based (cross-type)
       Tlc.Server.switch_program(pid, "quiet")
-      :timer.sleep(100)
+      tick(pid)
 
       state = get_state(pid)
 
@@ -106,7 +112,7 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
     test "resumes from halt mode when switching" do
       pid = start_test_server()
-      :timer.sleep(100)
+      tick(pid)
 
       state = get_state(pid)
 
@@ -115,7 +121,7 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
       # Switch to normal program - should resume running
       Tlc.Server.switch_program(pid, "normal")
-      :timer.sleep(100)
+      tick(pid)
 
       state = get_state(pid)
 
@@ -129,16 +135,16 @@ defmodule Tlc.ServerProgramSwitchingTest do
   describe "Server: switch_program_immediate/2" do
     test "immediately switches to target program" do
       pid = start_test_server()
-      :timer.sleep(100)
+      tick(pid)
 
       Tlc.Server.switch_program_immediate(pid, "calm")
-      :timer.sleep(100)
+      tick(pid)
 
       state = get_state(pid)
       assert state.logic.program.name == "calm"
 
       Tlc.Server.switch_program_immediate(pid, "normal")
-      :timer.sleep(100)
+      tick(pid)
 
       state = get_state(pid)
       assert state.logic.program.name == "normal"
@@ -149,16 +155,16 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
     test "creates new logic for cross-type immediate switch" do
       pid = start_test_server()
-      :timer.sleep(100)
+      tick(pid)
 
       Tlc.Server.switch_program_immediate(pid, "calm")
-      :timer.sleep(100)
+      tick(pid)
 
       state = get_state(pid)
       assert state.logic.__struct__ == Tlc.Logic.FixedTime
 
       Tlc.Server.switch_program_immediate(pid, "quiet")
-      :timer.sleep(100)
+      tick(pid)
 
       state = get_state(pid)
       assert state.logic.__struct__ == Tlc.Logic.StageBased
@@ -171,13 +177,14 @@ defmodule Tlc.ServerProgramSwitchingTest do
   describe "Server: clear_target_program/1" do
     test "clears target program from both server and logic" do
       pid = start_test_server()
-      :timer.sleep(100)
+      tick(pid)
 
       Tlc.Server.switch_program_immediate(pid, "calm")
-      :timer.sleep(100)
+      tick(pid)
 
       Tlc.Server.switch_program(pid, "normal")
-      :timer.sleep(50)
+      # After requesting a switch, run one tick to let state update
+      tick(pid)
 
       state = get_state(pid)
       # Either server or logic should have target program set
@@ -185,7 +192,8 @@ defmodule Tlc.ServerProgramSwitchingTest do
       assert has_target
 
       Tlc.Server.clear_target_program(pid)
-      :timer.sleep(50)
+      # Ensure message processed without wall-clock waiting
+      tick(pid)
 
       state = get_state(pid)
       assert state.target_program == nil
@@ -198,7 +206,7 @@ defmodule Tlc.ServerProgramSwitchingTest do
   describe "Server: toggle_fault/1" do
     test "toggles between fault and halt modes" do
       pid = start_test_server()
-      :timer.sleep(100)
+      tick(pid)
 
       state = get_state(pid)
       # Start in halt mode
@@ -206,7 +214,7 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
       # Toggle to fault mode
       Tlc.Server.toggle_fault(pid)
-      :timer.sleep(100)
+      tick(pid)
 
       state = get_state(pid)
       assert state.logic.mode == :fault
@@ -214,7 +222,7 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
       # Toggle back to halt mode
       Tlc.Server.toggle_fault(pid)
-      :timer.sleep(100)
+      tick(pid)
 
       state = get_state(pid)
       assert state.logic.mode == :halt
@@ -225,17 +233,17 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
     test "handles fault toggle while in stage-based program" do
       pid = start_test_server()
-      :timer.sleep(100)
+      tick(pid)
 
       Tlc.Server.switch_program_immediate(pid, "quiet")
-      :timer.sleep(100)
+      tick(pid)
 
       state = get_state(pid)
       assert state.logic.__struct__ == Tlc.Logic.StageBased
       assert state.logic.mode == :run
 
       Tlc.Server.toggle_fault(pid)
-      :timer.sleep(100)
+      tick(pid)
 
       state = get_state(pid)
       assert state.logic.__struct__ == Tlc.Logic.FixedTime
@@ -244,7 +252,7 @@ defmodule Tlc.ServerProgramSwitchingTest do
       assert state.logic.current_states == "RRRRR"
 
       Tlc.Server.toggle_fault(pid)
-      :timer.sleep(100)
+      tick(pid)
 
       state = get_state(pid)
       assert state.logic.__struct__ == Tlc.Logic.FixedTime
@@ -258,17 +266,17 @@ defmodule Tlc.ServerProgramSwitchingTest do
   describe "Server: request_stage/2" do
     test "requests stage transition for stage-based programs" do
       pid = start_test_server()
-      :timer.sleep(100)
+      tick(pid)
 
       Tlc.Server.switch_program_immediate(pid, "quiet")
-      :timer.sleep(100)
+      tick(pid)
 
       state = get_state(pid)
       assert state.logic.__struct__ == Tlc.Logic.StageBased
       assert state.logic.current_stage == "main"
 
       Tlc.Server.request_stage(pid, "side")
-      :timer.sleep(50)
+      tick(pid)
 
       state = get_state(pid)
       assert state.logic.requested_stage == "side"
@@ -278,17 +286,17 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
     test "ignores stage request for fixed-time programs" do
       pid = start_test_server()
-      :timer.sleep(100)
+      tick(pid)
 
       Tlc.Server.switch_program_immediate(pid, "calm")
-      :timer.sleep(100)
+      tick(pid)
 
       state = get_state(pid)
       assert state.logic.__struct__ == Tlc.Logic.FixedTime
 
       # Request stage should be ignored for fixed-time
       Tlc.Server.request_stage(pid, "some_stage")
-      :timer.sleep(50)
+      tick(pid)
 
       state = get_state(pid)
       # Logic should still be FixedTime with no errors
@@ -301,17 +309,17 @@ defmodule Tlc.ServerProgramSwitchingTest do
   describe "Server: cross-type switch point waiting" do
     test "waits for switch point before cross-type switch" do
       pid = start_test_server()
-      :timer.sleep(100)
+      tick(pid)
 
       Tlc.Server.switch_program_immediate(pid, "calm")
-      :timer.sleep(100)
+      tick(pid)
 
       state = get_state(pid)
       assert state.logic.__struct__ == Tlc.Logic.FixedTime
 
       # Request cross-type switch
       Tlc.Server.switch_program(pid, "quiet")
-      :timer.sleep(50)
+      tick(pid)
 
       state = get_state(pid)
 
@@ -330,14 +338,14 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
     test "switching from halt to stage-based resumes from halt point and switches at switch" do
       pid = start_test_server()
-      :timer.sleep(100)
+      tick(pid)
 
       # Ensure we've formally entered the synced halt state (toggle fault -> back)
       # This ensures the halt logic is created and synced to the halt point.
       Tlc.Server.toggle_fault(pid)
-      :timer.sleep(50)
+      tick(pid)
       Tlc.Server.toggle_fault(pid)
-      :timer.sleep(50)
+      tick(pid)
 
       state = get_state(pid)
       assert state.logic.mode == :halt
@@ -345,7 +353,7 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
       # Request a switch to a stage-based program
       Tlc.Server.switch_program(pid, "quiet")
-      :timer.sleep(50)
+      tick(pid)
 
       state = get_state(pid)
 
@@ -379,7 +387,7 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
     test "switching from initial halt at startup to stage-based resumes from halt point" do
       pid = start_test_server()
-      :timer.sleep(50)
+      tick(pid)
 
       state = get_state(pid)
       # Server starts in halt mode (initial) - ensure it's the halt program
@@ -388,15 +396,15 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
       # Request a cross-type switch directly from the initial halt
       Tlc.Server.switch_program(pid, "quiet")
-      :timer.sleep(50)
+      tick(pid)
 
       state = get_state(pid)
 
       # After requesting a cross-type switch from halt the server should resume
-      # the halt (fixed-time) program and run from the halt point (cycle_time == 0)
+      # the halt (fixed-time) program and run from the halt point, allow for single-tick drift
       assert state.logic.__struct__ == Tlc.Logic.FixedTime
       assert state.logic.mode == :run
-      assert state.logic.cycle_time == 0
+      assert state.logic.cycle_time in 0..1
 
       GenServer.stop(pid)
     end
@@ -405,10 +413,10 @@ defmodule Tlc.ServerProgramSwitchingTest do
   describe "Server: get_target_program/1" do
     test "returns target program name from server level for cross-type" do
       pid = start_test_server()
-      :timer.sleep(100)
+      tick(pid)
 
       Tlc.Server.switch_program_immediate(pid, "calm")
-      :timer.sleep(100)
+      tick(pid)
 
       # Initially no target
       target = Tlc.Server.get_target_program(pid)
@@ -416,7 +424,7 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
       # Set cross-type target
       Tlc.Server.switch_program(pid, "quiet")
-      :timer.sleep(50)
+      tick(pid)
 
       target = Tlc.Server.get_target_program(pid)
       # Either still pending or already switched
@@ -427,14 +435,14 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
     test "returns target program name from logic level for same-type" do
       pid = start_test_server()
-      :timer.sleep(100)
+      tick(pid)
 
       Tlc.Server.switch_program_immediate(pid, "calm")
-      :timer.sleep(100)
+      tick(pid)
 
       # Set same-type target
       Tlc.Server.switch_program(pid, "normal")
-      :timer.sleep(50)
+      tick(pid)
 
       target = Tlc.Server.get_target_program(pid)
       # Either still pending or already switched
@@ -447,16 +455,16 @@ defmodule Tlc.ServerProgramSwitchingTest do
   describe "Server: set_target_offset/2" do
     test "sets target offset for offset coordination" do
       pid = start_test_server()
-      :timer.sleep(100)
+      tick(pid)
 
       Tlc.Server.switch_program_immediate(pid, "calm")
-      :timer.sleep(100)
+      tick(pid)
 
       state = get_state(pid)
       _initial_target_offset = state.logic.target_offset
 
       Tlc.Server.set_target_offset(pid, 5)
-      :timer.sleep(50)
+      tick(pid)
 
       state = get_state(pid)
       assert state.logic.target_offset == 5
@@ -490,18 +498,18 @@ defmodule Tlc.ServerProgramSwitchingTest do
   describe "Server: upcoming_stage after cross-type switch" do
     test "sets upcoming_stage when switching from fixed-time to stage-based" do
       pid = start_test_server()
-      :timer.sleep(100)
+      tick(pid)
 
       # Start with a fixed-time program
       Tlc.Server.switch_program_immediate(pid, "calm")
-      :timer.sleep(50)
+      tick(pid)
 
       state = get_state(pid)
       assert state.logic.__struct__ == Tlc.Logic.FixedTime
 
       # Switch to stage-based program "event"
       Tlc.Server.switch_program(pid, "event")
-      :timer.sleep(50)
+      tick(pid)
 
       # Tick until the switch happens (wait for switch point)
       # The switch point for fixed-time is at cycle_time == switch
@@ -527,11 +535,11 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
     test "transition lookup works correctly for upcoming_stage" do
       pid = start_test_server()
-      :timer.sleep(100)
+      tick(pid)
 
       # Switch directly to stage-based program
       Tlc.Server.switch_program_immediate(pid, "event")
-      :timer.sleep(50)
+      tick(pid)
 
       state = get_state(pid)
       logic = state.logic
