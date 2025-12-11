@@ -9,6 +9,7 @@ defmodule Tlc.Server do
             target_program: nil,
             safety: nil,
             interval: @tick_interval,
+            timer_ref: nil,
             resync: false,
             virtual_unix_time: 0
 
@@ -147,7 +148,8 @@ defmodule Tlc.Server do
       virtual_unix_time: virtual_unix_time
     }
 
-    Tlc.Server.TickScheduler.schedule_tick(real_ms, virtual_unix_time, tlc_server_state.interval)
+    timer_ref = Tlc.Server.TickScheduler.schedule_tick(real_ms, virtual_unix_time, tlc_server_state.interval)
+    tlc_server_state = %{tlc_server_state | timer_ref: timer_ref}
     {:ok, tlc_server_state}
   end
 
@@ -228,14 +230,18 @@ defmodule Tlc.Server do
 
   @impl true
   def handle_call({:set_interval, interval}, _from, tlc) do
-    tlc = %{tlc | interval: interval, resync: true}
+    # Cancel existing timer (if any) before changing interval to avoid duplicate scheduling
+    if tlc.timer_ref, do: Process.cancel_timer(tlc.timer_ref)
+
+    tlc = %{tlc | interval: interval, resync: true, timer_ref: nil}
 
     # If interval > 0 we need to schedule the next automatic tick.
     # When switching from paused (0) to a positive interval the
     # TickScheduler won't be invoked until the next tick occurs, so
     # proactively schedule the next tick here.
     real_ms = System.os_time(:millisecond)
-    Tlc.Server.TickScheduler.schedule_tick(real_ms, tlc.virtual_unix_time, tlc.interval)
+    timer_ref = Tlc.Server.TickScheduler.schedule_tick(real_ms, tlc.virtual_unix_time, tlc.interval)
+    tlc = %{tlc | timer_ref: timer_ref}
 
     broadcast_update(tlc)
     {:reply, :ok, tlc}
@@ -440,7 +446,10 @@ defmodule Tlc.Server do
     # Check for cross-type program switch
     tlc = Tlc.Server.SwitchController.maybe_switch_to_target_program(tlc)
 
-    Tlc.Server.TickScheduler.schedule_tick(real_ms, virtual_unix_time, tlc.interval)
+    # Cancel any outstanding timer (defensive) and schedule next tick
+    if tlc.timer_ref, do: Process.cancel_timer(tlc.timer_ref)
+    timer_ref = Tlc.Server.TickScheduler.schedule_tick(real_ms, virtual_unix_time, tlc.interval)
+    tlc = %{tlc | timer_ref: timer_ref}
 
     broadcast_update(tlc)
     {:noreply, tlc}

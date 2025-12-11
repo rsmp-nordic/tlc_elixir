@@ -19,7 +19,7 @@ defmodule Tlc.Server.TickScheduler do
       ms = ms_to_wait(real_ms, interval)
       Process.send_after(self(), :tick, ms)
     else
-      :ok
+      nil
     end
   end
 end
