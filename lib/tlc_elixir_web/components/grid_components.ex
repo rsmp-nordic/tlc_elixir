@@ -83,16 +83,17 @@ defmodule TlcElixirWeb.GridComponents do
     ~H"""
     <div class="w-24 flex flex-col">
       <div class="p-1 h-8 flex items-center justify-left font-semibold bg-gray-700 text-gray-200 border-r border-b border-gray-600">Cycle</div>
-      <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Offset</div>
-      <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Skips</div>
-      <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Waits</div>
-      <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Switch</div>
-      <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Halt</div>
       <%= for {group, i} <- Enum.with_index(@program.groups) do %>
         <div class={"p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r #{if i == length(@program.groups) - 1, do: "", else: "border-b"} border-gray-600"}>
           <%= group %>
         </div>
       <% end %>
+      <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Offset</div>
+      <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Skips</div>
+      <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Waits</div>
+      <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Switch</div>
+      <div class="p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r border-b border-gray-600">Halt</div>
+
     </div>
     """
   end
@@ -276,6 +277,14 @@ defmodule TlcElixirWeb.GridComponents do
             is_target_offset = if @editing, do: false, else: @target_offset == cycle
             is_between = @is_between_offsets_fn.(cycle, @logic, @editing)
           %>
+          <.group_signal_cells
+            cycle={cycle}
+            program={if @editing, do: @edited_program, else: @display_program}
+            editing={@editing}
+            invalid_transitions={@invalid_transitions}
+            next_signal_fn={@next_signal_fn}
+          />
+
           <.offset_cell
             cycle={cycle}
             editing={@editing}
@@ -307,14 +316,6 @@ defmodule TlcElixirWeb.GridComponents do
             cycle={cycle}
             program={if @editing, do: @edited_program, else: @display_program}
             editing={@editing}
-          />
-
-          <.group_signal_cells
-            cycle={cycle}
-            program={if @editing, do: @edited_program, else: @display_program}
-            editing={@editing}
-            invalid_transitions={@invalid_transitions}
-            next_signal_fn={@next_signal_fn}
           />
         </.program_cell>
       <% end %>

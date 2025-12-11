@@ -52,9 +52,9 @@ defmodule TlcElixirWeb.EditorComponentsTest do
       target_program: "calm"
     })
 
-    # Ensure the target indicator is shown as a circle and is styled as amber when not current
+    # Ensure the target indicator is shown as a circle and is styled as white when not current
     assert html =~ "◎"
-    assert html =~ "text-amber-300"
+    assert html =~ "text-white"
   end
 
   test "program buttons list shows white circle when program is both current and target" do
@@ -102,5 +102,52 @@ defmodule TlcElixirWeb.EditorComponentsTest do
     # There should be an element with data-switch-cycle for cycle 2 and a phx-click handler
     assert html =~ "data-switch-cycle=\"2\""
     assert html =~ "phx-click=\"set_switch_point\""
+  end
+
+  test "program grid labels show groups under Cycle" do
+    program = %Tlc.Program.FixedTime{
+      name: "calm",
+      length: 4,
+      offset: 0,
+      groups: ["a", "b", "c"],
+      states: %{0 => "GGG", 1 => "YYY", 2 => "RRR", 3 => "RRR"},
+      skips: %{},
+      waits: %{},
+      switch: 2
+    }
+
+    html = render_component(&TlcElixirWeb.GridComponents.program_grid/1, %{
+      display_program: program,
+      edited_program: program,
+      current_program: program,
+      current_cycle: 0,
+      editing: true,
+      offset: 0,
+      target_offset: 0,
+      target_distance: 0,
+      invalid_transitions: %{},
+      next_signal_fn: fn s -> s end,
+      is_between_offsets_fn: fn _c, _l, _e -> false end,
+      logic: %{}
+    })
+
+    doc = Floki.parse_document!(html)
+    labels = Floki.find(doc, "div.w-24 > div") |> Enum.map(&Floki.text/1) |> Enum.map(&String.trim/1)
+
+    # Expect order: Cycle, group a, group b, group c, Offset ...
+    assert Enum.at(labels, 0) == "Cycle"
+    assert Enum.slice(labels, 1, 3) == ["a", "b", "c"]
+    assert Enum.at(labels, 4) == "Offset"
+
+    # Ensure the first cycle column's order matches the labels: header, groups a/b/c, then Offset
+    first_cycle_col = Floki.find(doc, "div.flex.border-t > div.flex-1") |> List.first()
+    # Extract direct children elements texts (excluding the header value 0 at index 0)
+    children_texts = Floki.find(first_cycle_col, "> div") |> Enum.map(&Floki.text/1) |> Enum.map(&String.trim/1)
+    # second child (index 1) should correspond to first group signal 'G' from our program
+    assert Enum.at(children_texts, 1) == "G"
+    assert Enum.at(children_texts, 2) == "G"
+    assert Enum.at(children_texts, 3) == "G"
+    # Verify offset cell comes after groups
+    assert Enum.at(children_texts, 4) == "0"
   end
 end
