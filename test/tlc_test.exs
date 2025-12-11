@@ -100,6 +100,12 @@ defmodule TlcTest do
       assert {:error, "Skips durations must be positive integers"} = Program.validate(invalid_skips_duration_neg)
     end
 
+    test "returns error for skips with mismatched start/end states" do
+      # Create a program where start and end states differ for a skip
+      program = %Program{length: 8, offset: 0, groups: ["a", "b"], states: %{0 => "AA", 2 => "BB"}, skips: %{0 => 2}}
+      assert {:error, _} = Program.validate(program)
+    end
+
     test "returns error for invalid waits" do
       program = Program.example()
 

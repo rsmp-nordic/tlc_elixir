@@ -36,8 +36,8 @@ defmodule Tlc.Program.FixedTime do
       groups: ["a", "b"],
         # Fixed states following valid transitions
       states: %{ 0 => "RR", 1 => "YR", 2 => "GR", 4 => "YR", 5 => "RY", 6 => "RG", 7 => "RY"},
-      skips: %{0 => 2},
-      waits: %{5 => 2},
+      skips: %{},
+      waits: %{},
       switch: 0,
     }
   end
@@ -106,7 +106,7 @@ defmodule Tlc.Program.FixedTime do
   defp validate_states(%{states: states}) when is_map(states), do: {:error, "Program must have at least one state defined"}
   defp validate_states(_), do: {:error, "States must be a map"}
 
-  defp validate_skips(%{skips: skips, length: length}) when is_map(skips) do
+  defp validate_skips(program = %{skips: skips, length: length}) when is_map(skips) do
     skip_errors = Enum.reduce_while(skips, [], fn {time, count}, acc ->
       cond do
         not is_integer(time) or time < 0 or time >= length ->
@@ -114,7 +114,16 @@ defmodule Tlc.Program.FixedTime do
         not is_integer(count) or count <= 0 ->
           {:halt, ["Skips durations must be positive integers"]}
         true ->
-          {:cont, acc}
+          # Validate that the skip start and end states are the same
+          end_time = Integer.mod(time + count, length)
+          start_state = resolve_state(program, time)
+          end_state = resolve_state(program, end_time)
+
+          if start_state != end_state do
+            {:halt, ["Skip start and end states must be the same at time #{time}, end_time #{end_time}"]}
+          else
+            {:cont, acc}
+          end
       end
     end)
 
@@ -125,6 +134,7 @@ defmodule Tlc.Program.FixedTime do
   end
   defp validate_skips(%{skips: skips}) when is_map(skips), do: :ok
   defp validate_skips(_), do: {:error, "Skips must be a map"}
+
 
   defp validate_waits(%{waits: waits, length: length}) when is_map(waits) do
     wait_errors = Enum.reduce_while(waits, [], fn {time, duration}, acc ->
