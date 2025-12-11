@@ -16,7 +16,6 @@ defmodule TlcElixirWeb.TlcLive do
       saved_program: nil,
       drag_start: nil,
       drag_signal: nil,
-      switch_dragging: false,
       invalid_transitions: %{},
       mount_error: nil,
       program_text: nil,
@@ -37,10 +36,18 @@ defmodule TlcElixirWeb.TlcLive do
           "[TlcLive #{inspect(live_pid)}] successfully mounted. LiveView Instance ID: #{live_instance_id}"
         )
 
+        # Keep track of a selected interval separate from the server interval
+        # so that pausing (interval == 0) does not deselect the previously
+        # chosen interval in the UI.
+        selected_interval = if tlc.interval && tlc.interval > 0, do: tlc.interval, else: 1000
+        paused = tlc.interval == 0
+
         dynamic_assigns = %{
           tlc: tlc,
           server: server_via_tuple,
-          target_program: target_program
+          target_program: target_program,
+          selected_interval: selected_interval,
+          paused: paused
         }
 
         {:ok, assign(socket, Map.merge(base_assigns, dynamic_assigns))}
@@ -94,7 +101,44 @@ defmodule TlcElixirWeb.TlcLive do
   @impl true
   def handle_event("set_interval", %{"interval" =>interval_str}, socket) do
     interval = String.to_integer(interval_str)
-    Tlc.Server.set_interval(socket.assigns.server,interval)
+    # When a positive interval is selected, remember it as the selected
+    # interval for UI highlighting. If we're currently paused (server
+    # interval == 0) we do NOT change the server interval (so clicking an
+    # interval while paused only updates the selection). If we're running
+    # (server interval != 0) we set the server interval immediately.
+    socket = if interval > 0, do: assign(socket, :selected_interval, interval), else: socket
+
+    if interval > 0 do
+      if not socket.assigns.paused do
+        # running -> change server interval
+        Tlc.Server.set_interval(socket.assigns.server, interval)
+      end
+    else
+      # selecting 0 explicitly pauses
+      Tlc.Server.set_interval(socket.assigns.server, 0)
+    end
+
+    socket = if interval == 0, do: assign(socket, :paused, true), else: socket
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("toggle_pause", _params, socket) do
+    # Toggle paused state. We must set the server interval accordingly.
+    paused = socket.assigns.paused || (socket.assigns.tlc.interval == 0)
+    if paused do
+      # unpause: set to selected_interval (or default 1000)
+      interval = socket.assigns.selected_interval || 1000
+      Tlc.Server.set_interval(socket.assigns.server, interval)
+    else
+      # pause
+      Tlc.Server.set_interval(socket.assigns.server, 0)
+    end
+
+    # update paused assign locally; server updates will come via PubSub
+    socket = assign(socket, :paused, not paused)
+
     {:noreply, socket}
   end
 
@@ -231,25 +275,13 @@ defmodule TlcElixirWeb.TlcLive do
     {:noreply, assign(socket, edited_program: updated_program)}
   end
 
-  @impl true
-  def handle_event("switch_drag_start", _params, socket) do
-    {:noreply, assign(socket, switch_dragging: true)}
-  end
+  # Switching via drag was removed in favor of click-to-set; no handler needed.
 
   @impl true
-  def handle_event("end_switch_drag", params, socket) do
-    socket =
-      case params do
-        %{"cycle" => cycle_str} ->
-          cycle = parse_int(cycle_str)
-          updated_program = Map.put(socket.assigns.edited_program, :switch, cycle)
-          assign(socket, edited_program: updated_program, switch_dragging: false)
-
-        _ ->
-          assign(socket, switch_dragging: false)
-      end
-
-    {:noreply, socket}
+  def handle_event("set_switch_point", %{"cycle" => cycle_str}, socket) do
+    cycle = parse_int(cycle_str)
+    updated_program = Map.put(socket.assigns.edited_program, :switch, cycle)
+    {:noreply, assign(socket, edited_program: updated_program)}
   end
 
   @impl true
@@ -481,7 +513,8 @@ defmodule TlcElixirWeb.TlcLive do
       {:noreply, socket}
     else
       target_program = Tlc.Server.get_target_program(socket.assigns.server)
-      updated_socket = assign(socket, tlc: new_tlc_state, target_program: target_program)
+      paused = new_tlc_state.interval == 0
+      updated_socket = assign(socket, tlc: new_tlc_state, target_program: target_program, paused: paused)
       {:noreply, updated_socket}
     end
   end

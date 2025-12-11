@@ -29,7 +29,6 @@ Hooks.DragHandler = {
     this.dragging = false;
     this.dragStart = null;
     this.dragSignal = null;
-    this.switchDragging = false;
 
     this.el.addEventListener("mousedown", (e) => {
       // Ensure we only handle mousedown on signal cells
@@ -54,13 +53,6 @@ Hooks.DragHandler = {
         e.preventDefault();
       }
       
-      // Handle switch point dragging
-      const switchCell = e.target.closest("[data-switch-cycle]");
-      if (switchCell && switchCell.classList.contains("bg-gray-400")) {
-        this.switchDragging = true;
-        this.pushEvent("switch_drag_start", {});
-        e.preventDefault();
-      }
     });
 
     this.el.addEventListener("mousemove", (e) => {
@@ -79,11 +71,6 @@ Hooks.DragHandler = {
         }
       }
       
-      // Handle switch point hover during drag
-      if (this.switchDragging) {
-        const switchCell = e.target.closest("[data-switch-cycle]");
-        // Let CSS handle the hover indication via the switch-dragging-active class
-      }
     });
 
     // Using window for mouseup to catch events outside the element
@@ -110,18 +97,7 @@ Hooks.DragHandler = {
         this.dragStart = null;
       }
       
-      // Handle switch drag end
-      if (this.switchDragging) {
-        const switchCell = e.target.closest("[data-switch-cycle]");
-        if (switchCell) {
-          this.pushEvent("end_switch_drag", {
-            cycle: switchCell.dataset.switchCycle
-          });
-        } else {
-          this.pushEvent("end_switch_drag", {});
-        }
-        this.switchDragging = false;
-      }
+      // No switch-point dragging: switch points are set via simple clicks (phx-click on the cell).
     });
   }
 };

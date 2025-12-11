@@ -18,7 +18,7 @@ defmodule TlcElixirWeb.EditorComponents do
         <!-- Left side with arrow and program name -->
         <div class="flex items-center">
           <!-- Arrow indicator for target program -->
-          <span class={"w-4 mr-1 text-lg #{if @is_target && @program.name != @current_program, do: "text-amber-300 animate-pulse", else: "opacity-0"}"}>
+          <span class="w-4 mr-1 text-lg">
             →
           </span>
           <!-- Program name -->
@@ -67,9 +67,7 @@ defmodule TlcElixirWeb.EditorComponents do
         >
           <div class="w-5 flex justify-center mr-1">
             <%= if program.name == @target_program do %>
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
+              <span class="text-white text-sm leading-none animate-pulse">◎</span>
             <% end %>
           </div>
 
@@ -135,14 +133,8 @@ defmodule TlcElixirWeb.EditorComponents do
           Save
         </button>
       <% else %>
-        <!-- Fault toggle button -->
-        <button phx-click="toggle_fault"
-                class={"bg-gray-700 #{if @logic_mode == :fault, do: "hover:bg-red-700 bg-red-600", else: "hover:bg-gray-600"} text-white px-3 py-1 rounded flex items-center gap-1"}>
-          <span>Fault</span>
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-        </button>
+        <!-- No action buttons when not editing; Fault button has been moved to Controller section -->
+        <span class="text-gray-400 text-xs">&nbsp;</span>
       <% end %>
     </div>
     """
@@ -151,7 +143,7 @@ defmodule TlcElixirWeb.EditorComponents do
   def program_controls(assigns) do
     ~H"""
     <div class="flex justify-between mb-3">
-      <!-- Program selector section -->
+      <%!-- Program selector section --%>
       <div class="flex flex-wrap gap-3">
         <%= if not @editing do %>
           <.program_buttons_list
@@ -165,36 +157,60 @@ defmodule TlcElixirWeb.EditorComponents do
         <% end %>
       </div>
 
-      <!-- Edit controls and fault button -->
-      <.program_action_buttons
-        editing={@editing}
-        logic_mode={@logic_mode}
-      />
+      <!-- Edit controls (Fault button moved to Controller card) -->
+      <div class="mt-2">
+        <.program_action_buttons
+          editing={@editing}
+          logic_mode={@logic_mode}
+        />
+      </div>
     </div>
     """
   end
 
-  def interval_controls(assigns) do
-    intervals = [1000, 300, 100, 30, 10, 3, 0]
+    attr :interval, :integer, required: true
+    attr :selected_interval, :integer, default: nil
+    attr :paused, :boolean, default: false
 
+    def interval_controls(assigns) do
+    # Intervals for automatic ticking (pause now moved into the manual step UI)
+    intervals = [1000, 300, 100, 30, 10, 3]
+
+    selected = Map.get(assigns, :selected_interval, assigns[:interval])
     assigns = assign(assigns, :intervals, intervals)
+    assigns = assign(assigns, :selected_interval, selected)
+    paused = Map.get(assigns, :paused, false)
+    assigns = assign(assigns, :paused, paused)
 
     ~H"""
-    <div class="flex space-x-2 mb-3 items-center">
-      <span class="text-gray-300 self-center mr-1">interval (ms):</span>
-      <%= for i <- @intervals do %>
-        <button phx-click="set_interval" phx-value-interval={i} class={"bg-gray-700 hover:bg-purple-700 text-white px-3 py-1 rounded #{if @interval == i, do: "bg-purple-700"}"} title={if i == 0, do: "paused", else: to_string(i)}>
-          <%= if i == 0 do %>
-            paused
-          <% else %>
-            <%= i %>
-          <% end %>
+    <div class="flex flex-col gap-1 mb-3">
+      <div class="flex items-center gap-2">
+        <span class="text-gray-300 self-center mr-1">interval (ms):</span>
+        <%= for i <- @intervals do %>
+        <button phx-click="set_interval" phx-value-interval={i} class={"px-3 py-1 rounded " <> cond do
+          @selected_interval == i and not @paused -> "bg-purple-700 text-white"
+          @selected_interval == i and @paused -> "bg-gray-600 text-gray-200"
+          true -> "bg-gray-700 hover:bg-gray-600 text-white"
+        end} title={to_string(i)}>
+          <%= i %>
         </button>
       <% end %>
-      <div class="flex items-center gap-1 ml-2">
+      </div>
+      <div class="flex items-center gap-1 justify-start">
         <form id="manual-step-form-editor" phx-submit="step" phx-update="ignore" class="flex items-center gap-1">
-          <input type="number" name="steps" value="1" min="1" class="w-16 px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 border border-gray-600" />
-          <button type="submit" class="px-2 py-0.5 text-xs rounded bg-gray-700 hover:bg-gray-600 text-gray-300">Step</button>
+          <button
+            phx-click="toggle_pause"
+            type="button"
+            class={"px-3 py-1 rounded " <> if(@paused, do: "bg-purple-700 text-white", else: "bg-gray-700 hover:bg-gray-600 text-gray-300")}
+            aria-pressed={@paused}
+            title="Pause"
+          >
+            Pause
+          </button>
+          <div class={"flex items-center gap-1 " <> if(not @paused, do: "opacity-50", else: "") }>
+            <input type="number" name="steps" value="1" min="1" class={"w-16 px-3 py-1 rounded bg-gray-700 text-gray-300 border border-gray-600 " <> if(not @paused, do: "bg-gray-800 text-gray-500", else: "") } disabled={!@paused} />
+            <button type="submit" class={"px-3 py-1 rounded " <> if(not @paused, do: "bg-gray-800 text-gray-500 cursor-not-allowed", else: "bg-gray-700 hover:bg-gray-600 text-gray-300")}>Step</button>
+          </div>
         </form>
       </div>
     </div>
@@ -252,9 +268,10 @@ defmodule TlcElixirWeb.EditorComponents do
     assigns = assign_new(assigns, :json_error, fn -> nil end)
     assigns = assign_new(assigns, :validation_error, fn -> nil end)
 
-    ~H"""
-    <div id="switch-drag-container"
-         class={"bg-gray-800 p-4 rounded shadow-lg border border-gray-700 #{if @switch_dragging, do: "switch-dragging-active", else: ""}"}>
+        ~H"""
+        <div id="program-editor-container" class="p-4">
+
+      <!-- Program controls moved to top-level Program section in the page layout -->
 
       <.program_grid
         display_program={@display_program}

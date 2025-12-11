@@ -18,36 +18,34 @@ defmodule TlcElixirWeb.LayoutComponents do
   attr :groups, :list, required: true
   attr :current_states, :string, required: true
   attr :interval, :integer, default: 1000
+  attr :selected_interval, :integer, default: nil
+  attr :paused, :boolean, default: false
   attr :editing, :boolean, default: false
 
   def common_header(assigns) do
+    assigns = assign_new(assigns, :selected_interval, fn -> assigns[:interval] end)
     ~H"""
-    <div class="flex gap-3">
-      <%!-- Left column: Time card above Controller --%>
-      <div class="flex-[2] flex flex-col gap-3">
-        <%!-- Time Section --%>
-        <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700">
-          <h3 class="text-lg font-semibold text-gray-200 mb-2">Time</h3>
-          <div class="flex flex-wrap items-center gap-4 mb-3">
-            <div class="flex items-center gap-2">
-              <span class="text-xs text-gray-400">Interval:</span>
-              <.interval_buttons interval={@interval} />
-            </div>
-            <div class="flex-1" />
-            <div class="flex-1" />
-          </div>
-        </div>
-
+    <div class="grid grid-cols-1 md:[grid-template-columns:1fr_16rem] gap-3 items-stretch">
+      <%!-- Controller left, Time right on the same row --%>
+      <div class="min-h-[16rem] flex flex-col">
         <%!-- Controller Section --%>
-        <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700">
+        <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 h-full flex flex-col flex-1">
           <h3 class="text-lg font-semibold text-gray-200 mb-2">Controller</h3>
 
           <%!-- State --%>
           <div class="flex flex-wrap items-center gap-4 mb-3">
-            <.mode_indicator mode={@mode} />
-            <div class="flex items-center gap-3 text-xs">
-              <.state_card label="Unix Time" value={@logic.unix_time} />
-              <.state_card label="Unix Delta" value={@logic.unix_delta} />
+            <div class="flex items-center gap-2">
+              <.mode_indicator mode={@mode} />
+              <button phx-click="toggle_fault"
+                      aria-pressed={@mode == :fault}
+                      title={if @mode == :fault, do: "Clear fault", else: "Trigger fault"}
+                      class="flex items-center gap-2 px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-white" type="button">
+                <%= if @mode == :fault do %>
+                  <span class="text-sm font-medium">Clear Fault</span>
+                <% else %>
+                  <span class="text-sm font-medium">Trigger Fault</span>
+                <% end %>
+              </button>
             </div>
           </div>
 
@@ -71,16 +69,23 @@ defmodule TlcElixirWeb.LayoutComponents do
         </div>
       </div>
 
-      <%!-- Programs Section --%>
-      <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 flex-1">
-        <h3 class="text-lg font-semibold text-gray-200 mb-2">Programs</h3>
-        <.program_selector
-          programs={@programs}
-          current_program={@current_program.name}
-          target_program={@target_program}
-          mode={@mode}
-          editing={@editing}
-        />
+      <%!-- Time Section (compact) --%>
+      <div class="min-h-[16rem] flex flex-col md:min-w-0 md:w-64 h-full">
+        <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 overflow-hidden h-full flex flex-col flex-1">
+          <h3 class="text-lg font-semibold text-gray-200 mb-2">Time</h3>
+          <div class="flex flex-col gap-2 mb-3">
+            <div class="flex items-center gap-2">
+              <div class="flex-1 min-w-0">
+                <.interval_buttons interval={@interval} selected_interval={@selected_interval} paused={@paused} />
+              </div>
+            </div>
+            <%!-- Show Unix time info here in the Time section --%>
+            <div class="flex items-center gap-3 text-xs mt-2">
+              <.state_card label="Unix Time" value={@logic.unix_time} />
+              <.state_card label="Unix Delta" value={@logic.unix_delta} />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     """
@@ -92,8 +97,8 @@ defmodule TlcElixirWeb.LayoutComponents do
 
   def fixed_time_details(assigns) do
     ~H"""
-    <div class="bg-gray-800 p-2 rounded shadow border border-gray-700">
-      <h2 class="text-lg font-semibold text-gray-200 mb-2">Fixed-Time Details</h2>
+    <div class="p-2">
+      <h4 class="text-sm font-semibold text-gray-200 mb-2">Details</h4>
       <div class="grid grid-cols-4 gap-1 text-xs">
         <.state_card label="Cycle" value={"#{@logic.cycle_time} / #{@logic.program.length}"} />
         <.state_card label="Base Time" value={@logic.base_time} />
@@ -175,8 +180,8 @@ defmodule TlcElixirWeb.LayoutComponents do
     )
 
     ~H"""
-    <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700">
-      <h2 class="text-lg font-semibold text-gray-200 mb-2">Stage-Based Details</h2>
+    <div class="p-3">
+      <h4 class="text-sm font-semibold text-gray-200 mb-2">Details</h4>
 
       <%!-- Elapsed time and duration display using state_card boxes --%>
       <div class="grid grid-cols-4 gap-1 text-xs mb-3">
@@ -225,7 +230,7 @@ defmodule TlcElixirWeb.LayoutComponents do
             >
               <span class={"w-4 " <> if(direction_arrow, do: "", else: "invisible")}><%= direction_arrow %></span>
               <span><%= stage_id %></span>
-              <span class={"w-4 " <> if(is_transition_target, do: "", else: "invisible")}>◎</span>
+              <span class={"w-4 " <> if(is_transition_target, do: "animate-pulse", else: "invisible")}>◎</span>
             </button>
           <% end %>
         </div>
@@ -295,87 +300,12 @@ defmodule TlcElixirWeb.LayoutComponents do
 
     ~H"""
     <div class={"flex items-center gap-2 px-3 py-1 rounded #{@color_class} text-white"}>
-      <div class="w-2 h-2 rounded-full bg-white animate-pulse"></div>
       <span class="text-sm font-medium"><%= @text %></span>
     </div>
     """
   end
 
-  attr :programs, :list, required: true
-  attr :current_program, :string, required: true
-  attr :target_program, :string, default: nil
-  attr :mode, :atom, required: true
-  attr :editing, :boolean, default: false
 
-  defp program_selector(assigns) do
-    # Filter out fault program only - keep current program and all types
-    selectable_programs = Enum.filter(assigns.programs, fn program ->
-      program.name != "fault"
-    end)
-
-    assigns = assign(assigns, selectable_programs: selectable_programs)
-
-    ~H"""
-    <div class="flex flex-wrap gap-2 items-center">
-      <%!-- Program buttons (styled like stage buttons) --%>
-      <%= for program <- @selectable_programs do %>
-        <%
-          is_current = program.name == @current_program
-          is_target = program.name == @target_program
-          can_edit = not is_current and @mode != :fault and not @editing
-        %>
-        <div class="relative group">
-          <button
-            data-program={program.name}
-            phx-click={if is_target, do: "clear_target_program", else: "switch_program"}
-            phx-value-program_name={program.name}
-            class={program_button_class(@mode, @editing, is_current, is_target)}
-            disabled={@mode == :fault || @editing || is_current}
-          >
-            <span><%= program.name %></span>
-            <span class={"w-4 text-white " <> if is_target, do: "", else: "invisible"}>◎</span>
-          </button>
-          <%!-- Edit pencil icon - appears on hover for non-current, non-fault programs --%>
-          <%= if can_edit do %>
-            <button
-              phx-click="start_editing"
-              phx-value-program_name={program.name}
-              class="absolute -right-1 -top-1 w-5 h-5 bg-gray-600 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-gray-200 hover:bg-purple-600 hover:text-white z-10"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-            </button>
-          <% end %>
-        </div>
-      <% end %>
-
-      <%!-- Fault toggle button --%>
-      <button
-        phx-click="toggle_fault"
-        class={fault_button_class(@mode)}
-        disabled={@editing}
-      >
-        <%= if @mode == :fault, do: "Clear Fault", else: "Fault" %>
-      </button>
-    </div>
-    """
-  end
-
-  defp program_button_class(mode, editing, is_current, is_target) do
-    base = "w-24 py-1 rounded text-sm transition-colors flex items-center justify-center gap-1"
-
-    cond do
-      mode == :fault || editing ->
-        "#{base} bg-gray-700 text-gray-400 cursor-not-allowed"
-      is_current ->
-        "#{base} bg-purple-700 text-white font-bold"
-      is_target ->
-        "#{base} bg-gray-600 text-white"
-      true ->
-        "#{base} bg-gray-700 hover:bg-gray-600 text-white"
-    end
-  end
 
   defp variant_button_class(is_selected) do
     base = "px-3 py-1 rounded text-sm transition-colors flex items-center justify-center gap-1"
@@ -387,58 +317,69 @@ defmodule TlcElixirWeb.LayoutComponents do
     end
   end
 
-  defp fault_button_class(mode) do
-    base = "w-24 py-1 rounded text-sm transition-colors"
 
-    if mode == :fault do
-      "#{base} bg-red-600 hover:bg-red-500 text-white font-bold"
-    else
-      "#{base} bg-gray-700 hover:bg-red-600 text-white"
-    end
-  end
 
   attr :interval, :integer, required: true
+  attr :paused, :boolean, default: false
+  attr :selected_interval, :integer, default: nil
 
   defp interval_buttons(assigns) do
-    # Add 0 so agents can pause automatic ticking and use manual steps
-    intervals = [1000, 300, 100, 30, 10, 3, 0]
-    assigns = assign(assigns, intervals: intervals)
+    # Intervals for automatic ticking (pause now moved into the manual step UI)
+    intervals = [1000, 300, 100, 30, 10, 3]
+
+    # Default selected interval to the current interval if not provided
+    selected = Map.get(assigns, :selected_interval, assigns[:interval])
+
+    assigns = assign(assigns, intervals: intervals, selected_interval: selected, paused: assigns[:paused])
 
     ~H"""
-    <div class="flex gap-1">
-      <%= for i <- @intervals do %>
+    <div class="flex flex-col gap-1 max-w-full">
+      <div class="flex flex-wrap gap-1 overflow-x-auto">
+        <%= for i <- @intervals do %>
         <button
           phx-click="set_interval"
           phx-value-interval={i}
-          class={"px-2 py-0.5 text-xs rounded #{if @interval == i, do: "bg-purple-700 text-white", else: "bg-gray-700 hover:bg-gray-600 text-gray-300"}"}
-          title={if i == 0, do: "paused", else: to_string(i)}
+          class={"px-3 py-1 rounded " <> cond do
+            @selected_interval == i and not @paused -> "bg-purple-700 text-white"
+            @selected_interval == i and @paused -> "bg-gray-600 text-gray-200"
+            true -> "bg-gray-700 hover:bg-gray-600 text-white"
+          end}
+          title={to_string(i)}
         >
-          <%= if i == 0 do %>
-            paused
-          <% else %>
-            <%= i %>
-          <% end %>
+          <%= i %>
         </button>
       <% end %>
+      </div>
 
-      <%!-- Manual step input for paused/manual mode --%>
-      <div class="flex items-center gap-1 ml-2">
+      <%!-- Manual step input for paused/manual mode (moved below the selectors) --%>
+      <div class="flex items-center gap-1 justify-start">
         <form id="manual-step-form-header" phx-submit="step" class="flex items-center gap-1">
-          <input id="manual-step-input" phx-update="ignore" type="number" name="steps" value="1" min="1" class="w-16 px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 border border-gray-600" />
           <button
-            type="submit"
-            disabled={@interval != 0}
-            class={"px-2 py-0.5 text-xs rounded " <>
-              if @interval != 0 do
-                "bg-gray-800 text-gray-500 cursor-not-allowed"
-              else
-                "bg-gray-700 hover:bg-gray-600 text-gray-300"
-              end
-            }
-            aria-disabled={@interval != 0}
+            phx-click="toggle_pause"
+            type="button"
+            class={"px-3 py-1 rounded " <> if(@paused, do: "bg-purple-700 text-white", else: "bg-gray-700 hover:bg-gray-600 text-gray-300")}
+            aria-pressed={@paused}
+            title="Pause"
           >
-            Step
+            Pause
           </button>
+          <div class={"flex items-center gap-1 " <> if(not @paused, do: "opacity-50", else: "") }>
+            <input id="manual-step-input" phx-update="ignore" type="number" name="steps" value="1" min="1" class={"w-16 px-3 py-1 rounded bg-gray-700 text-gray-300 border border-gray-600 " <> if(not @paused, do: "bg-gray-800 text-gray-500", else: "") } disabled={!@paused} />
+            <button
+              type="submit"
+              disabled={!@paused}
+              class={"px-3 py-1 rounded " <>
+                if not @paused do
+                  "bg-gray-800 text-gray-500 cursor-not-allowed"
+                else
+                  "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                end
+              }
+              aria-disabled={!@paused}
+            >
+            Step
+            </button>
+          </div>
         </form>
       </div>
     </div>

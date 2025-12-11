@@ -56,6 +56,111 @@ defmodule TlcElixirWeb.LayoutComponentsTest do
 
   end
 
+  test "common_header shows Trigger/Clear Fault button depending on mode" do
+    assigns = %{
+      programs: [],
+      current_program: nil,
+      target_program: nil,
+      logic_type: :fixed_time,
+      logic: %{unix_time: 0, unix_delta: 0},
+      mode: :run,
+      groups: ["a1", "a2"],
+      current_states: "RR",
+      interval: 1000,
+      editing: false
+    }
+
+    html = render_component(&TlcElixirWeb.LayoutComponents.common_header/1, assigns)
+    assert html =~ "Trigger Fault"
+
+    # Check that the button has same classes/height as the mode indicator
+    doc = Floki.parse_document!(html)
+    mode_span = doc |> Floki.find("span.text-sm") |> Enum.find(fn s -> Floki.text(s) |> String.contains?("Running") end)
+    button_span = doc |> Floki.find("button span.text-sm") |> Enum.find(fn s -> Floki.text(s) |> String.contains?("Trigger Fault") end)
+    assert mode_span
+    assert button_span
+    assert Floki.attribute(mode_span, "class") |> List.first() == Floki.attribute(button_span, "class") |> List.first()
+
+    html_fault = render_component(&TlcElixirWeb.LayoutComponents.common_header/1, Map.put(assigns, :mode, :fault))
+    assert html_fault =~ "Clear Fault"
+    doc_fault = Floki.parse_document!(html_fault)
+    mode_span_fault = doc_fault |> Floki.find("span.text-sm") |> Enum.find(fn s -> Floki.text(s) |> String.contains?("Fault") end)
+    button_span_fault = doc_fault |> Floki.find("button span.text-sm") |> Enum.find(fn s -> Floki.text(s) |> String.contains?("Clear Fault") end)
+    assert Floki.attribute(mode_span_fault, "class") |> List.first() == Floki.attribute(button_span_fault, "class") |> List.first()
+  end
+
+  test "selected interval is light grey when paused and purple when running" do
+    assigns = %{
+      programs: [],
+      current_program: nil,
+      target_program: nil,
+      logic_type: :fixed_time,
+      logic: %{unix_time: 0, unix_delta: 0},
+      mode: :run,
+      groups: ["a1", "a2"],
+      current_states: "RR",
+      interval: 1000,
+      selected_interval: 1000,
+      editing: false
+    }
+
+    html_running = render_component(&TlcElixirWeb.LayoutComponents.common_header/1, assigns)
+    assert html_running =~ "1000"
+    assert html_running =~ "bg-purple-700"
+
+    html_paused = render_component(&TlcElixirWeb.LayoutComponents.common_header/1, Map.put(assigns, :paused, true))
+    assert html_paused =~ "1000"
+    # When paused the selected interval button should appear a slightly lighter gray
+    doc_paused = Floki.parse_document!(html_paused)
+    btn_1000 = Floki.find(doc_paused, "button[phx-value-interval=\"1000\"]") |> List.first()
+    assert btn_1000
+    class = Floki.attribute(btn_1000, "class") |> List.first()
+    assert String.contains?(class, "bg-gray-600")
+    # The base bg-gray-700 class should not be present when it's explicitly highlighted as gray during pause
+    refute String.contains?(class, "bg-gray-700")
+  end
+
+  test "step input form is dimmed when not paused" do
+    assigns = %{
+      programs: [],
+      current_program: nil,
+      target_program: nil,
+      logic_type: :fixed_time,
+      logic: %{unix_time: 0, unix_delta: 0},
+      mode: :run,
+      groups: ["a1", "a2"],
+      current_states: "RR",
+      interval: 1000,
+      selected_interval: 1000,
+      editing: false
+    }
+
+    html = render_component(&TlcElixirWeb.LayoutComponents.common_header/1, assigns)
+    doc = Floki.parse_document!(html)
+    dimmed_div = Floki.find(doc, "form#manual-step-form-header div") |> Enum.find(fn d -> Floki.attribute(d, "class") |> List.first() |> String.contains?("opacity-50") end)
+    assert dimmed_div
+  end
+
+  test "interval buttons hover gray in header" do
+    assigns = %{
+      programs: [],
+      current_program: nil,
+      target_program: nil,
+      logic_type: :fixed_time,
+      logic: %{unix_time: 0, unix_delta: 0},
+      mode: :run,
+      groups: ["a1", "a2"],
+      current_states: "RR",
+      interval: 1000,
+      selected_interval: 1000,
+      paused: false,
+      editing: false
+    }
+
+    html = render_component(&TlcElixirWeb.LayoutComponents.common_header/1, assigns)
+    assert html =~ "hover:bg-gray-600"
+  end
+
   test "transition_grid highlights from stage when stage is running (no active transition)" do
     program = Tlc.Program.StageBased.example()
 

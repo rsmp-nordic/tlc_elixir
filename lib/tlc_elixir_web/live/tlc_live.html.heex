@@ -21,48 +21,63 @@
     groups={groups}
     current_states={@tlc.logic.current_states}
     interval={@tlc.interval}
+    selected_interval={@selected_interval}
+    paused={@paused}
     editing={@editing}
   />
 
-  <!-- Type-specific details section -->
-  <%= if logic_type == :fixed_time do %>
-    <.fixed_time_details logic={@tlc.logic} />
-  <% else %>
-    <.stage_based_details logic={@tlc.logic} />
-  <% end %>
-
-  <!-- Fixed-time specific: Cycle table section -->
-  <%= if logic_type == :fixed_time do %>
-    <div class="overflow-x-auto">
-      <.program_editor_container
-        display_program={display_program}
-        edited_program={@edited_program}
-        current_program={@tlc.logic.program}
-        current_cycle={@tlc.logic.cycle_time}
-        editing={@editing}
-        offset={@tlc.logic.offset}
-        target_offset={@tlc.logic.target_offset}
-        target_distance={@tlc.logic.target_distance}
-        invalid_transitions={@invalid_transitions}
-        next_signal_fn={&next_signal/1}
-        is_between_offsets_fn={&is_between_offsets/3}
-        logic={@tlc.logic}
-        switch_dragging={@switch_dragging}
-        interval={@tlc.interval}
+  <!-- Program section (common): selectors at the top, type-specific details below) -->
+  <div class="overflow-x-auto" style="margin-bottom: 0.5rem;">
+    <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 mb-3">
+      <h3 class="text-lg font-semibold text-gray-200 mb-2">Program</h3>
+      <.program_controls
         programs={@tlc.programs}
         logic_mode={@tlc.logic.mode}
+        current_program={@tlc.logic.program}
         target_program={@target_program}
-        program_text={@program_text}
-        json_error={@json_error}
-        validation_error={@validation_error}
+        editing={@editing}
+        edited_program={@edited_program}
       />
-    </div>
-  <% end %>
+        <div class="mt-3 flex flex-col gap-3">
+          <div class="w-full">
+            <%= if logic_type == :fixed_time do %>
+              <.fixed_time_details logic={@tlc.logic} />
+            <% else %>
+              <.stage_based_details logic={@tlc.logic} />
+            <% end %>
+          </div>
+          <div class="w-full overflow-x-auto">
+            <%= if logic_type == :fixed_time do %>
+              <.program_editor_container
+                display_program={display_program}
+                edited_program={@edited_program}
+                current_program={@tlc.logic.program}
+                current_cycle={@tlc.logic.cycle_time}
+                editing={@editing}
+                offset={@tlc.logic.offset}
+                target_offset={@tlc.logic.target_offset}
+                target_distance={@tlc.logic.target_distance}
+                invalid_transitions={@invalid_transitions}
+                next_signal_fn={&next_signal/1}
+                is_between_offsets_fn={&is_between_offsets/3}
+                logic={@tlc.logic}
+                interval={@tlc.interval}
+                selected_interval={@selected_interval}
+                paused={@paused}
+                programs={@tlc.programs}
+                logic_mode={@tlc.logic.mode}
+                target_program={@target_program}
+                program_text={@program_text}
+                json_error={@json_error}
+                validation_error={@validation_error}
+              />
+            <% else %>
+              <.transition_grid logic={@tlc.logic} />
+            <% end %>
+          </div>
+        </div>
+      </div>
+  </div>
 
-  <!-- Stage-based specific: Transition grid section (always shown for stage-based programs) -->
-  <%= if logic_type == :stage_based do %>
-    <div class="overflow-x-auto">
-      <.transition_grid logic={@tlc.logic} />
-    </div>
-  <% end %>
+  <!-- content moved inside the Program section above -->
 </.tlc_page_container>

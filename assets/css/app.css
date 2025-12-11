@@ -25,11 +25,7 @@
   }
 }
 
-/* Switch Point Drag Styling */
-#switch-drag-container.switch-dragging-active [data-switch-cycle]:hover {
-  background-color: rgbs(107 114 128) !important; /* bg-gray-500 */
-  transition: background-color 0s !important; /* Immediate highlight */
-}
+
 
 /* Ensure cells with bg-gray-400 are properly styled */
 [data-switch-cycle].bg-gray-400 {
