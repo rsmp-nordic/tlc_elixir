@@ -170,11 +170,16 @@ defmodule TlcElixirWeb.TlcLive do
     end)
 
     if program_to_edit do
-      if socket.assigns.target_program == program_name do
-        Tlc.Server.clear_target_program(socket.assigns.server)
-      end
+      # Only start editing for fixed-time programs; stage-based programs have a different editor
+      if is_struct(program_to_edit, Tlc.Program.FixedTime) do
+        if socket.assigns.target_program == program_name do
+          Tlc.Server.clear_target_program(socket.assigns.server)
+        end
 
-      {:noreply, assign_edit_start(socket, program_to_edit)}
+        {:noreply, assign_edit_start(socket, program_to_edit)}
+      else
+        {:noreply, socket}
+      end
     else
       {:noreply, socket}
     end
@@ -620,7 +625,13 @@ defmodule TlcElixirWeb.TlcLive do
   end
 
   defp validate_edited_program(socket) do
-    invalid_transitions = Tlc.Program.FixedTime.get_invalid_transitions(socket.assigns.edited_program)
+    edited_program = socket.assigns.edited_program
+
+    invalid_transitions = case edited_program do
+      %Tlc.Program.FixedTime{} -> Tlc.Program.FixedTime.get_invalid_transitions(edited_program)
+      _ -> %{}
+    end
+
     assign(socket, invalid_transitions: invalid_transitions)
   end
 
@@ -698,6 +709,15 @@ defmodule TlcElixirWeb.TlcLive do
   def get_time_label(:fixed_time), do: "Cycle"
   def get_time_label(:stage_based), do: "Elapsed"
   def get_time_label(_), do: "Time"
+
+  @doc """
+  Determine whether to show a program preview/details for the currently displayed program.
+  - When editing any program we always show the program preview details (to focus on the edited program)
+  - When not editing we show the preview only if the displayed program's type differs from the runtime logic type
+  """
+  def should_show_program_preview?(editing, program_type, logic_type) do
+    if editing, do: true, else: program_type != logic_type
+  end
 
   @doc """
   Returns the next signal in the sequence for fixed-time signal cycling.

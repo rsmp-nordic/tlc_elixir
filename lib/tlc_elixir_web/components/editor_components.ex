@@ -29,7 +29,7 @@ defmodule TlcElixirWeb.EditorComponents do
         <span class="w-4"></span>
       </div>
 
-      <%= if not @active do %>
+      <%= if not @active and is_struct(@program, Tlc.Program.FixedTime) do %>
         <button phx-click="start_editing" phx-value-program_name={@program.name}
                 class="absolute right-2 top-0 bottom-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-white">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -73,7 +73,7 @@ defmodule TlcElixirWeb.EditorComponents do
 
           <span><%= program.name %></span>
 
-          <%= if (@logic_mode != :fault || program.name != "fault") && program.name != @current_program.name do %>
+          <%= if (@logic_mode != :fault || program.name != "fault") && program.name != @current_program.name && is_struct(program, Tlc.Program.FixedTime) do %>
             <svg
               phx-click="start_editing"
               phx-value-program_name={program.name}
