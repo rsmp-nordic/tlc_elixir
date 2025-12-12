@@ -452,6 +452,213 @@ defmodule Tlc.ServerProgramSwitchingTest do
     end
   end
 
+  describe "Server: auto mode" do
+    test "enabling auto picks a non-fault non-current target" do
+      pid = start_test_server()
+      tick(pid)
+
+      state = get_state(pid)
+      current = state.logic.program.name
+
+      # Enable auto
+      Tlc.Server.set_auto(pid, true)
+      # Process the cast
+      tick(pid)
+
+      state = get_state(pid)
+      assert state.auto == true
+
+      target = Tlc.Server.get_target_program(pid)
+      assert target != nil
+      assert target != "fault"
+      assert target != "halt"
+      assert target != current
+
+      GenServer.stop(pid)
+    end
+
+    test "auto selects a new random target when a switch completes" do
+      pid = start_test_server()
+      tick(pid)
+
+      state = get_state(pid)
+      current = state.logic.program.name
+
+      # Turn auto on
+      Tlc.Server.set_auto(pid, true)
+      tick(pid)
+
+      initial_target = Tlc.Server.get_target_program(pid)
+      assert initial_target != nil
+      assert initial_target != "fault"
+      assert initial_target != "halt"
+      assert initial_target != current
+
+      # Wait until the server switches to the target program
+      Enum.reduce_while(1..50, nil, fn _, _ ->
+        tick(pid)
+        s = get_state(pid)
+        if s.logic.program.name != current do
+          {:halt, s}
+        else
+          {:cont, nil}
+        end
+      end)
+
+      # After the switch completes a new target should be chosen (auto on)
+      tick(pid)
+      s = get_state(pid)
+      # Wait for a new target or defer state; allow the defer case which will
+      # require waiting for the stage states to change before choosing a new target.
+      new_target = Enum.reduce_while(1..50, nil, fn _, _ ->
+        tick(pid)
+        s = get_state(pid)
+        t = Tlc.Server.get_target_program(pid)
+        if t != nil do
+          {:halt, t}
+        else
+          if s.defer_until_state != nil do
+            # we've deferred; wait until states change then read the target
+            {:halt, :deferred}
+          else
+            {:cont, nil}
+          end
+        end
+      end)
+
+      case new_target do
+        :deferred ->
+          # Wait until states change, then make sure auto picks a target
+          Enum.reduce_while(1..100, nil, fn _, _ ->
+            tick(pid)
+            s = get_state(pid)
+            if s.defer_until_state != nil and s.defer_until_state != s.logic.current_states do
+              {:halt, s}
+            else
+              {:cont, nil}
+            end
+          end)
+          s = get_state(pid)
+          nt = Tlc.Server.get_target_program(pid)
+          assert nt != nil
+          assert nt != s.logic.program.name
+          assert nt != "fault"
+
+        t when is_binary(t) ->
+          s = get_state(pid)
+          assert t != s.logic.program.name
+          assert t != "fault"
+
+        _ ->
+          flunk("Auto did not select a new target in time")
+      end
+
+      GenServer.stop(pid)
+    end
+
+    test "auto defers new target until stage-based program state changes" do
+      pid = start_test_server()
+      tick(pid)
+
+      # Enable auto
+      Tlc.Server.set_auto(pid, true)
+      tick(pid)
+
+      # Wait until a target is chosen and it's stage-based
+      target = Enum.reduce_while(1..50, nil, fn _, _ ->
+        t = Tlc.Server.get_target_program(pid)
+        if t != nil do
+          s = get_state(pid)
+          program = Enum.find(s.programs, fn p -> p.name == t end)
+          if program.__struct__ == Tlc.Program.StageBased do
+            {:halt, {t, program.name}}
+          else
+            {:cont, nil}
+          end
+        else
+          tick(pid)
+          {:cont, nil}
+        end
+      end)
+
+      # If we didn't get a stage-based target, skip the test (random selection)
+      if is_nil(target) do
+        GenServer.stop(pid)
+      else
+        {target_name, _} = target
+        # Wait for the server to actually switch to that target
+        Enum.reduce_while(1..50, nil, fn _, _ ->
+          tick(pid)
+          s = get_state(pid)
+          if s.logic.program.name == target_name do
+            {:halt, s}
+          else
+            {:cont, nil}
+          end
+        end)
+
+        # After switch completes, we should have a defer state set if it's stage-based
+        state = get_state(pid)
+        assert state.defer_until_state != nil
+        assert state.defer_until_state == state.logic.current_states
+
+        # Tick once; no new auto-target should have been selected since states equal
+        tick(pid)
+        state = get_state(pid)
+        assert state.target_program == nil
+
+        # Now tick until the stage states change — this should enable auto to pick a new target
+        found = Enum.reduce_while(1..50, false, fn _, _ ->
+          tick(pid)
+          s = get_state(pid)
+          if s.defer_until_state != nil and s.defer_until_state != s.logic.current_states do
+            {:halt, true}
+          else
+            {:cont, false}
+          end
+        end)
+
+        assert found
+        state = get_state(pid)
+        # Now auto should have picked a new target
+        assert state.target_program != nil
+        assert state.target_program.name != "fault"
+        assert state.target_program.name != state.logic.program.name
+
+        GenServer.stop(pid)
+      end
+    end
+
+    test "enabling auto does not override an existing target" do
+      pid = start_test_server()
+      tick(pid)
+
+      # Switch to 'calm' first so we're running
+      Tlc.Server.switch_program_immediate(pid, "calm")
+      tick(pid)
+
+      # Request a same-type switch (to normal) which should set the logic-level target
+      Tlc.Server.switch_program(pid, "normal")
+      tick(pid)
+
+      state = get_state(pid)
+      # The logic-level target may already be applied (no target) or present.
+      existing_logic_target = Tlc.Logic.Protocol.get_target_program(state.logic)
+      assert existing_logic_target != nil || state.logic.program.name == "normal"
+
+      # Enable auto; should not override the existing logic-level target
+      Tlc.Server.set_auto(pid, true)
+      tick(pid)
+
+      state = get_state(pid)
+      # The logic-level target must remain or the switch completed to the target
+      existing_logic_target = Tlc.Logic.Protocol.get_target_program(state.logic)
+      assert existing_logic_target != nil || state.logic.program.name == "normal"
+
+      GenServer.stop(pid)
+    end
+  end
+
   describe "Server: set_target_offset/2" do
     test "sets target offset for offset coordination" do
       pid = start_test_server()

@@ -7,6 +7,9 @@ defmodule Tlc.Server do
   defstruct logic: nil,
             programs: [],
             target_program: nil,
+            auto: false,
+            target_origin: nil,
+            defer_until_state: nil,
             safety: nil,
             interval: @tick_interval,
             timer_ref: nil,
@@ -75,6 +78,14 @@ defmodule Tlc.Server do
   """
   def clear_target_program(server) do
     GenServer.cast(server, :clear_target_program)
+  end
+
+  @doc """
+  Sets the automated program switching mode on/off. When enabled a random
+  non-fault, non-current program is targeted (if no target already exists).
+  """
+  def set_auto(server, auto) when is_boolean(auto) do
+    GenServer.cast(server, {:set_auto, auto})
   end
 
   @doc """
@@ -282,8 +293,24 @@ defmodule Tlc.Server do
   end
 
   @impl true
+  def handle_cast({:set_auto, auto}, tlc) when is_boolean(auto) do
+    tlc = %{tlc | auto: auto}
+
+    # When enabling auto, set a random target if none exists
+    tlc = maybe_set_auto_target(tlc)
+
+    broadcast_update(tlc)
+    {:noreply, tlc}
+  end
+
+  @impl true
   def handle_cast({:switch_program, program_name}, tlc) do
     updated_tlc = Tlc.Server.SwitchController.switch_program(tlc, program_name)
+    # Record that the origin was manual when the server records a pending target
+    updated_tlc = case updated_tlc.target_program do
+      nil -> updated_tlc
+      _ -> %{updated_tlc | target_origin: :manual}
+    end
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
   end
@@ -291,6 +318,11 @@ defmodule Tlc.Server do
   @impl true
   def handle_cast({:switch_program_immediate, program_name}, tlc) do
     updated_tlc = Tlc.Server.SwitchController.switch_program_immediate(tlc, program_name)
+    # If we've switched to a stage-based program make sure we defer auto-target
+    updated_tlc = case updated_tlc.logic do
+      %Tlc.Logic.StageBased{} = st -> %{updated_tlc | defer_until_state: st.current_states}
+      _ -> %{updated_tlc | defer_until_state: nil}
+    end
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
   end
@@ -392,8 +424,9 @@ defmodule Tlc.Server do
             }
         end
 
-      # Apply any potential cross-type switch after the tick
-      Tlc.Server.SwitchController.maybe_switch_to_target_program(acc)
+      # Apply any potential cross-type switch after the tick, and auto-target if enabled
+      acc = Tlc.Server.SwitchController.maybe_switch_to_target_program(acc)
+      maybe_set_auto_target(acc)
     end)
 
     broadcast_update(tlc)
@@ -443,8 +476,9 @@ defmodule Tlc.Server do
           }
       end
 
-    # Check for cross-type program switch
-    tlc = Tlc.Server.SwitchController.maybe_switch_to_target_program(tlc)
+      # Check for cross-type program switch (server-level) and then auto-target if enabled
+      tlc = Tlc.Server.SwitchController.maybe_switch_to_target_program(tlc)
+      tlc = maybe_set_auto_target(tlc)
 
     # Cancel any outstanding timer (defensive) and schedule next tick
     if tlc.timer_ref, do: Process.cancel_timer(tlc.timer_ref)
@@ -488,4 +522,51 @@ defmodule Tlc.Server do
 
   # Check if the current logic is at a safe switch point
   # at_switch_point? uses protocol dispatch where needed
+
+  defp maybe_set_auto_target(%__MODULE__{auto: true, target_program: nil} = tlc) do
+    # If logic-level also has a target program, or `defer_until_state` is set
+    # and the state hasn't changed yet, don't override.
+    cond do
+      Tlc.Logic.Protocol.get_target_program(tlc.logic) != nil -> tlc
+      tlc.defer_until_state != nil and tlc.defer_until_state == tlc.logic.current_states -> tlc
+      true -> do_maybe_set_auto_target(tlc)
+    end
+  end
+
+  defp maybe_set_auto_target(tlc), do: tlc
+
+  defp do_maybe_set_auto_target(tlc) do
+    # Don't auto-select when in fault mode or when current program is fault
+    current_name = case tlc.logic.program do
+      %{} = p -> p.name
+      _ -> nil
+    end
+
+    # Do not set an auto-target if current program is fault
+    if current_name == "fault" do
+      tlc
+    else
+      case choose_random_program(tlc, current_name) do
+        nil -> tlc
+        program ->
+          updated = Tlc.Server.SwitchController.switch_program(tlc, program.name)
+          # Mark target origin as auto when we set the server-level target
+          case updated.target_program do
+            nil -> updated
+            _ -> %{updated | target_origin: :auto}
+          end
+      end
+    end
+  end
+
+
+
+  defp choose_random_program(%__MODULE__{programs: programs} = _tlc, current_name) do
+    # Build a list of eligible programs: exclude 'fault', 'halt' and the current program
+    candidates = Enum.filter(programs, fn prog -> prog.name != "fault" and prog.name != "halt" and prog.name != current_name end)
+    case candidates do
+      [] -> nil
+      _ -> Enum.random(candidates)
+    end
+  end
 end

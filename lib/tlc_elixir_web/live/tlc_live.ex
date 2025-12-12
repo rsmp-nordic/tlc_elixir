@@ -46,6 +46,7 @@ defmodule TlcElixirWeb.TlcLive do
           tlc: tlc,
           server: server_via_tuple,
           target_program: target_program,
+          auto: tlc.auto,
           selected_interval: selected_interval,
           paused: paused
         }
@@ -140,6 +141,13 @@ defmodule TlcElixirWeb.TlcLive do
     socket = assign(socket, :paused, not paused)
 
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("toggle_auto", _params, socket) do
+    new_auto = not socket.assigns.tlc.auto
+    Tlc.Server.set_auto(socket.assigns.server, new_auto)
+    {:noreply, assign(socket, :auto, new_auto)}
   end
 
   @impl true
@@ -514,7 +522,7 @@ defmodule TlcElixirWeb.TlcLive do
     else
       target_program = Tlc.Server.get_target_program(socket.assigns.server)
       paused = new_tlc_state.interval == 0
-      updated_socket = assign(socket, tlc: new_tlc_state, target_program: target_program, paused: paused)
+      updated_socket = assign(socket, tlc: new_tlc_state, target_program: target_program, paused: paused, auto: new_tlc_state.auto)
       {:noreply, updated_socket}
     end
   end

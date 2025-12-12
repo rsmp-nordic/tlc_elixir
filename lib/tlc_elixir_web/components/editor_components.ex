@@ -122,6 +122,8 @@ defmodule TlcElixirWeb.EditorComponents do
   end
 
   def program_action_buttons(assigns) do
+    assigns = assign_new(assigns, :auto, fn -> false end)
+
     ~H"""
     <div class="flex gap-2">
       <%= if @editing do %>
@@ -134,7 +136,12 @@ defmodule TlcElixirWeb.EditorComponents do
         </button>
       <% else %>
         <!-- No action buttons when not editing; Fault button has been moved to Controller section -->
-        <span class="text-gray-400 text-xs">&nbsp;</span>
+        <div class="flex items-center gap-2">
+          <button phx-click="toggle_auto" class={"px-3 py-1 rounded " <> if(@auto, do: "bg-purple-700 text-white", else: "bg-gray-700 hover:bg-gray-600 text-gray-300")} aria-pressed={@auto} title="Auto">
+            Auto
+          </button>
+          <span class="text-gray-400 text-xs">&nbsp;</span>
+        </div>
       <% end %>
     </div>
     """
@@ -162,6 +169,7 @@ defmodule TlcElixirWeb.EditorComponents do
         <.program_action_buttons
           editing={@editing}
           logic_mode={@logic_mode}
+          auto={@auto}
         />
       </div>
     </div>
