@@ -3,6 +3,7 @@ defmodule TlcElixirWeb.TlcLive do
   require Logger
 
   import TlcElixirWeb.TlcComponents
+  import TlcElixirWeb.LayoutComponents, only: [fixed_time_program_preview: 1, stage_based_program_preview: 1]
 
   @impl true
   def mount(_params, _session, socket) do
@@ -656,12 +657,30 @@ defmodule TlcElixirWeb.TlcLive do
   def get_logic_type(_), do: :unknown
 
   @doc """
+  Returns the program type for a `Tlc.Program` struct.
+  This is used to determine which UI (fixed-time editor vs stage-based) to render
+  when a program *other than the currently running logic* is being inspected.
+  """
+  def get_program_type(%Tlc.Program.FixedTime{}), do: :fixed_time
+  def get_program_type(%Tlc.Program.StageBased{}), do: :stage_based
+  def get_program_type(_), do: :unknown
+
+  @doc """
   Returns the groups list for the current program.
   Works for both fixed-time and stage-based programs.
   """
   def get_groups(%Tlc.Logic.FixedTime{program: program}), do: program.groups
   def get_groups(%Tlc.Logic.StageBased{program: program}), do: Tlc.Program.StageBased.groups(program)
   def get_groups(_), do: []
+
+  @doc """
+  Returns a program's groups for use when rendering a program editor for
+  the non-running program (i.e. a display program). Works for fixed-time
+  and stage-based program structs.
+  """
+  def get_program_groups(%Tlc.Program.FixedTime{groups: groups}), do: groups || []
+  def get_program_groups(%Tlc.Program.StageBased{} = program), do: Tlc.Program.StageBased.groups(program)
+  def get_program_groups(_), do: []
 
   @doc """
   Returns the appropriate time display value for the logic type.

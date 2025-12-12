@@ -113,6 +113,25 @@ defmodule TlcElixirWeb.LayoutComponents do
     """
   end
 
+  @doc """
+  Render brief details for a fixed-time program (non-running preview/edit mode).
+  """
+  attr :program, :any, required: true
+  def fixed_time_program_preview(assigns) do
+    assign(assigns, :program, assigns.program)
+    ~H"""
+    <div class="p-2"> 
+      <h4 class="text-sm font-semibold text-gray-200 mb-2">Details</h4>
+      <div class="grid grid-cols-4 gap-1 text-xs">
+        <.state_card label="Length" value={@program.length} />
+        <.state_card label="Offset" value={@program.offset} />
+        <.state_card label="Groups" value={length(@program.groups || [])} />
+        <.state_card label="Switch" value={@program.switch} />
+      </div>
+    </div>
+    """
+  end
+
   # Keep the old state_section for backward compatibility
   def state_section(assigns) do
     ~H"""
@@ -234,6 +253,30 @@ defmodule TlcElixirWeb.LayoutComponents do
             </button>
           <% end %>
         </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Render brief details for a stage-based program (non-running preview/edit mode).
+  """
+  attr :program, :any, required: true
+  def stage_based_program_preview(assigns) do
+    all_stages = Tlc.Program.StageBased.used_stages(assigns.program)
+    enter_stages = assigns.program.enter || []
+    leave_stages = assigns.program.leave || []
+
+    assigns = assign(assigns, all_stages: all_stages, enter_stages: enter_stages, leave_stages: leave_stages)
+
+    ~H"""
+    <div class="p-3"> 
+      <h4 class="text-sm font-semibold text-gray-200 mb-2">Details</h4>
+      <div class="grid grid-cols-4 gap-1 text-xs mb-3">
+        <.state_card label="Stages" value={length(@all_stages)} />
+        <.state_card label="Enter" value={Enum.join(@enter_stages, ", ")} />
+        <.state_card label="Leave" value={Enum.join(@leave_stages, ", ")} />
+        <.state_card label="Flows" value={map_size(@program.flows)} />
       </div>
     </div>
     """
