@@ -36,16 +36,19 @@ Safety is important for traffic lights. This mean:
 ## Testing
 Testing is important. All code shoud be covered by focused unit tests.
 
-All logic is driven deterministically by tick(), and tests should rely on this, and never use actual clocktime, timers or sleeping.
+All logic is driven deterministically by tick(), and tests should rely on this.
+Tests should not use actual clocktime, timers or sleeping, as this is slow and flaky.
 
 Test can be run with 'mix test', but prefer running test using the runTests tool.
 
-## Playwright
+We do not use UI tests. Do not add any.
+We do not use Playwright tests, don't add any.
+
+
+## Playwright MCP
 Playwright MCP can be used to view and interact with the web app UI. 
 Playwright MCP depends on Playwright which is based on node. The node dependencies are in package.json.
 
-Before using Playwright MCP, the server must be running, but assume that it is already running.
-
-We do not use Playwright tests, don't add any.
+Before using Playwright MCP, the server must be running, but you can assume that it is already running on port 4000.
 
   
