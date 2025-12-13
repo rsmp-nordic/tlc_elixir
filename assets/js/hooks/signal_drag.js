@@ -1,87 +1,73 @@
 export function setupSignalDragHandlers(hook) {
+  // Local drag state
   let isDragging = false;
   let startCell = null;
   let lastVisitedCycle = null;
-  let visitedCycles = new Set(); 
-  
-  // Start drag operation
-  document.addEventListener('mousedown', (e) => {
+  let visitedCycles = new Set();
+
+  // Start drag operation (scoped to the LiveView hook element)
+  const onMouseDown = (e) => {
     const cell = e.target.closest('[phx-mousedown="drag_start"]');
     if (cell && cell.hasAttribute('phx-value-current_signal')) {
-      
       isDragging = true;
       startCell = cell;
-      
-      // Store initial values
+
       const cycle = parseInt(cell.getAttribute('phx-value-cycle'));
       const group = cell.getAttribute('phx-value-group');
       const signal = cell.getAttribute('phx-value-current_signal');
-      
+
       lastVisitedCycle = cycle;
       visitedCycles.clear();
       visitedCycles.add(cycle);
-      
-      // Prevent text selection
+
       e.preventDefault();
     }
-  });
-  
-  // Track cells during drag
-  document.addEventListener('mouseover', (e) => {
+  };
+
+  // Track cells during drag (scoped to the hook element)
+  const onMouseOver = (e) => {
     if (isDragging && startCell) {
       const cell = e.target.closest('[phx-mousedown="drag_start"]');
-      if (cell && 
-          cell.getAttribute('phx-value-group') === startCell.getAttribute('phx-value-group')) {
-        
+      if (cell && cell.getAttribute('phx-value-group') === startCell.getAttribute('phx-value-group')) {
         const signal = startCell.getAttribute('phx-value-current_signal');
         const currentCycle = parseInt(cell.getAttribute('phx-value-cycle'));
         const group = cell.getAttribute('phx-value-group');
-        
-        // Only send update if this is a new cycle
+
         if (!visitedCycles.has(currentCycle)) {
-          
-          
-          // Check if we've skipped any cycles (fast movement)
           const cycleDistance = Math.abs(currentCycle - lastVisitedCycle);
-          
           if (cycleDistance > 1) {
-            // We moved too fast - fill in the gap with signal_stretch
-            
-            
-            hook.pushEvent("fill_gap", {
+            hook.pushEvent('fill_gap', {
               start_cycle: lastVisitedCycle.toString(),
               end_cycle: currentCycle.toString(),
               group: group,
               signal: signal
             });
           } else {
-            // Normal update for just this cell
-            hook.pushEvent("update_cell_signal", {
+            hook.pushEvent('update_cell_signal', {
               cycle: currentCycle.toString(),
               group: group,
               signal: signal
             });
           }
-          
           lastVisitedCycle = currentCycle;
           visitedCycles.add(currentCycle);
         }
       }
     }
-  });
-  
+  };
+
   // End drag operation
-  document.addEventListener('mouseup', (e) => {
+  const onMouseUp = (e) => {
     if (isDragging) {
       isDragging = false;
       startCell = null;
       lastVisitedCycle = null;
       visitedCycles.clear();
     }
-  });
-  
+  };
+
   // Cancel drag with Escape key
-  document.addEventListener('keydown', (e) => {
+  const onKeyDown = (e) => {
     if (e.key === 'Escape') {
       if (isDragging) {
         isDragging = false;
@@ -90,5 +76,29 @@ export function setupSignalDragHandlers(hook) {
         visitedCycles.clear();
       }
     }
-  });
+  };
+
+  // Attach listeners
+  hook.el.addEventListener('mousedown', onMouseDown);
+  hook.el.addEventListener('mouseover', onMouseOver);
+  window.addEventListener('mouseup', onMouseUp);
+  window.addEventListener('keydown', onKeyDown);
+
+  // Cleanup when the hook is destroyed
+  const cleanup = () => {
+    hook.el.removeEventListener('mousedown', onMouseDown);
+    hook.el.removeEventListener('mouseover', onMouseOver);
+    window.removeEventListener('mouseup', onMouseUp);
+    window.removeEventListener('keydown', onKeyDown);
+  };
+
+  if (typeof hook.destroyed === 'function') {
+    const orig = hook.destroyed;
+    hook.destroyed = function() {
+      cleanup();
+      orig.call(hook);
+    };
+  } else {
+    hook.destroyed = cleanup;
+  }
 }

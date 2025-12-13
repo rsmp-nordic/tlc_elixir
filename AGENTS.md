@@ -33,6 +33,10 @@ Safety is important for traffic lights. This mean:
 - you cannot immediately go to dark. Instead use the define mechanism (halt program)
 - all signal group outputs goes through a safety layer that verifies that no invalid state changes occur
 
+## No UI Testing
+Don't add any UI tests.
+We do not use Playwright tests, don't add any.
+
 ## Testing
 Testing is important. All code shoud be covered by focused unit tests.
 
@@ -40,10 +44,6 @@ All logic is driven deterministically by tick(), and tests should rely on this.
 Tests should not use actual clocktime, timers or sleeping, as this is slow and flaky.
 
 Test can be run with 'mix test', but prefer running test using the runTests tool.
-
-We do not use UI tests. Do not add any.
-We do not use Playwright tests, don't add any.
-
 
 ## Playwright MCP
 Playwright MCP can be used to view and interact with the web app UI. 

@@ -14,7 +14,7 @@ defmodule TlcElixirWeb.TlcLive do
       live_instance_id: live_instance_id,
       editing: false,
       edited_program: nil,
-      saved_program: nil,
+        # No need to track saved_program - not used elsewhere
       drag_start: nil,
       drag_signal: nil,
       invalid_transitions: %{},
@@ -693,22 +693,7 @@ defmodule TlcElixirWeb.TlcLive do
   def get_program_groups(%Tlc.Program.StageBased{} = program), do: Tlc.Program.StageBased.groups(program)
   def get_program_groups(_), do: []
 
-  @doc """
-  Returns the appropriate time display value for the logic type.
-  For fixed-time: cycle_time
-  For stage-based: stage_elapsed (or transition_elapsed if in transition)
-  """
-  def get_display_time(%Tlc.Logic.FixedTime{cycle_time: cycle_time}), do: cycle_time
-  def get_display_time(%Tlc.Logic.StageBased{current_transition: nil, stage_elapsed: elapsed}), do: elapsed
-  def get_display_time(%Tlc.Logic.StageBased{transition_elapsed: elapsed}), do: elapsed
-  def get_display_time(_), do: 0
-
-  @doc """
-  Returns the appropriate time label for the logic type.
-  """
-  def get_time_label(:fixed_time), do: "Cycle"
-  def get_time_label(:stage_based), do: "Elapsed"
-  def get_time_label(_), do: "Time"
+  # Time display helpers moved to Layout/components; not used here
 
   @doc """
   Determine whether to show a program preview/details for the currently displayed program.

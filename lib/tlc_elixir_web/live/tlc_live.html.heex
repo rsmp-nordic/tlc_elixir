@@ -1,10 +1,6 @@
 <.tlc_page_container>
   <%
-    display_program = cond do
-      @editing -> @edited_program
-      @saved_program != nil -> @saved_program
-      true -> @tlc.logic.program
-    end
+    display_program = if @editing, do: @edited_program, else: @tlc.logic.program
 
     # logic_type is the type of the currently running logic (used for header/time display)
     logic_type = get_logic_type(@tlc.logic)

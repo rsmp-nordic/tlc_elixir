@@ -9,16 +9,24 @@ defmodule TlcElixirWeb.EditorComponentsTest do
     assigns = %{
       programs: [stage_program, fixed_program],
       logic_mode: :fixed_time,
-      current_program: fixed_program,
+      # Make the current program the stage-based program so the fixed_time
+      # program is not the current one and shows an edit icon.
+      current_program: stage_program,
       target_program: nil
     }
 
     html = render_component(&TlcElixirWeb.EditorComponents.program_buttons_list/1, assigns)
 
+    # Use Floki to inspect the per-program button HTML so we don't accidentally
+    # assert globally for the entire fragment
+    {:ok, doc} = Floki.parse_fragment(html)
+    quiet_btn_html = Floki.find(doc, "button[phx-value-program_name=\"quiet\"]") |> Floki.raw_html()
+    example_btn_html = Floki.find(doc, "button[phx-value-program_name=\"example\"]") |> Floki.raw_html()
+
     # stage-based program should NOT render the edit icon or start_editing phx-click
-    refute html =~ "start_editing" |> Kernel.to_string()
+    refute String.contains?(quiet_btn_html, "start_editing")
 
     # fixed program should render the edit icon; ensure at least a single occurrence present
-    assert html =~ "start_editing"
+    assert String.contains?(example_btn_html, "start_editing")
   end
 end

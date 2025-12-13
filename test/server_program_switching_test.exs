@@ -507,7 +507,6 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
       # After the switch completes a new target should be chosen (auto on)
       tick(pid)
-      s = get_state(pid)
       # Wait for a new target or defer state; allow the defer case which will
       # require waiting for the stage states to change before choosing a new target.
       new_target = Enum.reduce_while(1..50, nil, fn _, _ ->

@@ -120,7 +120,7 @@ defmodule TlcElixirWeb.LayoutComponents do
   def fixed_time_program_preview(assigns) do
     assign(assigns, :program, assigns.program)
     ~H"""
-    <div class="p-2"> 
+    <div class="p-2">
       <h4 class="text-sm font-semibold text-gray-200 mb-2">Details</h4>
       <div class="grid grid-cols-4 gap-1 text-xs">
         <.state_card label="Length" value={@program.length} />
@@ -212,7 +212,7 @@ defmodule TlcElixirWeb.LayoutComponents do
 
       <%!-- All Stages --%>
       <div>
-        <span class="text-xs text-gray-400 block mb-2">Stages</span>
+        <span class="text-sm font-semibold text-gray-200 mb-2">Stages</span>
         <div class="flex flex-wrap gap-2">
           <%= for stage_id <- @all_stages do %>
             <%
@@ -270,7 +270,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     assigns = assign(assigns, all_stages: all_stages, enter_stages: enter_stages, leave_stages: leave_stages)
 
     ~H"""
-    <div class="p-3"> 
+    <div class="p-3">
       <h4 class="text-sm font-semibold text-gray-200 mb-2">Details</h4>
       <div class="grid grid-cols-4 gap-1 text-xs mb-3">
         <.state_card label="Stages" value={length(@all_stages)} />
@@ -529,7 +529,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     assigns = assign(assigns, from_state: from_state, to_state: to_state)
 
     ~H"""
-    <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700">
+    <div class="bg-gray-800 p-3 rounded">
       <h2 class="text-lg font-semibold text-gray-200 mb-2">
         <%= if @has_transition_to_show do %>
           Transition: <%= @from_stage %> → <%= @to_stage %>
@@ -631,7 +631,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     )
 
     ~H"""
-    <div class={"flex-1 flex flex-col relative border-gray-600 #{if @is_current, do: "outline outline-4 outline-offset-0 outline-gray-500 z-10 rounded", else: ""}"}>
+    <div class={"flex-1 flex flex-col relative border-gray-600 #{if @is_current, do: "z-10 rounded", else: ""}"}>
       <!-- Header cell with time / stage name -->
       <div class="p-1 h-8 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200">
         <%= @time %>
@@ -664,7 +664,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     assigns = assign(assigns, state: state)
 
     ~H"""
-    <div class={"flex-1 flex flex-col relative border-gray-600 " <> if(@current, do: "outline outline-4 outline-offset-0 outline-gray-500 z-10 rounded", else: "") }>
+    <div class={"flex-1 flex flex-col relative border-gray-600 " <> if(@current, do: "z-10 rounded", else: "") }>
       <!-- Header: keep blank for time row (stage names are not shown here) -->
       <div class="p-1 h-8 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200"></div>
 

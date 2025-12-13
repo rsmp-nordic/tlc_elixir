@@ -103,19 +103,19 @@ defmodule TlcElixirWeb.EditorComponents do
       </div>
       <div class="flex items-center">
         <label class="text-gray-400 mr-2">Length:</label>
-        <input type="number" id="program-length-input" name="program_length"
-               value={@edited_program.length}
-               min="1"
-               max="100"
-               class="bg-gray-700 text-white px-2 py-1 rounded border border-gray-600 w-16" />
+         <input phx-hook="InputHandler" data-field="length" type="number" id="program-length-input" name="program_length"
+           value={@edited_program.length}
+           min="1"
+           max="100"
+           class="bg-gray-700 text-white px-2 py-1 rounded border border-gray-600 w-16" />
       </div>
       <div class="flex items-center">
         <label class="text-gray-400 mr-2">Offset:</label>
-        <input type="number" id="program-offset-input" name="program_offset"
-               value={@edited_program.offset || 0}
-               min="0"
-               max={@edited_program.length - 1}
-               class="bg-gray-700 text-white px-2 py-1 rounded border border-gray-600 w-16" />
+         <input phx-hook="InputHandler" data-field="offset" type="number" id="program-offset-input" name="program_offset"
+           value={@edited_program.offset || 0}
+           min="0"
+           max={@edited_program.length - 1}
+           class="bg-gray-700 text-white px-2 py-1 rounded border border-gray-600 w-16" />
       </div>
     </form>
     """

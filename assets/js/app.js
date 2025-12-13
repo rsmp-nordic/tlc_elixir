@@ -21,84 +21,24 @@ import "phoenix_html"
 import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
+import { setupSignalDragHandlers } from "./hooks/signal_drag"
+import { setupInputHandlers } from "./hooks/input_handlers"
+import { setupPromptHandlers } from "./hooks/prompt_handlers"
 
 // Define hooks for LiveView
 let Hooks = {}
 Hooks.DragHandler = {
   mounted() {
-    this.dragging = false;
-    this.dragStart = null;
-    this.dragSignal = null;
+    // delegate to modular handlers
+    setupSignalDragHandlers(this);
+    // Input handlers are attached per-input via phx-hook="InputHandler"
+    setupPromptHandlers(this);
+  }
+};
 
-    this.el.addEventListener("mousedown", (e) => {
-      // Ensure we only handle mousedown on signal cells
-      const signalCell = e.target.closest("[data-cycle][data-group][data-signal]");
-      if (signalCell) {
-        this.dragging = true;
-        this.dragStart = {
-          cycle: parseInt(signalCell.dataset.cycle),
-          group: parseInt(signalCell.dataset.group),
-          signal: signalCell.dataset.signal
-        };
-        this.dragSignal = signalCell.dataset.signal;
-
-        // Notify LiveView of drag start
-        this.pushEvent("drag_start", {
-          cycle: signalCell.dataset.cycle,
-          group: signalCell.dataset.group,
-          signal: signalCell.dataset.signal
-        });
-
-        // Prevent text selection during drag
-        e.preventDefault();
-      }
-      
-    });
-
-    this.el.addEventListener("mousemove", (e) => {
-      if (this.dragging) {
-        const signalCell = e.target.closest("[data-cycle][data-group][data-signal]");
-        if (signalCell && 
-            parseInt(signalCell.dataset.group) === this.dragStart.group && 
-            parseInt(signalCell.dataset.cycle) !== this.dragStart.cycle) {
-          // Fill gap between drag start and current position
-          this.pushEvent("fill_gap", {
-            start_cycle: this.dragStart.cycle,
-            end_cycle: signalCell.dataset.cycle,
-            group: this.dragStart.group,
-            signal: this.dragSignal
-          });
-        }
-      }
-      
-    });
-
-    // Using window for mouseup to catch events outside the element
-    window.addEventListener("mouseup", (e) => {
-      if (this.dragging) {
-        const signalCell = e.target.closest("[data-cycle][data-group][data-signal]");
-        if (signalCell) {
-          this.pushEvent("drag_end", {
-            cycle: signalCell.dataset.cycle,
-            group: signalCell.dataset.group,
-            start_cycle: this.dragStart.cycle,
-            signal: this.dragSignal
-          });
-        } else {
-          // We ended outside a signal cell, just notify end of drag
-          this.pushEvent("drag_end", {
-            cycle: this.dragStart.cycle,
-            group: this.dragStart.group,
-            start_cycle: this.dragStart.cycle,
-            signal: this.dragSignal
-          });
-        }
-        this.dragging = false;
-        this.dragStart = null;
-      }
-      
-      // No switch-point dragging: switch points are set via simple clicks (phx-click on the cell).
-    });
+Hooks.InputHandler = {
+  mounted() {
+    setupInputHandlers(this);
   }
 };
 
@@ -124,26 +64,5 @@ liveSocket.connect()
 window.liveSocket = liveSocket
 
 // Add a CSS class to indicate invalid transitions
-document.styleSheets[0].insertRule(`
-  .program-cell-invalid {
-    position: relative;
-  }
-`, 0);
-
-document.styleSheets[0].insertRule(`
-  .program-cell-invalid::after {
-    content: "!";
-    position: absolute;
-    top: 0;
-    right: 0;
-    background-color: red;
-    color: white;
-    width: 12px;
-    height: 12px;
-    font-size: 8px;
-    line-height: 12px;
-    text-align: center;
-    border-radius: 50%;
-  }
-`, 0);
+// Styling for invalid program cells is now defined in assets/css/app.css
 

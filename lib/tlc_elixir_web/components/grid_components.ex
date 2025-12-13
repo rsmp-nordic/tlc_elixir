@@ -7,7 +7,7 @@ defmodule TlcElixirWeb.GridComponents do
 
   def program_cell(assigns) do
     ~H"""
-    <div class={"flex-1 flex flex-col relative #{if @col_idx == @program_length - 1, do: "border-r", else: ""} border-gray-600 #{if @current_cycle == @cycle && !@editing, do: "outline outline-4 outline-offset-0 outline-gray-500 z-10 rounded", else: ""}"}>
+    <div class={"flex-1 flex flex-col relative #{if @col_idx == @program_length - 1, do: "border-r", else: ""} border-gray-600 #{if @current_cycle == @cycle && !@editing, do: "z-10 rounded", else: ""}"}>
       <!-- Header cell -->
       <div class="p-1 h-8 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200">
         <%= @cycle %>
