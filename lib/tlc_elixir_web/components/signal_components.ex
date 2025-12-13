@@ -7,7 +7,7 @@ defmodule TlcElixirWeb.SignalComponents do
 
   def signal_heads_section(assigns) do
     ~H"""
-    <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 h-full">
+    <div class="card h-full">
       <h3>Groups</h3>
       <div class="flex justify-center gap-8" id="signal-heads-container">
         <%= for {group, i} <- Enum.with_index(@groups) do %>

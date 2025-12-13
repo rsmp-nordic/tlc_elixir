@@ -29,17 +29,17 @@ defmodule TlcElixirWeb.LayoutComponents do
       <%!-- Controller left, Time right on the same row --%>
       <div class="min-h-[16rem] flex flex-col">
         <%!-- Controller Section --%>
-        <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 h-full flex flex-col flex-1">
+        <div class="card h-full flex flex-col flex-1">
           <h2>Controller</h2>
 
           <%!-- State --%>
           <div class="flex flex-wrap items-center gap-4 mb-3">
             <div class="flex items-center gap-2">
               <.mode_indicator mode={@mode} />
-              <button phx-click="toggle_fault"
+                    <button phx-click="toggle_fault"
                       aria-pressed={@mode == :fault}
                       title={if @mode == :fault, do: "Clear fault", else: "Trigger fault"}
-                      class="flex items-center gap-2 px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-white" type="button">
+                      class="pill gap-2 bg-gray-700 hover:bg-gray-600" type="button">
                 <%= if @mode == :fault do %>
                   <span class="text-sm font-medium">Clear Fault</span>
                 <% else %>
@@ -71,7 +71,7 @@ defmodule TlcElixirWeb.LayoutComponents do
 
       <%!-- Time Section (compact) --%>
       <div class="min-h-[16rem] flex flex-col md:min-w-0 md:w-64 h-full">
-        <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 overflow-hidden h-full flex flex-col flex-1">
+        <div class="card overflow-hidden h-full flex flex-col flex-1">
           <h2>Time</h2>
           <div class="flex flex-col gap-2 mb-3">
             <div class="flex items-center gap-2">
@@ -135,7 +135,7 @@ defmodule TlcElixirWeb.LayoutComponents do
   # Keep the old state_section for backward compatibility
   def state_section(assigns) do
     ~H"""
-    <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 h-full">
+    <div class="card h-full">
       <h2>Logic</h2>
       <div class="grid grid-cols-4 gap-2 text-xs">
         <.state_card label="Mode" value={@logic.mode} />
@@ -232,11 +232,11 @@ defmodule TlcElixirWeb.LayoutComponents do
             <button
               phx-click="request_stage"
               phx-value-stage_id={stage_id}
-              class={"px-3 py-1 rounded text-sm transition-colors flex items-center justify-center gap-1 " <>
+                class={"pill " <>
                 cond do
-                  is_current -> "bg-purple-700 text-white font-bold"
-                  is_requested -> "bg-gray-700 text-white"
-                  is_available -> "bg-gray-700 hover:bg-gray-600 text-white"
+                  is_current -> "bg-purple-700 font-bold"
+                  is_requested -> "bg-gray-700"
+                  is_available -> "bg-gray-700 hover:bg-gray-600"
                   true -> "bg-gray-700 text-gray-400 cursor-not-allowed"
                 end}
               disabled={@logic.mode == :halt or not is_available}
@@ -310,7 +310,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     assigns = assign(assigns, text: text, color_class: color_class)
 
     ~H"""
-    <span class={"text-xs px-2 py-0.5 rounded #{@color_class} text-white font-medium"}>
+    <span class={"pill-sm #{@color_class} font-medium"}>
       <%= @text %>
     </span>
     """
@@ -321,7 +321,7 @@ defmodule TlcElixirWeb.LayoutComponents do
 
   defp info_pill(assigns) do
     ~H"""
-    <div class="flex items-center gap-1 bg-gray-700 px-3 py-1 rounded">
+    <div class="pill bg-gray-700">
       <span class="text-xs text-gray-400"><%= @label %>:</span>
       <span class="text-sm font-mono text-gray-200"><%= @value %></span>
     </div>
@@ -342,7 +342,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     assigns = assign(assigns, text: text, color_class: color_class)
 
     ~H"""
-    <div class={"flex items-center gap-2 px-3 py-1 rounded #{@color_class} text-white"}>
+    <div class={"pill gap-2 #{@color_class}"}>
       <span class="text-sm font-medium"><%= @text %></span>
     </div>
     """
@@ -351,12 +351,12 @@ defmodule TlcElixirWeb.LayoutComponents do
 
 
   defp variant_button_class(is_selected) do
-    base = "px-3 py-1 rounded text-sm transition-colors flex items-center justify-center gap-1"
+    base = "pill justify-center"
 
     if is_selected do
-      "#{base} bg-purple-700 text-white font-bold"
+      "#{base} bg-purple-700 font-bold"
     else
-      "#{base} bg-gray-700 hover:bg-gray-600 text-white"
+      "#{base} bg-gray-700 hover:bg-gray-600"
     end
   end
 
@@ -382,10 +382,10 @@ defmodule TlcElixirWeb.LayoutComponents do
         <button
           phx-click="set_interval"
           phx-value-interval={i}
-          class={"px-3 py-1 rounded " <> cond do
-            @selected_interval == i and not @paused -> "bg-purple-700 text-white"
+          class={"pill " <> cond do
+            @selected_interval == i and not @paused -> "bg-purple-700"
             @selected_interval == i and @paused -> "bg-gray-600 text-gray-200"
-            true -> "bg-gray-700 hover:bg-gray-600 text-white"
+            true -> "bg-gray-700 hover:bg-gray-600"
           end}
           title={to_string(i)}
         >
@@ -400,7 +400,7 @@ defmodule TlcElixirWeb.LayoutComponents do
           <button
             phx-click="toggle_pause"
             type="button"
-            class={"px-3 py-1 rounded " <> if(@paused, do: "bg-purple-700 text-white", else: "bg-gray-700 hover:bg-gray-600 text-gray-300")}
+            class={"pill " <> if(@paused, do: "bg-purple-700", else: "bg-gray-700 hover:bg-gray-600 text-gray-300")}
             aria-pressed={@paused}
             title="Pause"
           >
@@ -411,7 +411,7 @@ defmodule TlcElixirWeb.LayoutComponents do
             <button
               type="submit"
               disabled={!@paused}
-              class={"px-3 py-1 rounded " <>
+              class={"pill " <>
                 if not @paused do
                   "bg-gray-800 text-gray-500 cursor-not-allowed"
                 else
@@ -529,7 +529,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     assigns = assign(assigns, from_state: from_state, to_state: to_state)
 
     ~H"""
-    <div class="bg-gray-800 p-3 rounded">
+    <div class="card">
       <h3>
         <%= if @has_transition_to_show do %>
           Transition: <%= @from_stage %> → <%= @to_stage %>

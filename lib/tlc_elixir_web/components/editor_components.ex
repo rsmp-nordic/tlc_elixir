@@ -55,15 +55,15 @@ defmodule TlcElixirWeb.EditorComponents do
           button_class = cond do
             @logic_mode == :fault && program.name != "fault" -> "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
             program.name == "fault" && @logic_mode != :fault -> "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
-            program.name == @current_program.name -> "bg-purple-600 text-white"
-            program.name == @target_program -> "bg-gray-700 text-white"
-            true -> "bg-gray-700 hover:bg-gray-600 text-white"
+            program.name == @current_program.name -> "bg-purple-600"
+            program.name == @target_program -> "bg-gray-700"
+            true -> "bg-gray-700 hover:bg-gray-600"
           end
         %>
         <button
           phx-click={if clickable, do: "switch_program", else: nil}
           phx-value-program_name={program.name}
-          class={"px-3 py-1 rounded flex items-center #{button_class} group relative"}
+          class={"pill #{button_class} group relative"}
         >
           <div class="w-5 flex justify-center mr-1">
             <%= if program.name == @target_program do %>
@@ -127,17 +127,17 @@ defmodule TlcElixirWeb.EditorComponents do
     ~H"""
     <div class="flex gap-2">
       <%= if @editing do %>
-        <button phx-click="cancel_editing" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded">
+        <button phx-click="cancel_editing" class="pill bg-gray-700 hover:bg-gray-600">
           Cancel
         </button>
         <button phx-click="save_program"
-                class="bg-purple-700 hover:bg-purple-600 text-white px-3 py-1 rounded">
+                class="pill bg-purple-700 hover:bg-purple-600">
           Save
         </button>
       <% else %>
         <!-- No action buttons when not editing; Fault button has been moved to Controller section -->
         <div class="flex items-center gap-2">
-          <button phx-click="toggle_auto" class={"px-3 py-1 rounded " <> if(@auto, do: "bg-purple-700 text-white", else: "bg-gray-700 hover:bg-gray-600 text-gray-300")} aria-pressed={@auto} title="Auto">
+          <button phx-click="toggle_auto" class={"pill " <> if(@auto, do: "bg-purple-700", else: "bg-gray-700 hover:bg-gray-600 text-gray-300")} aria-pressed={@auto} title="Auto">
             Auto
           </button>
           <span class="text-gray-400 text-xs">&nbsp;</span>
@@ -195,10 +195,10 @@ defmodule TlcElixirWeb.EditorComponents do
       <div class="flex items-center gap-2">
         <span class="text-gray-300 self-center mr-1">interval (ms):</span>
         <%= for i <- @intervals do %>
-        <button phx-click="set_interval" phx-value-interval={i} class={"px-3 py-1 rounded " <> cond do
-          @selected_interval == i and not @paused -> "bg-purple-700 text-white"
+        <button phx-click="set_interval" phx-value-interval={i} class={"pill " <> cond do
+          @selected_interval == i and not @paused -> "bg-purple-700"
           @selected_interval == i and @paused -> "bg-gray-600 text-gray-200"
-          true -> "bg-gray-700 hover:bg-gray-600 text-white"
+          true -> "bg-gray-700 hover:bg-gray-600"
         end} title={to_string(i)}>
           <%= i %>
         </button>
@@ -209,7 +209,7 @@ defmodule TlcElixirWeb.EditorComponents do
           <button
             phx-click="toggle_pause"
             type="button"
-            class={"px-3 py-1 rounded " <> if(@paused, do: "bg-purple-700 text-white", else: "bg-gray-700 hover:bg-gray-600 text-gray-300")}
+            class={"pill " <> if(@paused, do: "bg-purple-700", else: "bg-gray-700 hover:bg-gray-600 text-gray-300")}
             aria-pressed={@paused}
             title="Pause"
           >
@@ -217,7 +217,7 @@ defmodule TlcElixirWeb.EditorComponents do
           </button>
           <div class={"flex items-center gap-1 " <> if(not @paused, do: "opacity-50", else: "") }>
             <input type="number" name="steps" value="1" min="1" class={"w-16 px-3 py-1 rounded bg-gray-700 text-gray-300 border border-gray-600 " <> if(not @paused, do: "bg-gray-800 text-gray-500", else: "") } disabled={!@paused} />
-            <button type="submit" class={"px-3 py-1 rounded " <> if(not @paused, do: "bg-gray-800 text-gray-500 cursor-not-allowed", else: "bg-gray-700 hover:bg-gray-600 text-gray-300")}>Step</button>
+            <button type="submit" class={"pill " <> if(not @paused, do: "bg-gray-800 text-gray-500 cursor-not-allowed", else: "bg-gray-700 hover:bg-gray-600 text-gray-300")}>Step</button>
           </div>
         </form>
       </div>
@@ -242,8 +242,8 @@ defmodule TlcElixirWeb.EditorComponents do
           Program Definition
         </h3>
         <button phx-click="apply_program_definition"
-                class={"px-3 py-1 rounded text-white #{if @json_error || @validation_error, do: "bg-gray-500 cursor-not-allowed", else: "bg-purple-700 hover:bg-purple-600"}"}
-                disabled={@json_error || @validation_error}>
+            class={"pill " <> if(@json_error || @validation_error, do: "bg-gray-500 cursor-not-allowed", else: "bg-purple-700 hover:bg-purple-600")}
+          disabled={@json_error || @validation_error}>
           Apply
         </button>
       </div>
