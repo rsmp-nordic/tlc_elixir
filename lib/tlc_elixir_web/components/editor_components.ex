@@ -238,7 +238,7 @@ defmodule TlcElixirWeb.EditorComponents do
     ~H"""
     <div class="mt-4 border-t border-gray-600 pt-4">
       <div class="flex justify-between items-center mb-2">
-        <h3 class="text-lg font-semibold text-gray-200 flex items-center">
+        <h3 class="flex items-center">
           Program Definition
         </h3>
         <button phx-click="apply_program_definition"

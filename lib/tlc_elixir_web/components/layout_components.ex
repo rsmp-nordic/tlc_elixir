@@ -30,7 +30,7 @@ defmodule TlcElixirWeb.LayoutComponents do
       <div class="min-h-[16rem] flex flex-col">
         <%!-- Controller Section --%>
         <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 h-full flex flex-col flex-1">
-          <h3 class="text-lg font-semibold text-gray-200 mb-2">Controller</h3>
+          <h2>Controller</h2>
 
           <%!-- State --%>
           <div class="flex flex-wrap items-center gap-4 mb-3">
@@ -72,7 +72,7 @@ defmodule TlcElixirWeb.LayoutComponents do
       <%!-- Time Section (compact) --%>
       <div class="min-h-[16rem] flex flex-col md:min-w-0 md:w-64 h-full">
         <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 overflow-hidden h-full flex flex-col flex-1">
-          <h3 class="text-lg font-semibold text-gray-200 mb-2">Time</h3>
+          <h2>Time</h2>
           <div class="flex flex-col gap-2 mb-3">
             <div class="flex items-center gap-2">
               <div class="flex-1 min-w-0">
@@ -98,7 +98,7 @@ defmodule TlcElixirWeb.LayoutComponents do
   def fixed_time_details(assigns) do
     ~H"""
     <div class="p-2">
-      <h4 class="text-sm font-semibold text-gray-200 mb-2">Details</h4>
+      <h3>Details</h3>
       <div class="grid grid-cols-4 gap-1 text-xs">
         <.state_card label="Cycle" value={"#{@logic.cycle_time} / #{@logic.program.length}"} />
         <.state_card label="Base Time" value={@logic.base_time} />
@@ -121,7 +121,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     assign(assigns, :program, assigns.program)
     ~H"""
     <div class="p-2">
-      <h4 class="text-sm font-semibold text-gray-200 mb-2">Details</h4>
+      <h3>Details</h3>
       <div class="grid grid-cols-4 gap-1 text-xs">
         <.state_card label="Length" value={@program.length} />
         <.state_card label="Offset" value={@program.offset} />
@@ -136,7 +136,7 @@ defmodule TlcElixirWeb.LayoutComponents do
   def state_section(assigns) do
     ~H"""
     <div class="bg-gray-800 p-3 rounded shadow-lg border border-gray-700 h-full">
-      <h2 class="text-lg font-semibold text-gray-200 mb-2">Logic</h2>
+      <h2>Logic</h2>
       <div class="grid grid-cols-4 gap-2 text-xs">
         <.state_card label="Mode" value={@logic.mode} />
         <.state_card label="Unix Time" value={@logic.unix_time} />
@@ -200,7 +200,7 @@ defmodule TlcElixirWeb.LayoutComponents do
 
     ~H"""
     <div class="p-3">
-      <h4 class="text-sm font-semibold text-gray-200 mb-2">Details</h4>
+      <h3>Details</h3>
 
       <%!-- Elapsed time and duration display using state_card boxes --%>
       <div class="grid grid-cols-4 gap-1 text-xs mb-3">
@@ -212,7 +212,7 @@ defmodule TlcElixirWeb.LayoutComponents do
 
       <%!-- All Stages --%>
       <div>
-        <span class="text-sm font-semibold text-gray-200 mb-2">Stages</span>
+        <h3>Stages</h3>
         <div class="flex flex-wrap gap-2">
           <%= for stage_id <- @all_stages do %>
             <%
@@ -271,7 +271,7 @@ defmodule TlcElixirWeb.LayoutComponents do
 
     ~H"""
     <div class="p-3">
-      <h4 class="text-sm font-semibold text-gray-200 mb-2">Details</h4>
+      <h3>Details</h3>
       <div class="grid grid-cols-4 gap-1 text-xs mb-3">
         <.state_card label="Stages" value={length(@all_stages)} />
         <.state_card label="Enter" value={Enum.join(@enter_stages, ", ")} />
@@ -530,7 +530,7 @@ defmodule TlcElixirWeb.LayoutComponents do
 
     ~H"""
     <div class="bg-gray-800 p-3 rounded">
-      <h2 class="text-lg font-semibold text-gray-200 mb-2">
+      <h3>
         <%= if @has_transition_to_show do %>
           Transition: <%= @from_stage %> → <%= @to_stage %>
           <%= if length(@variants) > 0 do %>
@@ -554,7 +554,7 @@ defmodule TlcElixirWeb.LayoutComponents do
           Transition
           <span class="text-sm font-normal text-gray-400 ml-2">(none)</span>
         <% end %>
-      </h2>
+      </h3>
 
       <div class="overflow-x-auto">
         <div class="flex border-t border-l border-gray-600">

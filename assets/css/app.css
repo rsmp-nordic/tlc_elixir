@@ -25,6 +25,16 @@
   }
 }
 
+/* Base heading styles: h2 for main sections, h3 for subsections */
+@layer base {
+  h2 {
+    @apply text-lg font-semibold text-gray-200 mb-2; /* Main sections */
+  }
+  h3 {
+    @apply text-sm font-semibold text-gray-200 mb-2; /* Sub sections */
+  }
+}
+
 
 
 /* Ensure cells with bg-gray-400 are properly styled */
