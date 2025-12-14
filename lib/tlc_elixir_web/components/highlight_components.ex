@@ -10,6 +10,7 @@ defmodule TlcElixirWeb.HighlightComponents do
   slot :inner_block, required: true
 
   def current_column(assigns) do
+    # Use a thin purple ring to indicate current column (matches tests/visuals)
     ring = if assigns.current, do: "z-10 rounded ring-4 ring-gray-400", else: ""
 
     assigns = assign(assigns, :ring, ring)
