@@ -6,6 +6,7 @@ defmodule TlcElixirWeb.LayoutComponents do
   import TlcElixirWeb.CoreComponents
   import TlcElixirWeb.UIHelpers, only: [signal_bg_class: 1]
   import TlcElixirWeb.SignalComponents, only: [signal_head: 1]
+  import TlcElixirWeb.HighlightComponents, only: [current_column: 1]
   def common_header(assigns) do
     assigns = assign_new(assigns, :selected_interval, fn -> assigns[:interval] end)
     ~H"""
@@ -539,7 +540,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     )
 
     ~H"""
-    <div class={"flex-1 flex flex-col relative border-gray-600 #{if @is_current, do: "z-10 rounded ring-2 ring-purple-600 ring-offset-1 ring-offset-gray-900", else: ""}"}>
+    <.current_column current={@is_current} class="flex-1 flex flex-col relative border-gray-600">
       <!-- Header cell with time / stage name -->
       <div class="p-1 h-8 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200">
         <%= @time %>
@@ -555,7 +556,7 @@ defmodule TlcElixirWeb.LayoutComponents do
           <span class="text-gray-200 select-none"><%= signal %></span>
         </div>
       <% end %>
-    </div>
+    </.current_column>
     """
   end
 
@@ -572,7 +573,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     assigns = assign(assigns, state: state)
 
     ~H"""
-    <div class={"flex-1 flex flex-col relative border-gray-600 " <> if(@current, do: "z-10 rounded ring-2 ring-purple-600 ring-offset-1 ring-offset-gray-900", else: "") }>
+    <.current_column current={@current} class="flex-1 flex flex-col relative border-gray-600">
       <!-- Header: keep blank for time row (stage names are not shown here) -->
       <div class="p-1 h-8 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200"></div>
 
@@ -586,7 +587,7 @@ defmodule TlcElixirWeb.LayoutComponents do
           <span class="text-gray-200 select-none"><%= signal %></span>
         </div>
       <% end %>
-    </div>
+    </.current_column>
     """
   end
 
