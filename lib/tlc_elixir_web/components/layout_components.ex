@@ -72,8 +72,7 @@ defmodule TlcElixirWeb.LayoutComponents do
 
   def fixed_time_details(assigns) do
     ~H"""
-    <div class="">
-      <h3>Details</h3>
+    <.subsection title="Details">
       <div class="grid grid-cols-4 gap-1 text-xs">
         <.state_card label="Cycle" value={"#{@logic.cycle_time} / #{@logic.program.length}"} />
         <.state_card label="Base Time" value={@logic.base_time} />
@@ -84,7 +83,7 @@ defmodule TlcElixirWeb.LayoutComponents do
         <.state_card label="Target Distance" value={@logic.target_distance} />
         <.state_card label="Waited" value={@logic.waited} />
       </div>
-    </div>
+    </.subsection>
     """
   end
 
@@ -95,15 +94,14 @@ defmodule TlcElixirWeb.LayoutComponents do
   def fixed_time_program_preview(assigns) do
     assign(assigns, :program, assigns.program)
     ~H"""
-    <div class="">
-      <h3>Details</h3>
+    <.subsection title="Details">
       <div class="grid grid-cols-4 gap-1 text-xs">
         <.state_card label="Length" value={@program.length} />
         <.state_card label="Offset" value={@program.offset} />
         <.state_card label="Groups" value={length(@program.groups || [])} />
         <.state_card label="Switch" value={@program.switch} />
       </div>
-    </div>
+    </.subsection>
     """
   end
 
@@ -174,8 +172,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     )
 
     ~H"""
-    <div class="">
-      <h3>Details</h3>
+    <.subsection title="Details">
 
       <%!-- Elapsed time and duration display using state_card boxes --%>
       <div class="grid grid-cols-4 gap-1 text-xs mb-3">
@@ -228,7 +225,7 @@ defmodule TlcElixirWeb.LayoutComponents do
           <% end %>
         </div>
       </div>
-    </div>
+    </.subsection>
     """
   end
 
@@ -244,15 +241,14 @@ defmodule TlcElixirWeb.LayoutComponents do
     assigns = assign(assigns, all_stages: all_stages, enter_stages: enter_stages, leave_stages: leave_stages)
 
     ~H"""
-    <div class="">
-      <h3>Details</h3>
+    <.subsection title="Details">
       <div class="grid grid-cols-4 gap-1 text-xs mb-3">
         <.state_card label="Stages" value={length(@all_stages)} />
         <.state_card label="Enter" value={Enum.join(@enter_stages, ", ")} />
         <.state_card label="Leave" value={Enum.join(@leave_stages, ", ")} />
         <.state_card label="Flows" value={map_size(@program.flows)} />
       </div>
-    </div>
+    </.subsection>
     """
   end
 
@@ -319,6 +315,17 @@ defmodule TlcElixirWeb.LayoutComponents do
     <.pill class={"gap-2 " <> @color_class}>
       <span class="text-sm font-medium"><%= @text %></span>
     </.pill>
+    """
+  end
+
+  attr :title, :string, required: true
+  slot :inner_block
+  defp subsection(assigns) do
+    ~H"""
+    <div class="">
+      <h3><%= @title %></h3>
+      <%= render_slot(@inner_block) %>
+    </div>
     """
   end
 
