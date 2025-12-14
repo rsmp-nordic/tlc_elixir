@@ -224,7 +224,7 @@ defmodule TlcElixirWeb.EditorComponents do
     assigns = assign_new(assigns, :validation_error, fn -> nil end)
 
         ~H"""
-        <div id="program-editor-container" class="p-4">
+        <div id="program-editor-container" class="">
 
       <!-- Program controls moved to top-level Program section in the page layout -->
 

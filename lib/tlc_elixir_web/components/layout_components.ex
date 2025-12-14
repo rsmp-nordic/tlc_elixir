@@ -72,7 +72,7 @@ defmodule TlcElixirWeb.LayoutComponents do
 
   def fixed_time_details(assigns) do
     ~H"""
-    <div class="p-2">
+    <div class="">
       <h3>Details</h3>
       <div class="grid grid-cols-4 gap-1 text-xs">
         <.state_card label="Cycle" value={"#{@logic.cycle_time} / #{@logic.program.length}"} />
@@ -95,7 +95,7 @@ defmodule TlcElixirWeb.LayoutComponents do
   def fixed_time_program_preview(assigns) do
     assign(assigns, :program, assigns.program)
     ~H"""
-    <div class="p-2">
+    <div class="">
       <h3>Details</h3>
       <div class="grid grid-cols-4 gap-1 text-xs">
         <.state_card label="Length" value={@program.length} />
@@ -174,7 +174,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     )
 
     ~H"""
-    <div class="p-3">
+    <div class="">
       <h3>Details</h3>
 
       <%!-- Elapsed time and duration display using state_card boxes --%>
@@ -244,7 +244,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     assigns = assign(assigns, all_stages: all_stages, enter_stages: enter_stages, leave_stages: leave_stages)
 
     ~H"""
-    <div class="p-3">
+    <div class="">
       <h3>Details</h3>
       <div class="grid grid-cols-4 gap-1 text-xs mb-3">
         <.state_card label="Stages" value={length(@all_stages)} />
@@ -438,7 +438,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     assigns = assign(assigns, from_state: from_state, to_state: to_state)
 
     ~H"""
-    <.card>
+    <div>
       <h3>
         <%= if @has_transition_to_show do %>
           Transition: <%= @from_stage %> → <%= @to_stage %>
@@ -511,7 +511,7 @@ defmodule TlcElixirWeb.LayoutComponents do
           <% end %>
         </div>
       </div>
-    </.card>
+    </div>
     """
   end
 
