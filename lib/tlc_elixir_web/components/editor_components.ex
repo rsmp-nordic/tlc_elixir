@@ -5,6 +5,7 @@ defmodule TlcElixirWeb.EditorComponents do
 
   use Phoenix.Component
   import TlcElixirWeb.GridComponents, only: [program_grid: 1]
+  import TlcElixirWeb.CoreComponents
 
   def program_button(assigns) do
     assigns = assign_new(assigns, :active, fn -> false end)
@@ -60,10 +61,10 @@ defmodule TlcElixirWeb.EditorComponents do
             true -> "bg-gray-700 hover:bg-gray-600"
           end
         %>
-        <button
+        <.pill tag="button"
           phx-click={if clickable, do: "switch_program", else: nil}
           phx-value-program_name={program.name}
-          class={"pill #{button_class} group relative"}
+          class={button_class <> " group relative"}
         >
           <div class="w-5 flex justify-center mr-1">
             <%= if program.name == @target_program do %>
@@ -86,7 +87,7 @@ defmodule TlcElixirWeb.EditorComponents do
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
           <% end %>
-        </button>
+        </.pill>
       <% end %>
     </div>
     """
@@ -127,19 +128,12 @@ defmodule TlcElixirWeb.EditorComponents do
     ~H"""
     <div class="flex gap-2">
       <%= if @editing do %>
-        <button phx-click="cancel_editing" class="pill bg-gray-700 hover:bg-gray-600">
-          Cancel
-        </button>
-        <button phx-click="save_program"
-                class="pill bg-purple-700 hover:bg-purple-600">
-          Save
-        </button>
+        <.pill tag="button" phx-click="cancel_editing" class="bg-gray-700 hover:bg-gray-600">Cancel</.pill>
+        <.pill tag="button" phx-click="save_program" class="bg-purple-700 hover:bg-purple-600">Save</.pill>
       <% else %>
         <!-- No action buttons when not editing; Fault button has been moved to Controller section -->
         <div class="flex items-center gap-2">
-          <button phx-click="toggle_auto" class={"pill " <> if(@auto, do: "bg-purple-700", else: "bg-gray-700 hover:bg-gray-600 text-gray-300")} aria-pressed={@auto} title="Auto">
-            Auto
-          </button>
+          <.pill tag="button" phx-click="toggle_auto" class={if(@auto, do: "bg-purple-700", else: "bg-gray-700 hover:bg-gray-600 text-gray-300")} aria-pressed={@auto} title="Auto">Auto</.pill>
           <span class="text-gray-400 text-xs">&nbsp;</span>
         </div>
       <% end %>
@@ -176,54 +170,7 @@ defmodule TlcElixirWeb.EditorComponents do
     """
   end
 
-    attr :interval, :integer, required: true
-    attr :selected_interval, :integer, default: nil
-    attr :paused, :boolean, default: false
-
-    def interval_controls(assigns) do
-    # Intervals for automatic ticking (pause now moved into the manual step UI)
-    intervals = [1000, 300, 100, 30, 10, 3]
-
-    selected = Map.get(assigns, :selected_interval, assigns[:interval])
-    assigns = assign(assigns, :intervals, intervals)
-    assigns = assign(assigns, :selected_interval, selected)
-    paused = Map.get(assigns, :paused, false)
-    assigns = assign(assigns, :paused, paused)
-
-    ~H"""
-    <div class="flex flex-col gap-1 mb-3">
-      <div class="flex items-center gap-2">
-        <span class="text-gray-300 self-center mr-1">interval (ms):</span>
-        <%= for i <- @intervals do %>
-        <button phx-click="set_interval" phx-value-interval={i} class={"pill " <> cond do
-          @selected_interval == i and not @paused -> "bg-purple-700"
-          @selected_interval == i and @paused -> "bg-gray-600 text-gray-200"
-          true -> "bg-gray-700 hover:bg-gray-600"
-        end} title={to_string(i)}>
-          <%= i %>
-        </button>
-      <% end %>
-      </div>
-      <div class="flex items-center gap-1 justify-start">
-        <form id="manual-step-form-editor" phx-submit="step" phx-update="ignore" class="flex items-center gap-1">
-          <button
-            phx-click="toggle_pause"
-            type="button"
-            class={"pill " <> if(@paused, do: "bg-purple-700", else: "bg-gray-700 hover:bg-gray-600 text-gray-300")}
-            aria-pressed={@paused}
-            title="Pause"
-          >
-            Pause
-          </button>
-          <div class={"flex items-center gap-1 " <> if(not @paused, do: "opacity-50", else: "") }>
-            <input type="number" name="steps" value="1" min="1" class={"w-16 px-3 py-1 rounded bg-gray-700 text-gray-300 border border-gray-600 " <> if(not @paused, do: "bg-gray-800 text-gray-500", else: "") } disabled={!@paused} />
-            <button type="submit" class={"pill " <> if(not @paused, do: "bg-gray-800 text-gray-500 cursor-not-allowed", else: "bg-gray-700 hover:bg-gray-600 text-gray-300")}>Step</button>
-          </div>
-        </form>
-      </div>
-    </div>
-    """
-  end
+    # Editor does not render interval controls; the Time card owns the selector
 
   def program_definition_section(assigns) do
     # Ensure all keys are set with default values if missing
@@ -241,11 +188,11 @@ defmodule TlcElixirWeb.EditorComponents do
         <h3 class="flex items-center">
           Program Definition
         </h3>
-        <button phx-click="apply_program_definition"
-            class={"pill " <> if(@json_error || @validation_error, do: "bg-gray-500 cursor-not-allowed", else: "bg-purple-700 hover:bg-purple-600")}
+        <.pill tag="button" phx-click="apply_program_definition"
+            class={if(@json_error || @validation_error, do: "bg-gray-500 cursor-not-allowed", else: "bg-purple-700 hover:bg-purple-600")}
           disabled={@json_error || @validation_error}>
           Apply
-        </button>
+        </.pill>
       </div>
 
       <div class="mb-2">

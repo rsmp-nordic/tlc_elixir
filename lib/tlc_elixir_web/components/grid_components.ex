@@ -163,11 +163,7 @@ defmodule TlcElixirWeb.GridComponents do
         <%= @skip_duration %>
       <% else %>
         <%= if @current_cell_has_invalid_skip do %>
-          <div class="invalid-transition-indicator cursor-pointer" title={@skip_error_tooltip} data-tooltip-content={@skip_error_tooltip}>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-            </svg>
-          </div>
+          <.invalid_transition_indicator title={@skip_error_tooltip} class="cursor-pointer" />
         <% else %>
           <span class="opacity-0">0</span>
         <% end %>
@@ -244,15 +240,23 @@ defmodule TlcElixirWeb.GridComponents do
         title={if has_invalid_transition, do: error_tooltip, else: signal}
       >
         <%= if has_invalid_transition do %>
-          <div class="invalid-transition-indicator" title={error_tooltip}>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-            </svg>
-          </div>
+          <.invalid_transition_indicator title={error_tooltip} />
         <% end %>
         <span class="text-gray-200 select-none"><%= signal %></span>
       </div>
     <% end %>
+    """
+  end
+
+  attr :title, :string, default: nil
+  attr :class, :string, default: "invalid-transition-indicator"
+  def invalid_transition_indicator(assigns) do
+    ~H"""
+    <div class={@class} title={@title} data-tooltip-content={@title}>
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+      </svg>
+    </div>
     """
   end
 

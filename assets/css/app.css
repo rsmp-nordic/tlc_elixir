@@ -27,17 +27,12 @@
 
 /* Small reusable pill components for badges/buttons */
 @layer components {
-  .pill {
-    @apply inline-flex items-center gap-1 px-3 py-1 rounded text-sm transition-colors text-white;
-  }
+  /* `.pill` has been replaced by the `pill` Phoenix component and inlined on the
+     component level. `.pill-sm` remains for the compact badge variant. */
   .pill-sm {
     @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs;
   }
 
-  /* Standard card container used across the app */
-  .card {
-    @apply bg-gray-800 p-3 rounded shadow-lg border border-gray-700;
-  }
 }
 
 /* Base heading styles: h2 for main sections, h3 for subsections */

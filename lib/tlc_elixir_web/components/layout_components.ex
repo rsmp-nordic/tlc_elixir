@@ -1,27 +1,11 @@
 defmodule TlcElixirWeb.LayoutComponents do
   @moduledoc """
   Layout components for the TLC application.
-  """
-
+"""
   use Phoenix.Component
   import TlcElixirWeb.CoreComponents
   import TlcElixirWeb.UIHelpers, only: [signal_bg_class: 1]
-
-  # Common header component (controller & programs overview)
-
-  attr :programs, :list, required: true
-  attr :current_program, :any, required: true
-  attr :target_program, :string, default: nil
-  attr :logic_type, :atom, required: true
-  attr :logic, :any, required: true
-  attr :mode, :atom, required: true
-  attr :groups, :list, required: true
-  attr :current_states, :string, required: true
-  attr :interval, :integer, default: 1000
-  attr :selected_interval, :integer, default: nil
-  attr :paused, :boolean, default: false
-  attr :editing, :boolean, default: false
-
+  import TlcElixirWeb.SignalComponents, only: [signal_head: 1]
   def common_header(assigns) do
     assigns = assign_new(assigns, :selected_interval, fn -> assigns[:interval] end)
     ~H"""
@@ -29,49 +13,39 @@ defmodule TlcElixirWeb.LayoutComponents do
       <%!-- Controller left, Time right on the same row --%>
       <div class="min-h-[16rem] flex flex-col">
         <%!-- Controller Section --%>
-        <div class="card h-full flex flex-col flex-1">
+        <.card class="h-full flex flex-col flex-1">
           <h2>Controller</h2>
 
           <%!-- State --%>
           <div class="flex flex-wrap items-center gap-4 mb-3">
             <div class="flex items-center gap-2">
               <.mode_indicator mode={@mode} />
-                    <button phx-click="toggle_fault"
+                    <.pill tag="button"
+                      phx-click="toggle_fault"
                       aria-pressed={@mode == :fault}
                       title={if @mode == :fault, do: "Clear fault", else: "Trigger fault"}
-                      class="pill gap-2 bg-gray-700 hover:bg-gray-600" type="button">
+                      class="gap-2 bg-gray-700 hover:bg-gray-600" type="button">
                 <%= if @mode == :fault do %>
                   <span class="text-sm font-medium">Clear Fault</span>
                 <% else %>
                   <span class="text-sm font-medium">Trigger Fault</span>
                 <% end %>
-              </button>
+              </.pill>
             </div>
           </div>
 
           <%!-- Signal Heads --%>
           <div class="flex justify-start gap-4">
-          <%= for {group, i} <- Enum.with_index(@groups) do %>
-            <div class="flex flex-col items-center">
-              <div class="signal-head flex flex-col gap-1.5 p-1.5 bg-gray-900 rounded border border-gray-700">
-                <%
-                  signal = String.at(@current_states, i)
-                  states = lamp_states(signal)
-                %>
-                <div class={"w-7 h-7 rounded-full #{lamp_class(states.red, :red)} shadow-lg"} title="Red"></div>
-                <div class={"w-7 h-7 rounded-full #{lamp_class(states.yellow, :yellow)} shadow-lg"} title="Yellow"></div>
-                <div class={"w-7 h-7 rounded-full #{lamp_class(states.green, :green)} shadow-lg"} title="Green"></div>
-              </div>
-              <span class="text-gray-400 text-xs font-medium mt-1"><%= group %></span>
-            </div>
-          <% end %>
+            <%= for {group, i} <- Enum.with_index(@groups) do %>
+              <.signal_head group={group} index={i} current_state={@current_states} />
+            <% end %>
           </div>
-        </div>
+        </.card>
       </div>
 
       <%!-- Time Section (compact) --%>
       <div class="min-h-[16rem] flex flex-col md:min-w-0 md:w-64 h-full">
-        <div class="card overflow-hidden h-full flex flex-col flex-1">
+        <.card class="overflow-hidden h-full flex flex-col flex-1">
           <h2>Time</h2>
           <div class="flex flex-col gap-2 mb-3">
             <div class="flex items-center gap-2">
@@ -85,7 +59,7 @@ defmodule TlcElixirWeb.LayoutComponents do
               <.state_card label="Unix Delta" value={@logic.unix_delta} />
             </div>
           </div>
-        </div>
+        </.card>
       </div>
     </div>
     """
@@ -135,7 +109,7 @@ defmodule TlcElixirWeb.LayoutComponents do
   # Keep the old state_section for backward compatibility
   def state_section(assigns) do
     ~H"""
-    <div class="card h-full">
+    <.card class="h-full">
       <h2>Logic</h2>
       <div class="grid grid-cols-4 gap-2 text-xs">
         <.state_card label="Mode" value={@logic.mode} />
@@ -151,7 +125,7 @@ defmodule TlcElixirWeb.LayoutComponents do
         <.state_card label="Target Distance" value={@logic.target_distance} />
         <.state_card label="Waited" value={@logic.waited} />
       </div>
-    </div>
+    </.card>
     """
   end
 
@@ -229,16 +203,15 @@ defmodule TlcElixirWeb.LayoutComponents do
                 true -> nil
               end
             %>
-            <button
+            <.pill tag="button"
               phx-click="request_stage"
               phx-value-stage_id={stage_id}
-                class={"pill " <>
-                cond do
-                  is_current -> "bg-purple-700 font-bold"
-                  is_requested -> "bg-gray-700"
-                  is_available -> "bg-gray-700 hover:bg-gray-600"
-                  true -> "bg-gray-700 text-gray-400 cursor-not-allowed"
-                end}
+              class={cond do
+                is_current -> "bg-purple-700 font-bold"
+                is_requested -> "bg-gray-700"
+                is_available -> "bg-gray-700 hover:bg-gray-600"
+                true -> "bg-gray-700 text-gray-400 cursor-not-allowed"
+              end}
               disabled={@logic.mode == :halt or not is_available}
               title={cond do
                 is_enter and is_leave -> "Enter and leave stage"
@@ -250,7 +223,7 @@ defmodule TlcElixirWeb.LayoutComponents do
               <span class={"w-4 " <> if(direction_arrow, do: "", else: "invisible")}><%= direction_arrow %></span>
               <span><%= stage_id %></span>
               <span class={"w-4 " <> if(is_transition_target, do: "animate-pulse", else: "invisible")}>◎</span>
-            </button>
+            </.pill>
           <% end %>
         </div>
       </div>
@@ -321,10 +294,10 @@ defmodule TlcElixirWeb.LayoutComponents do
 
   defp info_pill(assigns) do
     ~H"""
-    <div class="pill bg-gray-700">
+    <.pill class="bg-gray-700">
       <span class="text-xs text-gray-400"><%= @label %>:</span>
       <span class="text-sm font-mono text-gray-200"><%= @value %></span>
-    </div>
+    </.pill>
     """
   end
 
@@ -342,16 +315,16 @@ defmodule TlcElixirWeb.LayoutComponents do
     assigns = assign(assigns, text: text, color_class: color_class)
 
     ~H"""
-    <div class={"pill gap-2 #{@color_class}"}>
+    <.pill class={"gap-2 " <> @color_class}>
       <span class="text-sm font-medium"><%= @text %></span>
-    </div>
+    </.pill>
     """
   end
 
 
 
   defp variant_button_class(is_selected) do
-    base = "pill justify-center"
+    base = "justify-center"
 
     if is_selected do
       "#{base} bg-purple-700 font-bold"
@@ -362,72 +335,7 @@ defmodule TlcElixirWeb.LayoutComponents do
 
 
 
-  attr :interval, :integer, required: true
-  attr :paused, :boolean, default: false
-  attr :selected_interval, :integer, default: nil
-
-  defp interval_buttons(assigns) do
-    # Intervals for automatic ticking (pause now moved into the manual step UI)
-    intervals = [1000, 300, 100, 30, 10, 3]
-
-    # Default selected interval to the current interval if not provided
-    selected = Map.get(assigns, :selected_interval, assigns[:interval])
-
-    assigns = assign(assigns, intervals: intervals, selected_interval: selected, paused: assigns[:paused])
-
-    ~H"""
-    <div class="flex flex-col gap-1 max-w-full">
-      <div class="flex flex-wrap gap-1 overflow-x-auto">
-        <%= for i <- @intervals do %>
-        <button
-          phx-click="set_interval"
-          phx-value-interval={i}
-          class={"pill " <> cond do
-            @selected_interval == i and not @paused -> "bg-purple-700"
-            @selected_interval == i and @paused -> "bg-gray-600 text-gray-200"
-            true -> "bg-gray-700 hover:bg-gray-600"
-          end}
-          title={to_string(i)}
-        >
-          <%= i %>
-        </button>
-      <% end %>
-      </div>
-
-      <%!-- Manual step input for paused/manual mode (moved below the selectors) --%>
-      <div class="flex items-center gap-1 justify-start">
-        <form id="manual-step-form-header" phx-submit="step" class="flex items-center gap-1">
-          <button
-            phx-click="toggle_pause"
-            type="button"
-            class={"pill " <> if(@paused, do: "bg-purple-700", else: "bg-gray-700 hover:bg-gray-600 text-gray-300")}
-            aria-pressed={@paused}
-            title="Pause"
-          >
-            Pause
-          </button>
-          <div class={"flex items-center gap-1 " <> if(not @paused, do: "opacity-50", else: "") }>
-            <input id="manual-step-input" phx-update="ignore" type="number" name="steps" value="1" min="1" class={"w-16 px-3 py-1 rounded bg-gray-700 text-gray-300 border border-gray-600 " <> if(not @paused, do: "bg-gray-800 text-gray-500", else: "") } disabled={!@paused} />
-            <button
-              type="submit"
-              disabled={!@paused}
-              class={"pill " <>
-                if not @paused do
-                  "bg-gray-800 text-gray-500 cursor-not-allowed"
-                else
-                  "bg-gray-700 hover:bg-gray-600 text-gray-300"
-                end
-              }
-              aria-disabled={!@paused}
-            >
-            Step
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-    """
-  end
+  # Use CoreComponents.interval_buttons instead of local copy
 
   # Transition grid for stage-based programs
 
@@ -529,7 +437,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     assigns = assign(assigns, from_state: from_state, to_state: to_state)
 
     ~H"""
-    <div class="card">
+    <.card>
       <h3>
         <%= if @has_transition_to_show do %>
           Transition: <%= @from_stage %> → <%= @to_stage %>
@@ -572,7 +480,7 @@ defmodule TlcElixirWeb.LayoutComponents do
           <%= if @has_transition_to_show do %>
             <%!-- Static column showing the "from" stage state --%>
             <%= if @from_stage do %>
-              <.stage_column stage={@from_stage} groups={@groups} state={@from_state} current={not @in_transition} />
+              <.stage_column stage={@from_stage} groups={@groups} state={@from_state} current={false} />
             <% end %>
             <%= for time <- 0..(@total_duration - 1) do %>
               <.transition_column
@@ -602,7 +510,7 @@ defmodule TlcElixirWeb.LayoutComponents do
           <% end %>
         </div>
       </div>
-    </div>
+    </.card>
     """
   end
 
@@ -699,30 +607,5 @@ defmodule TlcElixirWeb.LayoutComponents do
 
   # signal_bg_class is provided by TlcElixirWeb.UIHelpers
 
-  # Signal lamp helpers
-
-  # Supports both fixed-time signals (R, Y, G, A, D) and stage-based signals (0, 1, 2, A)
-  defp lamp_states(signal) do
-    case signal do
-      "R" -> %{red: true, yellow: false, green: false}
-      "Y" -> %{red: false, yellow: true, green: false}
-      "A" -> %{red: true, yellow: true, green: false}    # Amber (red + yellow)
-      "G" -> %{red: false, yellow: false, green: true}
-      "D" -> %{red: false, yellow: false, green: false}
-      _ -> %{red: false, yellow: false, green: false}
-    end
-  end
-
-  defp lamp_class(is_on, color) do
-    if is_on do
-      case color do
-        :red -> "bg-red-600"
-        :yellow -> "bg-yellow-500"
-        :green -> "bg-green-600"
-        _ -> "bg-gray-800"
-      end
-    else
-      "bg-gray-800"
-    end
-  end
+  # Helper functions for lamp states moved to TlcElixirWeb.UIHelpers
 end

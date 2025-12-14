@@ -4,48 +4,39 @@ defmodule TlcElixirWeb.SignalComponents do
   """
 
   use Phoenix.Component
+  import TlcElixirWeb.UIHelpers, only: [lamp_states: 1, lamp_class: 2]
+  import TlcElixirWeb.CoreComponents
 
   def signal_heads_section(assigns) do
     ~H"""
-    <div class="card h-full">
+    <.card class="h-full">
       <h3>Groups</h3>
       <div class="flex justify-center gap-8" id="signal-heads-container">
         <%= for {group, i} <- Enum.with_index(@groups) do %>
-          <div class="flex flex-col items-center" id={"signal-head-#{i}"}>
-            <div class="signal-head flex flex-col gap-2 p-2 bg-gray-900 rounded border border-gray-700">
-              <%
-                signal = String.at(@current_state, i)
-                states = lamp_states(signal)
-              %>
-              <div class={"w-10 h-10 rounded-full #{lamp_class(states.red, :red)} shadow-lg"} title="Red"></div>
-              <div class={"w-10 h-10 rounded-full #{lamp_class(states.yellow, :yellow)} shadow-lg"} title="Yellow"></div>
-              <div class={"w-10 h-10 rounded-full #{lamp_class(states.green, :green)} shadow-lg"} title="Green"></div>
-            </div>
-            <span class="text-gray-300 text-sm font-medium mt-2"><%= group %></span>
-          </div>
+          <.signal_head group={group} index={i} current_state={@current_state} />
         <% end %>
       </div>
-    </div>
+    </.card>
     """
   end
 
-  # Helper functions for signal head display
-  defp lamp_states(signal) do
-    case signal do
-      "R" -> %{red: true, yellow: false, green: false}
-      "Y" -> %{red: false, yellow: true, green: false}
-      "A" -> %{red: true, yellow: true, green: false}
-      "G" -> %{red: false, yellow: false, green: true}
-      "D" -> %{red: false, yellow: false, green: false}
-      _ -> %{red: false, yellow: false, green: false}
-    end
-  end
-
-  defp lamp_class(is_on, color) do
-    if is_on do
-      TlcElixirWeb.UIHelpers.signal_bg_class(color)
-    else
-      "bg-gray-800"
-    end
+  attr :group, :string, required: true
+  attr :index, :integer, required: true
+  attr :current_state, :string, required: true
+  def signal_head(assigns) do
+    ~H"""
+    <div class="flex flex-col items-center" id={"signal-head-#{@index}"}>
+      <div class="signal-head flex flex-col gap-2 p-2 bg-gray-900 rounded border border-gray-700">
+        <%
+          signal = String.at(@current_state, @index)
+          states = lamp_states(signal)
+        %>
+        <div class={"w-10 h-10 rounded-full #{lamp_class(states.red, :red)} shadow-lg"} title="Red"></div>
+        <div class={"w-10 h-10 rounded-full #{lamp_class(states.yellow, :yellow)} shadow-lg"} title="Yellow"></div>
+        <div class={"w-10 h-10 rounded-full #{lamp_class(states.green, :green)} shadow-lg"} title="Green"></div>
+      </div>
+      <span class="text-gray-300 text-sm font-medium mt-2"><%= @group %></span>
+    </div>
+    """
   end
 end

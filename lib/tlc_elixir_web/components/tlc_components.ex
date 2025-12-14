@@ -17,7 +17,6 @@ defmodule TlcElixirWeb.TlcComponents do
   defdelegate state_section(assigns), to: TlcElixirWeb.LayoutComponents
   defdelegate signal_heads_section(assigns), to: TlcElixirWeb.SignalComponents
   defdelegate program_controls(assigns), to: TlcElixirWeb.EditorComponents
-  defdelegate interval_controls(assigns), to: TlcElixirWeb.EditorComponents
   defdelegate program_labels_column(assigns), to: TlcElixirWeb.GridComponents
   defdelegate skip_cell(assigns), to: TlcElixirWeb.GridComponents
   defdelegate wait_cell(assigns), to: TlcElixirWeb.GridComponents
