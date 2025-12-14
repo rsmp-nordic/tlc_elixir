@@ -133,7 +133,7 @@ defmodule TlcElixirWeb.EditorComponents do
       <% else %>
         <!-- No action buttons when not editing; Fault button has been moved to Controller section -->
         <div class="flex items-center gap-2">
-          <.pill tag="button" phx-click="toggle_auto" class={if(@auto, do: "bg-purple-700", else: "bg-gray-700 hover:bg-gray-600 text-gray-300")} aria-pressed={@auto} title="Auto">Auto</.pill>
+          <.pill tag="button" phx-click="toggle_auto" class={if(@auto, do: "bg-orange-500 text-white", else: "bg-orange-900 text-gray-400 hover:bg-gray-600")} aria-pressed={@auto} title="Auto">Auto</.pill>
           <span class="text-gray-400 text-xs">&nbsp;</span>
         </div>
       <% end %>
@@ -159,7 +159,7 @@ defmodule TlcElixirWeb.EditorComponents do
       </div>
 
       <!-- Edit controls (Fault button moved to Controller card) -->
-      <div class="mt-2">
+      <div class="self-start">
         <.program_action_buttons
           editing={@editing}
           logic_mode={@logic_mode}
