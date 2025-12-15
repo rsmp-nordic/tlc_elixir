@@ -473,7 +473,7 @@ defmodule TlcElixirWeb.LayoutComponents do
       </h3>
 
       <div class="overflow-x-auto">
-        <div class="flex border-t border-l border-gray-600">
+        <div class="flex py-1 border-t border-l border-gray-600">
           <!-- Labels column -->
           <div class="w-24 flex flex-col">
             <div class="p-1 h-8 flex items-center justify-left font-semibold bg-gray-700 text-gray-200 border-r border-b border-gray-600">Time</div>

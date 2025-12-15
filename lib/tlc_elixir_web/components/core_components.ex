@@ -21,7 +21,7 @@ defmodule TlcElixirWeb.CoreComponents do
   slot :inner_block
   def card(assigns) do
     ~H"""
-    <div class={"bg-gray-800 p-3 rounded shadow-lg border border-gray-700 " <> @class}>
+    <div class={"bg-gray-800 p-3 rounded" <> @class}>
       <%= if @title do %>
         <h2><%= @title %></h2>
       <% end %>
