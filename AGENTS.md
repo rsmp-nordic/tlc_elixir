@@ -24,7 +24,7 @@ it's not already running.
 You don't need to stop the server after using Playwright MCP, unless there's some
 specific reason to do so.
 
-## Guidelines
+## Traffic Light Emulation
 This app is not a real traffic light controller, but it emulates one.
 Safety is important for traffic lights. This mean:
 - only certain transitions are valid for traffic signal
@@ -35,12 +35,14 @@ Safety is important for traffic lights. This mean:
 
 ## No UI Testing
 Don't add any UI tests.
-We do not use Playwright tests, don't add any.
+Don't add tests for Phoenix components or LiveViews.
+Don't add Playwright tests.
 
 ## Testing
-Testing is important. All code shoud be covered by focused unit tests.
+All code, execpt UI coxde, should be covered by tests.
 
 All logic is driven deterministically by tick(), and tests should rely on this.
+
 Tests should not use actual clocktime, timers or sleeping, as this is slow and flaky.
 
 Test can be run with 'mix test', but prefer running test using the runTests tool.
@@ -51,4 +53,7 @@ Playwright MCP depends on Playwright which is based on node. The node dependenci
 
 Before using Playwright MCP, the server must be running, but you can assume that it is already running on port 4000.
 
-  
+## Comments
+Use minimalistic, focused comments that only described the current state of the code.
+Use comments for things that are not self-explanatory.
+Do not add any comments that describe how code was changed, moved, etc.

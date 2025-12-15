@@ -27,8 +27,8 @@
 
 /* Small reusable pill components for badges/buttons */
 @layer components {
-  /* `.pill` has been replaced by the `pill` Phoenix component and inlined on the
-     component level. `.pill-sm` remains for the compact badge variant. */
+    /* Compact badge variant for small badges. The `pill` component is provided in
+      the Phoenix components layer. */
   .pill-sm {
     @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs;
   }
@@ -52,7 +52,7 @@
   background-color: rgb(156 163 175) !important; /* bg-gray-400 */
 }
 
-/* Updated styling for invalid signal cells - removed the red border */
+/* Styling for invalid signal cells (no red border) */
 .signal-cell-invalid {
   position: relative;
 }

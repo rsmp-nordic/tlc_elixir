@@ -26,14 +26,14 @@ defmodule TlcElixirWeb.SignalComponents do
   def signal_head(assigns) do
     ~H"""
     <div class="flex flex-col items-center" id={"signal-head-#{@index}"}>
-      <div class="signal-head flex flex-col gap-2 p-2 bg-gray-900 rounded border border-gray-700">
+      <div class="signal-head flex flex-col gap-1 p-1 bg-gray-700 rounded">
         <%
           signal = String.at(@current_state, @index)
           states = lamp_states(signal)
         %>
-        <div class={"w-10 h-10 rounded-full #{lamp_class(states.red, :red)} shadow-lg"} title="Red"></div>
-        <div class={"w-10 h-10 rounded-full #{lamp_class(states.yellow, :yellow)} shadow-lg"} title="Yellow"></div>
-        <div class={"w-10 h-10 rounded-full #{lamp_class(states.green, :green)} shadow-lg"} title="Green"></div>
+        <div class={"w-6 h-6 rounded-full #{lamp_class(states.red, :red)}"} title="Red"></div>
+        <div class={"w-6 h-6 rounded-full #{lamp_class(states.yellow, :yellow)}"} title="Yellow"></div>
+        <div class={"w-6 h-6 rounded-full #{lamp_class(states.green, :green)}"} title="Green"></div>
       </div>
       <span class="text-gray-300 text-sm font-medium mt-2"><%= @group %></span>
     </div>

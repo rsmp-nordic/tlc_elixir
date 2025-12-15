@@ -4,17 +4,16 @@ defmodule TlcElixirWeb.GridComponents do
   """
 
   use Phoenix.Component
-  import TlcElixirWeb.HighlightComponents, only: [current_column: 1]
 
   def program_cell(assigns) do
     ~H"""
-    <.current_column current={@current_cycle == @cycle && !@editing} class={"flex-1 flex flex-col relative #{if @col_idx == @program_length - 1, do: "border-r", else: ""} border-gray-600"}>
+    <div class={"flex-1 flex flex-col relative #{if @col_idx == @program_length - 1, do: "border-r", else: ""} border-gray-600 #{if @current_cycle == @cycle && !@editing, do: "z-10 rounded ring-4 ring-gray-400", else: ""}"}>
       <!-- Header cell -->
       <div class="p-1 h-8 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200">
         <%= @cycle %>
       </div>
       <%= render_slot(@inner_block) %>
-    </.current_column>
+    </div>
     """
   end
 

@@ -612,8 +612,4 @@ defmodule TlcElixirWeb.LayoutComponents do
     # Return the last state if we somehow exceeded
     state || (List.last(transition.sequence) && List.last(transition.sequence).state) || ""
   end
-
-  # signal_bg_class is provided by TlcElixirWeb.UIHelpers
-
-  # Helper functions for lamp states moved to TlcElixirWeb.UIHelpers
 end

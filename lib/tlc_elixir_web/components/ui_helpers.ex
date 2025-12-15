@@ -19,14 +19,15 @@ defmodule TlcElixirWeb.UIHelpers do
   def signal_bg_class("Y"), do: "bg-yellow-500"
   def signal_bg_class("A"), do: "bg-orange-500"
   def signal_bg_class("G"), do: "bg-green-600"
-  def signal_bg_class("D"), do: "bg-gray-800"
+  def signal_bg_class("D"), do: "bg-gray-900"
 
-  def signal_bg_class(:red), do: "bg-red-600"
-  def signal_bg_class(:yellow), do: "bg-yellow-500"
-  def signal_bg_class(:amber), do: "bg-orange-500"
-  def signal_bg_class(:green), do: "bg-green-600"
+  def signal_bg_class(:red), do: signal_bg_class("R")
+  def signal_bg_class(:yellow), do: signal_bg_class("Y")
+  def signal_bg_class(:amber), do: signal_bg_class("A")
+  def signal_bg_class(:green), do: signal_bg_class("G")
+  def signal_bg_class(:dark), do: signal_bg_class("D")
 
-  def signal_bg_class(_), do: "bg-gray-800"
+  def signal_bg_class(_), do: signal_bg_class("D")
 
   # Note: invalid transition detection belongs in the Safety layer
   # (`Tlc.Safety.invalid_transitions/3`) because it is program-agnostic
@@ -59,7 +60,7 @@ defmodule TlcElixirWeb.UIHelpers do
     if is_on do
       signal_bg_class(color)
     else
-      "bg-gray-800"
+      signal_bg_class(:dark)
     end
   end
 end

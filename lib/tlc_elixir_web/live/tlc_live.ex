@@ -563,9 +563,13 @@ defmodule TlcElixirWeb.TlcLive do
   end
   defp string_keys_to_integers(value), do: value
 
-  defp is_between_offsets(_cycle, _logic, true), do: false
+  def is_between_offsets(_cycle, _logic, true), do: false
 
-  defp is_between_offsets(cycle, logic, false) do
+  # When running stage-based logic there is no concept of program offsets,
+  # so always return false rather than attempting to access missing keys.
+  def is_between_offsets(_cycle, %Tlc.Logic.StageBased{}, _editing), do: false
+
+  def is_between_offsets(cycle, logic, false) do
     current_offset = logic.offset
     target_offset = logic.target_offset
     target_distance = logic.target_distance

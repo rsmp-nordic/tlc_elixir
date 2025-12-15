@@ -68,29 +68,45 @@
           </div>
           <div class="w-full overflow-x-auto">
             <%= if program_type == :fixed_time do %>
-              <.program_editor_container
-                display_program={display_program}
-                edited_program={@edited_program}
-                current_program={@tlc.logic.program}
-                current_cycle={logic_current_cycle}
-                editing={@editing}
-                offset={logic_offset}
-                target_offset={logic_target_offset}
-                target_distance={logic_target_distance}
-                invalid_transitions={@invalid_transitions}
-                next_signal_fn={&next_signal/1}
-                is_between_offsets_fn={&is_between_offsets/3}
-                logic={@tlc.logic}
-                interval={@tlc.interval}
-                selected_interval={@selected_interval}
-                paused={@paused}
-                programs={@tlc.programs}
-                logic_mode={@tlc.logic.mode}
-                target_program={@target_program}
-                program_text={@program_text}
-                json_error={@json_error}
-                validation_error={@validation_error}
-              />
+              <%= if @editing do %>
+                <.program_editor_container
+                  display_program={display_program}
+                  edited_program={@edited_program}
+                  current_program={@tlc.logic.program}
+                  current_cycle={logic_current_cycle}
+                  offset={logic_offset}
+                  target_offset={logic_target_offset}
+                  target_distance={logic_target_distance}
+                  invalid_transitions={@invalid_transitions}
+                  next_signal_fn={&next_signal/1}
+                  is_between_offsets_fn={&is_between_offsets/3}
+                  logic={@tlc.logic}
+                  interval={@tlc.interval}
+                  selected_interval={@selected_interval}
+                  paused={@paused}
+                  programs={@tlc.programs}
+                  logic_mode={@tlc.logic.mode}
+                  target_program={@target_program}
+                  program_text={@program_text}
+                  json_error={@json_error}
+                  validation_error={@validation_error}
+                />
+              <% else %>
+                <.program_grid
+                  display_program={display_program}
+                  edited_program={nil}
+                  current_program={@tlc.logic.program}
+                  current_cycle={logic_current_cycle}
+                  editing={false}
+                  offset={logic_offset}
+                  target_offset={logic_target_offset}
+                  target_distance={logic_target_distance}
+                  invalid_transitions={@invalid_transitions}
+                  next_signal_fn={&next_signal/1}
+                  is_between_offsets_fn={&is_between_offsets/3}
+                  logic={@tlc.logic}
+                />
+              <% end %>
             <% else %>
               <.transition_grid logic={@tlc.logic} />
             <% end %>
