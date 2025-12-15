@@ -56,8 +56,8 @@ defmodule TlcElixirWeb.LayoutComponents do
             </div>
             <%!-- Show Unix time info here in the Time section --%>
             <div class="flex items-center gap-3 text-xs mt-2">
-              <.state_card label="Unix Time" value={@logic.unix_time} />
-              <.state_card label="Unix Delta" value={@logic.unix_delta} />
+              <.state_card label="Time" value={@logic.unix_time} />
+              <.state_card label="Delta" value={@logic.unix_delta} />
             </div>
           </div>
         </.card>

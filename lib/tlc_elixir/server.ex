@@ -376,11 +376,18 @@ defmodule Tlc.Server do
       case tlc.logic.mode do
         :fault ->
           updated_safety = Tlc.Safety.clear_history(tlc.safety, halt_logic.program.name)
-          %{tlc | logic: halt_logic, safety: updated_safety}
+          # When recovering from fault to halt, clear any pending targets and
+          # allow auto-target selection to occur immediately (if enabled).
+          %{tlc | logic: halt_logic, safety: updated_safety, target_program: nil, target_origin: nil, defer_until_state: nil}
 
         _ ->
-          %{tlc | logic: fault_logic}
+          # When entering fault mode, clear any pending targets to avoid
+          # immediately switching out of fault due to server-level targets
+          %{tlc | logic: fault_logic, target_program: nil, target_origin: nil, defer_until_state: nil}
       end
+
+    # If auto-mode is enabled, attempt to set an auto target immediately
+    updated_tlc = maybe_set_auto_target(updated_tlc)
 
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}

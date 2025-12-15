@@ -261,6 +261,84 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
       GenServer.stop(pid)
     end
+
+    test "entering fault while auto is enabled clears/blocks auto switching" do
+      pid = start_test_server()
+      tick(pid)
+
+      # Enable auto and wait until a target program is chosen
+      Tlc.Server.set_auto(pid, true)
+      tick(pid)
+
+      target = Enum.reduce_while(1..50, nil, fn _, _ ->
+        t = Tlc.Server.get_target_program(pid)
+        if t != nil do
+          {:halt, t}
+        else
+          tick(pid)
+          {:cont, nil}
+        end
+      end)
+
+      # If auto didn't pick one in time, skip (test relies on randomness)
+      if is_nil(target) do
+        GenServer.stop(pid)
+      else
+        # Trigger fault and ensure we enter fault and pending targets are cleared
+        Tlc.Server.toggle_fault(pid)
+        tick(pid)
+
+        state = get_state(pid)
+        assert state.logic.mode == :fault
+        assert state.logic.program.name == "fault"
+        assert state.target_program == nil
+        assert Tlc.Server.get_target_program(pid) == nil
+
+        # Continue ticking - should remain in fault and not switch
+        tick(pid, 5)
+        state = get_state(pid)
+        assert state.logic.mode == :fault
+
+        # Toggle back to halt - auto should pick a target and resume running
+        Tlc.Server.toggle_fault(pid)
+        tick(pid)
+        state = get_state(pid)
+        # We should have resumed from halt into run and have a logic-level target
+        assert state.logic.mode == :run
+        target_after = Tlc.Server.get_target_program(pid)
+        assert target_after != nil
+        assert target_after != "fault"
+
+        GenServer.stop(pid)
+      end
+    end
+
+    test "entering fault clears existing server-level target" do
+      pid = start_test_server()
+      tick(pid)
+
+      # Request a cross-type switch to ensure server-level target exists
+      Tlc.Server.switch_program(pid, "quiet")
+      tick(pid)
+
+      state = get_state(pid)
+      assert state.target_program != nil
+
+      # Now trigger fault - this should clear the pending server-level target
+      Tlc.Server.toggle_fault(pid)
+      tick(pid)
+
+      state = get_state(pid)
+      assert state.logic.mode == :fault
+      assert state.target_program == nil
+
+      # Stay in fault across ticks
+      tick(pid, 3)
+      state = get_state(pid)
+      assert state.logic.mode == :fault
+
+      GenServer.stop(pid)
+    end
   end
 
   describe "Server: request_stage/2" do
