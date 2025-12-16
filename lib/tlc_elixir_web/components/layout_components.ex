@@ -446,34 +446,17 @@ defmodule TlcElixirWeb.LayoutComponents do
 
     ~H"""
     <div>
-      <h3>
-        <%= if @has_transition_to_show do %>
-          Transition: <%= @from_stage %> → <%= @to_stage %>
-          <%= if length(@variants) > 0 do %>
-            <div class="inline-flex gap-2 ml-2 items-center">
-              <%= for variant <- @variants do %>
-                <button
-                  type="button"
-                  class={variant_button_class(variant == @selected_variant)}
-                  aria-pressed={variant == @selected_variant}
-                >
-                  <span class="text-sm font-normal"><%= variant %></span>
-                </button>
-              <% end %>
-            </div>
-          <% else %>
-            <%= if @transition_name && @transition_name != "default" do %>
-              <span class="text-sm font-normal text-gray-400 ml-2">(<%= @transition_name %>)</span>
-            <% end %>
-          <% end %>
-        <% else %>
-          Transition
-          <span class="text-sm font-normal text-gray-400 ml-2">(none)</span>
+      <h3>Transitions</h3>
+       <div class="flex flex-wrap gap-2">
+        <%= for variant <- @variants do %>
+          <.pill tag="button" class={variant_button_class(variant == @selected_variant)}>
+            <%= variant %>
+          </.pill>
         <% end %>
-      </h3>
+      </div>
 
-      <div class="overflow-x-auto">
-        <div class="flex py-1 border-t border-l border-gray-600">
+      <div class="overflow-x-auto py-2">
+        <div class="flex my-1 border-t border-l border-gray-600">
           <!-- Labels column -->
           <div class="w-24 flex flex-col">
             <div class="p-1 h-8 flex items-center justify-left font-semibold bg-gray-700 text-gray-200 border-r border-b border-gray-600">Time</div>

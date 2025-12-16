@@ -27,7 +27,7 @@ defmodule TlcElixirWeb.GridComponentsRenderTest do
     end)
 
     assert html =~ "Cycle"
-    assert html =~ "py-1"
+    assert html =~ "my-1"
   end
 
   test "is_between_offsets returns false for stage-based logic" do

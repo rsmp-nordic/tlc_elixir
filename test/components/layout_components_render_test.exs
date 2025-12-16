@@ -13,6 +13,6 @@ defmodule TlcElixirWeb.LayoutComponentsRenderTest do
       """
     end)
 
-    assert html =~ "py-1"
+    assert html =~ "my-1"
   end
 end
