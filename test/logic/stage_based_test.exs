@@ -98,6 +98,14 @@ defmodule Tlc.Logic.StageBasedTest do
 
       assert logic.requested_stage == "side"
     end
+
+    test "accepts a transition variant and stores it", %{program: program} do
+      logic = Logic.new(program)
+              |> Logic.request_stage("side", "quick")
+
+      assert logic.requested_stage == "side"
+      assert logic.requested_variant == "quick"
+    end
   end
 
   describe "stage transitions" do
@@ -110,6 +118,20 @@ defmodule Tlc.Logic.StageBasedTest do
 
       assert Logic.in_transition?(logic)
       assert logic.current_transition.to == "side"
+    end
+
+    test "respects requested variant when starting transition" do
+      # use the example2 program which has a 'quick' variant for main->side
+      program = Program.example2()
+
+      logic = program
+              |> Logic.new()
+              |> Logic.tick(1000)
+              |> Logic.request_stage("side", "quick")
+              |> Logic.tick(1001)
+
+      assert Logic.in_transition?(logic)
+      assert logic.current_transition.name == "quick"
     end
 
     test "does not start transition when no flow exists" do

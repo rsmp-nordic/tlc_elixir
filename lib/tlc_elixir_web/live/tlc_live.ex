@@ -21,7 +21,9 @@ defmodule TlcElixirWeb.TlcLive do
       mount_error: nil,
       program_text: nil,
       json_error: nil,
-      validation_error: nil
+      validation_error: nil,
+      # Selected transition variant (map with keys :from, :to, :variant)
+      selected_transition_variant: nil
     }
 
     case ensure_server_started(live_instance_id) do
@@ -81,16 +83,32 @@ defmodule TlcElixirWeb.TlcLive do
   end
 
   @impl true
-  def handle_event("request_stage", %{"stage_id" => stage_id}, socket) do
-    # request a stage transition for stage-based logic
+  def handle_event("request_stage", %{"stage_id" => stage_id} = params, socket) do
+    # Allow an optional variant parameter to be passed with the request so
+    # that a specific transition variant can be used.
+    variant = Map.get(params, "variant")
+
     case socket.assigns.tlc.logic do
       %Tlc.Logic.StageBased{} ->
-        # forward request to server
-        Tlc.Server.request_stage(socket.assigns.server, stage_id)
+        # forward request to server (variant may be nil)
+        Tlc.Server.request_stage(socket.assigns.server, stage_id, variant)
       _ ->
         :ok
     end
+
+    # Clear the UI selected_variant after explicit request (the server will
+    # consume the request and mutate logic accordingly)
+    socket = assign(socket, :selected_transition_variant, nil)
+
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("select_transition_variant", %{"from" => from, "to" => to, "variant" => variant}, socket) do
+    # Store the user selected variant in the LiveView so UI rendering and
+    # subsequent requests use the desired variant for the specific pair.
+    selected = %{from: from, to: to, variant: variant}
+    {:noreply, assign(socket, :selected_transition_variant, selected)}
   end
 
   @impl true

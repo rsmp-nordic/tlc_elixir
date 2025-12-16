@@ -10,6 +10,7 @@ defmodule Tlc.Logic.StageBased do
             transition_elapsed: 0,
             stage_elapsed: 0,
             requested_stage: nil,
+            requested_variant: nil,
             upcoming_stage: nil,
             current_states: "",
             unix_time: nil,
@@ -128,6 +129,7 @@ defmodule Tlc.Logic.StageBased do
       transition_elapsed: 0,
       stage_elapsed: 0,
       requested_stage: nil,
+      requested_variant: nil,
       upcoming_stage: upcoming_stage,
       current_states: new_states
     }
@@ -139,17 +141,32 @@ defmodule Tlc.Logic.StageBased do
   defp maybe_start_transition(logic) do
     flows = Map.get(logic.program.flows, logic.current_stage, [])
 
-    # Find all candidate flows targeting the requested stage, and pick one randomly
+    # Find all candidate flows targeting the requested stage
     candidates = flows
     |> Enum.filter(fn f -> f.to == logic.requested_stage end)
     |> Enum.filter(fn f -> Program.get_transition(logic.program, logic.current_stage, logic.requested_stage, f.transition) != nil end)
 
+    # If a specific variant was requested prefer flows that match it. Fall back
+    # to all candidates when no match exists.
+    candidates = case logic.requested_variant do
+      nil -> candidates
+      variant ->
+        filtered = Enum.filter(candidates, fn f -> to_string(f.transition) == to_string(variant) end)
+        if filtered == [], do: candidates, else: filtered
+    end
+
     case candidates do
-      [] -> %{logic | requested_stage: nil}
+      [] -> %{logic | requested_stage: nil, requested_variant: nil}
       _ ->
         flow = Enum.random(candidates)
         transition = Program.get_transition(logic.program, logic.current_stage, logic.requested_stage, flow.transition)
-        if transition, do: start_transition(logic, transition), else: %{logic | requested_stage: nil}
+        if transition do
+          # consume the request when starting the transition
+          start_transition(logic, transition)
+          |> then(fn l -> %{l | requested_stage: nil, requested_variant: nil} end)
+        else
+          %{logic | requested_stage: nil, requested_variant: nil}
+        end
     end
   end
 
@@ -208,9 +225,9 @@ defmodule Tlc.Logic.StageBased do
     end
   end
 
-  @doc "Request a staged transition by id."
-  def request_stage(logic, stage_id) do
-    %{logic | requested_stage: stage_id}
+  @doc "Request a staged transition by id. Optionally accept a transition variant name."
+  def request_stage(logic, stage_id, variant \\ nil) do
+    %{logic | requested_stage: stage_id, requested_variant: variant}
   end
 
   @doc "Return current state character for a group or nil."

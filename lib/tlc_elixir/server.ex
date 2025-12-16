@@ -89,10 +89,11 @@ defmodule Tlc.Server do
   end
 
   @doc """
-  Requests a stage transition for stage-based programs.
+  Requests a stage transition for stage-based programs. Optionally accepts a
+  transition variant name which will be preferred when starting the transition.
   """
-  def request_stage(server, stage_id) do
-    GenServer.cast(server, {:request_stage, stage_id})
+  def request_stage(server, stage_id, variant \\ nil) do
+    GenServer.cast(server, {:request_stage, stage_id, variant})
   end
 
   @doc """
@@ -337,9 +338,13 @@ defmodule Tlc.Server do
   end
 
   @impl true
-  def handle_cast({:request_stage, stage_id}, tlc) do
-    # Only handle for stage-based logic
-    updated_logic = Tlc.Logic.Protocol.request_stage(tlc.logic, stage_id)
+  def handle_cast({:request_stage, stage_id, variant}, tlc) do
+    # Only handle for stage-based logic. Variant may be nil.
+    updated_logic = case tlc.logic do
+      %Tlc.Logic.StageBased{} = st -> Tlc.Logic.StageBased.request_stage(st, stage_id, variant)
+      _ -> tlc.logic
+    end
+
     updated_tlc = %{tlc | logic: updated_logic}
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}

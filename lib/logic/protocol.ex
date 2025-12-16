@@ -100,7 +100,7 @@ defimpl Tlc.Logic.Protocol, for: Tlc.Logic.StageBased do
 
   def clear_target_program(logic), do: logic
 
-  def request_stage(logic, stage_id), do: Tlc.Logic.StageBased.request_stage(logic, stage_id)
+  def request_stage(logic, stage_id, variant \\ nil), do: Tlc.Logic.StageBased.request_stage(logic, stage_id, variant)
 
   def switch_immediate(logic, %Tlc.Program.StageBased{} = program, _unix_time), do: Tlc.Logic.StageBased.switch_to_program(logic, program)
   def switch_immediate(logic, _other, _unix_time), do: logic

@@ -48,7 +48,7 @@
             <%!-- Show live logic stage controls if the running logic is stage-based (but not while editing) --%>
             <%= unless @editing do %>
               <%= if logic_type == :stage_based do %>
-                <.stage_based_details logic={@tlc.logic} />
+                <.stage_based_details logic={@tlc.logic} selected_transition_variant={@selected_transition_variant} />
               <% end %>
               <%= if logic_type == :fixed_time do %>
                 <.fixed_time_details logic={@tlc.logic} />
@@ -108,7 +108,7 @@
                 />
               <% end %>
             <% else %>
-              <.transition_grid logic={@tlc.logic} />
+              <.transition_grid logic={@tlc.logic} selected_transition_variant={@selected_transition_variant} />
             <% end %>
           </div>
         </div>

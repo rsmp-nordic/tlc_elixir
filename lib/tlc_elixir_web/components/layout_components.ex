@@ -69,6 +69,7 @@ defmodule TlcElixirWeb.LayoutComponents do
   # Fixed-time details component
 
   attr :logic, :any, required: true
+  attr :selected_transition_variant, :any, default: nil
 
   def fixed_time_details(assigns) do
     ~H"""
@@ -131,6 +132,7 @@ defmodule TlcElixirWeb.LayoutComponents do
   # Stage-based details component
 
   attr :logic, :any, required: true
+  attr :selected_transition_variant, :any, default: nil
 
   def stage_based_details(assigns) do
     # Get stages used in this program and available stages for clickable transition
@@ -200,10 +202,19 @@ defmodule TlcElixirWeb.LayoutComponents do
                 is_leave -> "→"
                 true -> nil
               end
+
+              # If the user selected a variant for the current from->to pair,
+              # include it on the request so the server can use the desired
+              # transition variant when starting the transition.
+              variant_for_btn = case @selected_transition_variant do
+                %{from: from, to: to, variant: variant} when from == @logic.current_stage and to == stage_id -> variant
+                _ -> nil
+              end
             %>
             <.pill tag="button"
               phx-click="request_stage"
               phx-value-stage_id={stage_id}
+              phx-value-variant={variant_for_btn}
               class={cond do
                 is_current -> "bg-purple-700 font-bold"
                 is_requested -> "bg-gray-700"
@@ -412,7 +423,23 @@ defmodule TlcElixirWeb.LayoutComponents do
     # which variant is active.
     variants = all_variants
 
-    selected_variant = if display_transition, do: display_transition.name, else: nil
+    # Determine effective selected variant. If the user has explicitly selected a
+    # variant for this from->to pair prefer that variant for both display and
+    # highlighting; otherwise fall back to the transition's declared name.
+    selected_variant = cond do
+      assigns.selected_transition_variant && assigns.selected_transition_variant[:from] == from_stage && assigns.selected_transition_variant[:to] == to_stage -> assigns.selected_transition_variant[:variant]
+      display_transition -> display_transition.name
+      true -> nil
+    end
+
+    # If the user selected a variant for this pair and we're not currently in
+    # an active transition then prefer that variant when picking the display
+    # transition (so the grid shows the selected variant sequence).
+    display_transition = if not in_transition and assigns.selected_transition_variant && assigns.selected_transition_variant[:from] == from_stage && assigns.selected_transition_variant[:to] == to_stage do
+      Tlc.Program.StageBased.get_transition(program, from_stage, to_stage, assigns.selected_transition_variant[:variant])
+    else
+      display_transition
+    end
 
     assigns = assign(assigns,
       current_transition: current_transition,
@@ -448,8 +475,13 @@ defmodule TlcElixirWeb.LayoutComponents do
     <div>
       <h3>Transitions</h3>
        <div class="flex flex-wrap gap-2">
-        <%= for variant <- @variants do %>
-          <.pill tag="button" class={variant_button_class(variant == @selected_variant)}>
+         <%= for variant <- @variants do %>
+          <.pill tag="button"
+            phx-click="select_transition_variant"
+            phx-value-from={@from_stage}
+            phx-value-to={@to_stage}
+            phx-value-variant={variant}
+            class={variant_button_class(variant == @selected_variant)}>
             <%= variant %>
           </.pill>
         <% end %>
