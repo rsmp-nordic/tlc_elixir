@@ -469,7 +469,18 @@ defmodule TlcElixirWeb.LayoutComponents do
       nil
     end
 
-    assigns = assign(assigns, from_state: from_state, to_state: to_state)
+    # Also compute the current stage and its state when no transition is showing
+    current_stage = assigns.logic.current_stage
+    current_stage_state = if current_stage, do: Tlc.Program.StageBased.get_stage_state(assigns.logic.program, current_stage), else: nil
+    # Get default duration for the current stage (used for elapsed/default display)
+    current_stage_duration = if current_stage do
+      stage = Tlc.Program.StageBased.get_stage(assigns.logic.program, current_stage)
+      stage && stage.duration && Map.get(stage.duration, :default)
+    else
+      nil
+    end
+
+    assigns = assign(assigns, from_state: from_state, to_state: to_state, current_stage: current_stage, current_stage_state: current_stage_state, current_stage_duration: current_stage_duration)
 
     ~H"""
     <div>
@@ -503,7 +514,15 @@ defmodule TlcElixirWeb.LayoutComponents do
           <%= if @has_transition_to_show do %>
             <%!-- Static column showing the "from" stage state --%>
             <%= if @from_stage do %>
-              <.stage_column stage={@from_stage} groups={@groups} state={@from_state} current={false} />
+              <%!-- Always show the stage elapsed/default on the "from" column when it is the current stage, even during an active transition --%>
+              <.stage_column
+                stage={@from_stage}
+                groups={@groups}
+                state={@from_state}
+                current={not @in_transition and @from_stage == @logic.current_stage}
+                time={if @from_stage == @logic.current_stage, do: @logic.stage_elapsed, else: nil}
+                duration={if @from_stage == @logic.current_stage, do: (Tlc.Program.StageBased.get_stage(@logic.program, @from_stage) && Tlc.Program.StageBased.get_stage(@logic.program, @from_stage).duration && Map.get(Tlc.Program.StageBased.get_stage(@logic.program, @from_stage).duration, :default)), else: nil}
+              />
             <% end %>
             <%= for time <- 0..(@total_duration - 1) do %>
               <.transition_column
@@ -521,15 +540,26 @@ defmodule TlcElixirWeb.LayoutComponents do
               <.stage_column stage={@to_stage} groups={@groups} state={@to_state} current={false} />
             <% end %>
           <% else %>
-            <!-- Single empty column when no transition to show -->
-            <.transition_column
-              time={nil}
-              elapsed={0}
-              transition={nil}
-              groups={@groups}
-              total_duration={0}
-              active={false}
-            />
+            <%= if @logic.current_stage do %>
+              <.stage_column
+                stage={@logic.current_stage}
+                groups={@groups}
+                state={@current_stage_state}
+                current={true}
+                time={@logic.stage_elapsed}
+                duration={@current_stage_duration}
+              />
+            <% else %>
+              <!-- Single empty column when no transition to show -->
+              <.transition_column
+                time={nil}
+                elapsed={0}
+                transition={nil}
+                groups={@groups}
+                total_duration={0}
+                active={false}
+              />
+            <% end %>
           <% end %>
         </div>
       </div>
@@ -587,17 +617,28 @@ defmodule TlcElixirWeb.LayoutComponents do
   attr :state, :string, default: nil
   attr :groups, :list, required: true
   attr :current, :boolean, default: false
+  attr :time, :any, default: nil
+  attr :duration, :any, default: nil
 
   defp stage_column(assigns) do
     # state may already be passed in, otherwise try to look it up from program
     state = assigns.state || ""
 
-    assigns = assign(assigns, state: state)
+    # Compute display string for header (elapsed/default format)
+    display_time = cond do
+      assigns.time != nil and assigns.duration != nil -> "#{assigns.time}/#{assigns.duration}"
+      assigns.time != nil -> "#{assigns.time}"
+      true -> ""
+    end
+
+    assigns = assign(assigns, state: state, display_time: display_time)
 
     ~H"""
     <.current_column current={@current} class="flex-1 flex flex-col relative border-gray-600">
-      <!-- Header: keep blank for time row (stage names are not shown here) -->
-      <div class="p-1 h-8 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200"></div>
+      <!-- Header: show elapsed/default when both present, else show elapsed if present -->
+      <div class="p-1 h-8 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200">
+        <%= @display_time %>
+      </div>
 
       <!-- Signal cells for each group -->
       <%= for {_group, i} <- Enum.with_index(@groups) do %>
