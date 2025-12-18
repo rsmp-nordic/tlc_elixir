@@ -113,6 +113,11 @@ defmodule TlcElixirWeb.TlcLive do
       # Store the user selected variant in the LiveView so UI rendering and
       # subsequent requests use the desired variant for the specific pair.
       selected = %{from: from, to: to, variant: variant}
+
+      # Persist the selection to the server-side logic so that an automatic
+      # stage request (when elapsed) will prefer this variant.
+      Tlc.Server.set_requested_variant(socket.assigns.server, from, to, variant)
+
       {:noreply, assign(socket, :selected_transition_variant, selected)}
     end
   end

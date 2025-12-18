@@ -98,6 +98,16 @@ defmodule Tlc.Server do
   end
 
   @doc """
+  Record a user-selected transition variant for a given from/to pair.
+  This sets the logic's `requested_variant` (without starting a stage
+  request) so that when the program auto-requests the next stage the
+  selected variant will be preferred.
+  """
+  def set_requested_variant(server, from, to, variant) do
+    GenServer.cast(server, {:set_requested_variant, from, to, variant})
+  end
+
+  @doc """
   Updates a program in the server's program list.
   If a program with the same name exists, it will be replaced.
   If not, the program will be added to the list.
@@ -345,6 +355,27 @@ defmodule Tlc.Server do
     # the next tick. Ignore requests if the current logic is not stage-based.
     updated_tlc = case tlc.logic do
       %Tlc.Logic.StageBased{} = _st -> %{tlc | pending_stage_request: {stage_id, variant}}
+      _ -> tlc
+    end
+
+    broadcast_update(updated_tlc)
+    {:noreply, updated_tlc}
+  end
+
+  @impl true
+  def handle_cast({:set_requested_variant, from, to, variant}, tlc) do
+    # Persist a user-selected variant into the stage-based logic so that
+    # when an auto-request occurs the preferred variant will be used.
+    updated_tlc = case tlc.logic do
+      %Tlc.Logic.StageBased{} = st ->
+        # Only apply when the selection matches the current from stage and
+        # there exists a flow from current -> to (defensive check)
+        if st.current_stage == from and Map.get(st.program.flows || %{}, from) |> Enum.any?(fn f -> f.to == to end) do
+          %{tlc | logic: %{st | requested_variant: variant}}
+        else
+          tlc
+        end
+
       _ -> tlc
     end
 
