@@ -105,10 +105,16 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("select_transition_variant", %{"from" => from, "to" => to, "variant" => variant}, socket) do
-    # Store the user selected variant in the LiveView so UI rendering and
-    # subsequent requests use the desired variant for the specific pair.
-    selected = %{from: from, to: to, variant: variant}
-    {:noreply, assign(socket, :selected_transition_variant, selected)}
+    # Ignore variant selection while a transition is active — you cannot
+    # change a running transition.
+    if Tlc.Logic.StageBased.in_transition?(socket.assigns.tlc.logic) do
+      {:noreply, socket}
+    else
+      # Store the user selected variant in the LiveView so UI rendering and
+      # subsequent requests use the desired variant for the specific pair.
+      selected = %{from: from, to: to, variant: variant}
+      {:noreply, assign(socket, :selected_transition_variant, selected)}
+    end
   end
 
   @impl true

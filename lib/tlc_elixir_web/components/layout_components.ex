@@ -492,7 +492,8 @@ defmodule TlcElixirWeb.LayoutComponents do
             phx-value-from={@from_stage}
             phx-value-to={@to_stage}
             phx-value-variant={variant}
-            class={variant_button_class(variant == @selected_variant)}>
+            class={variant_button_class(variant == @selected_variant) <> if @in_transition, do: " cursor-not-allowed opacity-60", else: ""}
+            disabled={@in_transition}>
             <%= variant %>
           </.pill>
         <% end %>
