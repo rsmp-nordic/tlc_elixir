@@ -4,7 +4,7 @@ defmodule TlcElixirWeb.EditorComponents do
   """
 
   use Phoenix.Component
-  import TlcElixirWeb.GridComponents, only: [program_grid: 1]
+  import TlcElixirWeb.GridComponents, only: [program_grid_edit: 1]
   import TlcElixirWeb.CoreComponents
 
   def program_button(assigns) do
@@ -133,9 +133,8 @@ defmodule TlcElixirWeb.EditorComponents do
     ~H"""
     <div id="program-editor-container" class="">
 
-      <.program_grid
+      <.program_grid_edit
         display_program={@display_program}
-        editing={@editing}
         edited_program={@edited_program}
         current_program={@current_program}
         current_cycle={@current_cycle}

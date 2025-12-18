@@ -92,12 +92,10 @@
                   validation_error={@validation_error}
                 />
               <% else %>
-                <.program_grid
+                <.program_grid_view
                   display_program={display_program}
-                  edited_program={nil}
                   current_program={@tlc.logic.program}
                   current_cycle={logic_current_cycle}
-                  editing={false}
                   offset={logic_offset}
                   target_offset={logic_target_offset}
                   target_distance={logic_target_distance}

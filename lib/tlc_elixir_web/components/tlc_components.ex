@@ -25,6 +25,8 @@ defmodule TlcElixirWeb.TlcComponents do
   defdelegate group_signal_cells(assigns), to: TlcElixirWeb.GridComponents
   defdelegate program_definition_section(assigns), to: TlcElixirWeb.EditorComponents
   defdelegate program_grid(assigns), to: TlcElixirWeb.GridComponents
+  defdelegate program_grid_view(assigns), to: TlcElixirWeb.GridComponents
+  defdelegate program_grid_edit(assigns), to: TlcElixirWeb.GridComponents
   defdelegate program_editor_container(assigns), to: TlcElixirWeb.EditorComponents
   defdelegate tlc_page_container(assigns), to: TlcElixirWeb.LayoutComponents
 

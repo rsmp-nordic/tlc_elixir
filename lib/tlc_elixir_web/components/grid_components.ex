@@ -326,4 +326,24 @@ defmodule TlcElixirWeb.GridComponents do
     </div>
     """
   end
+
+  # View-only program grid wrapper. Use this in non-editing contexts so callers
+  # don't need to pass or check editing flags; ensures features like the time
+  # outline are only active in the view context.
+  def program_grid_view(assigns) do
+    assigns = assign(assigns, :editing, false)
+    program_grid(assigns)
+  end
+
+  # Editor-only program grid wrapper. Use this when editing to make the intent
+  # explicit and keep editing-specific behavior within the editor component.
+  def program_grid_edit(assigns) do
+    # When in edit mode we explicitly clear the current_cycle so the view's
+    # current highlight (time outline) can never be shown while editing.
+    assigns = assign(assigns, :editing, true)
+    assigns = assign_new(assigns, :current_cycle, fn -> nil end)
+
+    program_grid(assigns)
+  end
+
 end

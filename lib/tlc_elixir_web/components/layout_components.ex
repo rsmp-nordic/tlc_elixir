@@ -198,8 +198,8 @@ defmodule TlcElixirWeb.LayoutComponents do
               is_leave = stage_id in @leave_stages
               direction_arrow = cond do
                 is_enter and is_leave -> "↔"
-                is_enter -> "←"
-                is_leave -> "→"
+                is_enter -> "→"
+                is_leave -> "←"
                 true -> nil
               end
 
