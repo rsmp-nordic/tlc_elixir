@@ -74,8 +74,6 @@ defmodule Tlc.Server.SwitchController do
       if Tlc.Logic.Protocol.mode(logic) == :fault do
         tlc
       else
-        current_state = Tlc.Logic.Protocol.current_states(logic)
-
         # If we have a state defer marker and the target was auto-selected, check
         # whether the current stage still has remaining time; if so, don't switch
         # away until the enter stage completes.

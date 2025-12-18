@@ -7,6 +7,7 @@ defmodule Tlc.Server do
   defstruct logic: nil,
             programs: [],
             target_program: nil,
+            pending_stage_request: nil,
             auto: false,
             target_origin: nil,
             defer_until_state: nil,
@@ -155,6 +156,7 @@ defmodule Tlc.Server do
       logic: logic,
       programs: tlc_logic_instance.programs,
       target_program: nil,
+      pending_stage_request: nil,
       interval: default_interval,
       safety: Tlc.Safety.new(),
       virtual_unix_time: virtual_unix_time
@@ -339,13 +341,13 @@ defmodule Tlc.Server do
 
   @impl true
   def handle_cast({:request_stage, stage_id, variant}, tlc) do
-    # Only handle for stage-based logic. Variant may be nil.
-    updated_logic = case tlc.logic do
-      %Tlc.Logic.StageBased{} = st -> Tlc.Logic.StageBased.request_stage(st, stage_id, variant)
-      _ -> tlc.logic
+    # For server-level stage requests, store pending request and apply after
+    # the next tick. Ignore requests if the current logic is not stage-based.
+    updated_tlc = case tlc.logic do
+      %Tlc.Logic.StageBased{} = _st -> %{tlc | pending_stage_request: {stage_id, variant}}
+      _ -> tlc
     end
 
-    updated_tlc = %{tlc | logic: updated_logic}
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
   end
@@ -441,6 +443,9 @@ defmodule Tlc.Server do
       maybe_set_auto_target(acc)
     end)
 
+    # Apply a pending stage request (if any) after the manual step/ticks have been processed
+    tlc = apply_pending_stage_request(tlc)
+
     broadcast_update(tlc)
     {:noreply, tlc}
   end
@@ -492,6 +497,11 @@ defmodule Tlc.Server do
       tlc = Tlc.Server.SwitchController.maybe_switch_to_target_program(tlc)
       tlc = maybe_set_auto_target(tlc)
 
+      # Apply any pending stage request after the tick has been processed so
+      # that the requested stage is visible in the post-tick state and not
+      # immediately consumed in the same tick.
+      tlc = apply_pending_stage_request(tlc)
+
     # Cancel any outstanding timer (defensive) and schedule next tick
     if tlc.timer_ref, do: Process.cancel_timer(tlc.timer_ref)
     timer_ref = Tlc.Server.TickScheduler.schedule_tick(real_ms, virtual_unix_time, tlc.interval)
@@ -522,6 +532,23 @@ defmodule Tlc.Server do
       %{} = program -> program.name
       name when is_binary(name) -> name
       _ -> nil
+    end
+  end
+
+  # Apply a server-level pending stage request into the logic (and clear it).
+  # This ensures a request made by the UI/clients becomes visible in the
+  # server state after a tick, and won't be immediately consumed in the same
+  # tick it was requested.
+  defp apply_pending_stage_request(%__MODULE__{pending_stage_request: nil} = tlc), do: tlc
+
+  defp apply_pending_stage_request(%__MODULE__{pending_stage_request: {stage_id, variant}} = tlc) do
+    case tlc.logic do
+      %Tlc.Logic.StageBased{} = st ->
+        updated = Tlc.Logic.StageBased.request_stage(st, stage_id, variant)
+        %{tlc | logic: updated, pending_stage_request: nil}
+
+      _ ->
+        %{tlc | pending_stage_request: nil}
     end
   end
 
