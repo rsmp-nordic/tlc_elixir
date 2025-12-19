@@ -165,32 +165,94 @@ defmodule Tlc.Program.Stages do
         "turn" => %Stage{id: "turn", open: ["a1_l"], duration: %Duration{default: 10}},
         "oneway" => %Stage{id: "oneway", open: ["a1"], duration: %Duration{default: 12}},
         "both" => %Stage{id: "both", open: ["a1", "b1"], duration: %Duration{default: 12}},
-        "left_right" => %Stage{id: "left_right", open: ["a2", "b2"], duration: %Duration{default: 14}}
+        "left_right" => %Stage{
+          id: "left_right",
+          open: ["a2", "b2"],
+          duration: %Duration{default: 14}
+        }
       },
       transitions: %{
         {"main", "side"} => %{
-          "default" => %Transition{from: "main", to: "side", name: "default", sequence: [%TransitionStep{state: "YYRRR", duration: 3}, %TransitionStep{state: "RRAAR", duration: 2}]}
+          "default" => %Transition{
+            from: "main",
+            to: "side",
+            name: "default",
+            sequence: [
+              %TransitionStep{state: "YYRRR", duration: 3},
+              %TransitionStep{state: "RRAAR", duration: 2}
+            ]
+          }
         },
         {"main", "turn"} => %{
-          "default" => %Transition{from: "main", to: "turn", name: "default", sequence: [%TransitionStep{state: "YYRRA", duration: 3}]}
+          "default" => %Transition{
+            from: "main",
+            to: "turn",
+            name: "default",
+            sequence: [%TransitionStep{state: "YYRRA", duration: 3}]
+          }
         },
         {"side", "turn"} => %{
-          "default" => %Transition{from: "side", to: "turn", name: "default", sequence: [%TransitionStep{state: "RRYYR", duration: 3}, %TransitionStep{state: "RRRRA", duration: 2}]}
+          "default" => %Transition{
+            from: "side",
+            to: "turn",
+            name: "default",
+            sequence: [
+              %TransitionStep{state: "RRYYR", duration: 3},
+              %TransitionStep{state: "RRRRA", duration: 2}
+            ]
+          }
         },
         {"side", "both"} => %{
-          "default" => %Transition{from: "side", to: "both", name: "default", sequence: [%TransitionStep{state: "RRYYR", duration: 2}, %TransitionStep{state: "GRGRR", duration: 2}]}
+          "default" => %Transition{
+            from: "side",
+            to: "both",
+            name: "default",
+            sequence: [
+              %TransitionStep{state: "RRYYR", duration: 2},
+              %TransitionStep{state: "GRGRR", duration: 2}
+            ]
+          }
         },
         {"turn", "oneway"} => %{
-          "default" => %Transition{from: "turn", to: "oneway", name: "default", sequence: [%TransitionStep{state: "RRRRY", duration: 3}, %TransitionStep{state: "GRRRY", duration: 2}]}
+          "default" => %Transition{
+            from: "turn",
+            to: "oneway",
+            name: "default",
+            sequence: [
+              %TransitionStep{state: "RRRRY", duration: 3},
+              %TransitionStep{state: "GRRRY", duration: 2}
+            ]
+          }
         },
         {"oneway", "both"} => %{
-          "default" => %Transition{from: "oneway", to: "both", name: "default", sequence: [%TransitionStep{state: "GRGRR", duration: 2}]}
+          "default" => %Transition{
+            from: "oneway",
+            to: "both",
+            name: "default",
+            sequence: [%TransitionStep{state: "GRGRR", duration: 2}]
+          }
         },
         {"both", "left_right"} => %{
-          "default" => %Transition{from: "both", to: "left_right", name: "default", sequence: [%TransitionStep{state: "YRYRR", duration: 3}, %TransitionStep{state: "RGRGR", duration: 2}]}
+          "default" => %Transition{
+            from: "both",
+            to: "left_right",
+            name: "default",
+            sequence: [
+              %TransitionStep{state: "YRYRR", duration: 3},
+              %TransitionStep{state: "RGRGR", duration: 2}
+            ]
+          }
         },
         {"left_right", "main"} => %{
-          "default" => %Transition{from: "left_right", to: "main", name: "default", sequence: [%TransitionStep{state: "RGRYR", duration: 3}, %TransitionStep{state: "GGRRR", duration: 2}]}
+          "default" => %Transition{
+            from: "left_right",
+            to: "main",
+            name: "default",
+            sequence: [
+              %TransitionStep{state: "RGRYR", duration: 3},
+              %TransitionStep{state: "GGRRR", duration: 2}
+            ]
+          }
         }
       }
     }
@@ -200,7 +262,9 @@ defmodule Tlc.Program.Stages do
   def from_config(config) when is_map(config) do
     groups = Map.get(config, :groups, Map.get(config, "groups", []))
     stages = parse_stages(Map.get(config, :stages, Map.get(config, "stages", %{})))
-    transitions = parse_transitions(Map.get(config, :transitions, Map.get(config, "transitions", %{})))
+
+    transitions =
+      parse_transitions(Map.get(config, :transitions, Map.get(config, "transitions", %{})))
 
     %__MODULE__{
       name: Map.get(config, :name, Map.get(config, "name", "")),
@@ -218,6 +282,7 @@ defmodule Tlc.Program.Stages do
     end)
     |> Map.new()
   end
+
   defp parse_stages(_), do: %{}
 
   defp parse_stage(id, config) when is_map(config) do
@@ -238,9 +303,11 @@ defmodule Tlc.Program.Stages do
       max: Map.get(config, :max, Map.get(config, "max", nil))
     }
   end
+
   defp parse_duration(default) when is_integer(default) do
     %Duration{default: default}
   end
+
   defp parse_duration(_), do: %Duration{}
 
   defp parse_transitions(transitions_config) when is_map(transitions_config) do
@@ -255,6 +322,7 @@ defmodule Tlc.Program.Stages do
     end)
     |> Map.new()
   end
+
   defp parse_transitions(_), do: %{}
 
   defp parse_to_transitions(from, to_configs) when is_map(to_configs) do
@@ -266,25 +334,32 @@ defmodule Tlc.Program.Stages do
 
   defp parse_transition_variants(from, to, config) when is_list(config) do
     # single unnamed transition
-    [{{from, to}, %Transition{
-      from: from,
-      to: to,
-      name: "default",
-      sequence: parse_sequence(config)
-    }}]
+    [
+      {{from, to},
+       %Transition{
+         from: from,
+         to: to,
+         name: "default",
+         sequence: parse_sequence(config)
+       }}
+    ]
   end
+
   defp parse_transition_variants(from, to, config) when is_map(config) do
     # multiple named transitions
     Enum.map(config, fn {name, sequence} ->
       name_str = to_string(name)
-      {{from, to}, %Transition{
-        from: from,
-        to: to,
-        name: name_str,
-        sequence: parse_sequence(sequence)
-      }}
+
+      {{from, to},
+       %Transition{
+         from: from,
+         to: to,
+         name: name_str,
+         sequence: parse_sequence(sequence)
+       }}
     end)
   end
+
   defp parse_transition_variants(_, _, _), do: []
 
   defp parse_sequence(sequence) when is_list(sequence) do
@@ -298,6 +373,7 @@ defmodule Tlc.Program.Stages do
       }
     end)
   end
+
   defp parse_sequence(_), do: []
 
   @doc """
@@ -324,13 +400,16 @@ defmodule Tlc.Program.Stages do
   defp validate_groups(%{groups: groups}) when is_list(groups) and length(groups) > 0 do
     if Enum.all?(groups, &is_binary/1), do: :ok, else: {:error, "Group names must be strings"}
   end
-  defp validate_groups(_), do: {:error, "Stages must have at least one signal group defined as a list"}
+
+  defp validate_groups(_),
+    do: {:error, "Stages must have at least one signal group defined as a list"}
 
   defp validate_stages(%{stages: stages}) when is_map(stages) and map_size(stages) > 0 do
     # check stage open list and duration type
-    invalid = Enum.find(stages, fn {_id, stage} ->
-      not is_list(stage.open) or not is_struct(stage.duration, Duration)
-    end)
+    invalid =
+      Enum.find(stages, fn {_id, stage} ->
+        not is_list(stage.open) or not is_struct(stage.duration, Duration)
+      end)
 
     if invalid do
       {:error, "Invalid stage configuration"}
@@ -338,26 +417,31 @@ defmodule Tlc.Program.Stages do
       :ok
     end
   end
+
   defp validate_stages(_), do: {:error, "Stages must have at least one stage defined"}
 
-  defp validate_transitions(%{transitions: transitions, groups: groups}) when is_map(transitions) do
+  defp validate_transitions(%{transitions: transitions, groups: groups})
+       when is_map(transitions) do
     group_count = length(groups)
 
-      # verify sequence lengths and durations
-    invalid = Enum.find(transitions, fn {_key, variants} ->
-      Enum.any?(variants, fn {_name, transition} ->
-        Enum.any?(transition.sequence, fn step ->
-          invalid_transition_step?(step, group_count)
+    # verify sequence lengths and durations
+    invalid =
+      Enum.find(transitions, fn {_key, variants} ->
+        Enum.any?(variants, fn {_name, transition} ->
+          Enum.any?(transition.sequence, fn step ->
+            invalid_transition_step?(step, group_count)
+          end)
         end)
       end)
-    end)
 
     if invalid do
-      {:error, "Invalid transition: state string length must match number of groups and duration must be positive"}
+      {:error,
+       "Invalid transition: state string length must match number of groups and duration must be positive"}
     else
       :ok
     end
   end
+
   defp validate_transitions(_), do: :ok
 
   # Valid signal state transitions
@@ -369,25 +453,42 @@ defmodule Tlc.Program.Stages do
     "D" => ["R", "Y", "G", "D"]
   }
 
-  defp validate_transition_state_changes(%{transitions: transitions} = stages) when is_map(transitions) do
+  defp validate_transition_state_changes(%{transitions: transitions} = stages)
+       when is_map(transitions) do
     # check transitions for valid state changes
-    errors = Enum.flat_map(transitions, fn {{from_stage, to_stage}, variants} ->
-      from_state = get_stage_state(stages, from_stage)
-      to_state = get_stage_state(stages, to_stage)
+    errors =
+      Enum.flat_map(transitions, fn {{from_stage, to_stage}, variants} ->
+        from_state = get_stage_state(stages, from_stage)
+        to_state = get_stage_state(stages, to_stage)
 
-      Enum.flat_map(variants, fn {variant_name, transition} ->
-        validate_transition_sequence(from_state, to_state, transition.sequence, from_stage, to_stage, variant_name)
+        Enum.flat_map(variants, fn {variant_name, transition} ->
+          validate_transition_sequence(
+            from_state,
+            to_state,
+            transition.sequence,
+            from_stage,
+            to_stage,
+            variant_name
+          )
+        end)
       end)
-    end)
 
     case errors do
       [] -> :ok
       [first_error | _] -> {:error, first_error}
     end
   end
+
   defp validate_transition_state_changes(_), do: :ok
 
-  defp validate_transition_sequence(from_state, to_state, sequence, from_stage, to_stage, variant_name) do
+  defp validate_transition_sequence(
+         from_state,
+         to_state,
+         sequence,
+         from_stage,
+         to_stage,
+         variant_name
+       ) do
     # build states list: from_state + steps + to_state
     states = [from_state | Enum.map(sequence, & &1.state)] ++ [to_state]
 
@@ -397,16 +498,20 @@ defmodule Tlc.Program.Stages do
     |> Enum.with_index()
     |> Enum.flat_map(fn {[current, next], step_idx} ->
       case validate_state_pair(current, next) do
-        :ok -> []
+        :ok ->
+          []
+
         {:error, group_idx, from_signal, to_signal} ->
-          ["Transition '#{from_stage}' -> '#{to_stage}' (#{variant_name}), step #{step_idx}: " <>
-           "Invalid signal change from '#{from_signal}' to '#{to_signal}' for group #{group_idx}"]
+          [
+            "Transition '#{from_stage}' -> '#{to_stage}' (#{variant_name}), step #{step_idx}: " <>
+              "Invalid signal change from '#{from_signal}' to '#{to_signal}' for group #{group_idx}"
+          ]
       end
     end)
   end
 
   defp validate_state_pair(current, next) when byte_size(current) == byte_size(next) do
-     0..(byte_size(current) - 1)
+    0..(byte_size(current) - 1)
     |> Enum.reduce_while(:ok, fn idx, _acc ->
       current_signal = String.at(current, idx)
       next_signal = String.at(next, idx)
@@ -415,6 +520,7 @@ defmodule Tlc.Program.Stages do
         {:cont, :ok}
       else
         valid_next = Map.get(@valid_transitions, current_signal, [])
+
         if next_signal in valid_next do
           {:cont, :ok}
         else
@@ -423,6 +529,7 @@ defmodule Tlc.Program.Stages do
       end
     end)
   end
+
   defp validate_state_pair(_, _), do: :ok
 
   @doc """
@@ -451,7 +558,9 @@ defmodule Tlc.Program.Stages do
   """
   def get_transition(stages, from_stage, to_stage, transition_name \\ "default") do
     case Map.get(stages.transitions, {from_stage, to_stage}) do
-      nil -> nil
+      nil ->
+        nil
+
       variants ->
         Map.get(variants, transition_name) || Map.get(variants, "default")
     end

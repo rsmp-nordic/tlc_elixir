@@ -13,8 +13,12 @@ defmodule TlcElixir.ServerSupervisor do
 
   def start_server(session_id) do
     supervisor_pid = self()
-    Logger.info "[TlcElixir.ServerSupervisor #{inspect(supervisor_pid)}] start_server called for session_id: #{session_id}"
-    spec = { Tlc.Server, {session_id} }
+
+    Logger.info(
+      "[TlcElixir.ServerSupervisor #{inspect(supervisor_pid)}] start_server called for session_id: #{session_id}"
+    )
+
+    spec = {Tlc.Server, {session_id}}
     DynamicSupervisor.start_child(__MODULE__, spec)
   end
 
@@ -25,10 +29,17 @@ defmodule TlcElixir.ServerSupervisor do
   def stop_server_by_session_id(session_id) do
     case Registry.lookup(Tlc.ServerRegistry, "tlc_server:#{session_id}") do
       [{pid, _}] ->
-        Logger.info("[#{inspect(__MODULE__)}] Stopping server for session #{session_id} with PID #{inspect(pid)}.")
+        Logger.info(
+          "[#{inspect(__MODULE__)}] Stopping server for session #{session_id} with PID #{inspect(pid)}."
+        )
+
         stop_server(pid)
+
       [] ->
-        Logger.info("[#{inspect(__MODULE__)}] No server found in registry for session #{session_id} to stop.")
+        Logger.info(
+          "[#{inspect(__MODULE__)}] No server found in registry for session #{session_id} to stop."
+        )
+
         :not_found
     end
   end

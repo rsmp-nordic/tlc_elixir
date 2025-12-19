@@ -28,7 +28,8 @@ defmodule Tlc.Program.SwitchValidatorTest do
           name: "invalid",
           length: 10,
           groups: ["a", "b"],
-          states: %{0 => "GR", 1 => "RR"},  # Invalid: G->R without Y
+          # Invalid: G->R without Y
+          states: %{0 => "GR", 1 => "RR"},
           switch: 0
         }
       ]
@@ -56,7 +57,8 @@ defmodule Tlc.Program.SwitchValidatorTest do
               to: "side",
               name: "default",
               sequence: [
-                %TransitionStep{state: "RR", duration: 3}  # Invalid: G->R for group 0
+                # Invalid: G->R for group 0
+                %TransitionStep{state: "RR", duration: 3}
               ]
             }
           }
@@ -84,7 +86,9 @@ defmodule Tlc.Program.SwitchValidatorTest do
       program = Tlc.Program.StageBased.example_six()
 
       # Stages should all have unique state strings
-      states = Map.keys(stages.stages) |> Enum.map(&Tlc.Program.Stages.get_stage_state(stages, &1))
+      states =
+        Map.keys(stages.stages) |> Enum.map(&Tlc.Program.Stages.get_stage_state(stages, &1))
+
       assert Enum.uniq(states) |> length() == length(states)
 
       # Validate stage definitions are valid
@@ -177,7 +181,8 @@ defmodule Tlc.Program.SwitchValidatorTest do
         name: "program2",
         length: 20,
         groups: ["a", "b"],
-        states: %{0 => "RG", 10 => "GR"},  # Different state at switch point
+        # Different state at switch point
+        states: %{0 => "RG", 10 => "GR"},
         switch: 0
       }
 
@@ -214,7 +219,8 @@ defmodule Tlc.Program.SwitchValidatorTest do
         name: "fixed",
         length: 10,
         groups: ["a1", "a2", "b1", "b2", "a1_l"],
-        states: %{0 => "RRGGR", 5 => "GGRRR"},  # Switch at RRGGR (side state)
+        # Switch at RRGGR (side state)
+        states: %{0 => "RRGGR", 5 => "GGRRR"},
         switch: 0
       }
 
@@ -292,7 +298,13 @@ defmodule Tlc.Program.SwitchValidatorTest do
 
     test "six-stage program is compatible with fixed-time programs at main switch point" do
       # fixed-time matches the 'main' stage (GGRRR)
-      fixed_program = %Tlc.Program.FixedTime{name: "fixed", length: 10, groups: ["a1", "a2", "b1", "b2", "a1_l"], states: %{0 => "GGRRR"}, switch: 0}
+      fixed_program = %Tlc.Program.FixedTime{
+        name: "fixed",
+        length: 10,
+        groups: ["a1", "a2", "b1", "b2", "a1_l"],
+        states: %{0 => "GGRRR"},
+        switch: 0
+      }
 
       stage_program = Tlc.Program.StageBased.example_six()
 
@@ -337,7 +349,8 @@ defmodule Tlc.Program.SwitchValidatorTest do
           name: "program2",
           length: 20,
           groups: ["a", "b"],
-          states: %{0 => "RG", 10 => "GR"},  # Different state
+          # Different state
+          states: %{0 => "RG", 10 => "GR"},
           switch: 0
         }
       ]
@@ -453,12 +466,15 @@ defmodule Tlc.Program.SwitchValidatorTest do
         }
       ]
 
-      log = capture_log(fn ->
-        result = SwitchValidator.validate_and_warn(programs)
-        assert length(result.switch_issues) == 2
-        # Validator should not log directly; callers may choose to log/print
-        assert Enum.any?(result.switch_issues, fn i -> String.contains?(i.message, "Cannot switch from") end)
-      end)
+      log =
+        capture_log(fn ->
+          result = SwitchValidator.validate_and_warn(programs)
+          assert length(result.switch_issues) == 2
+          # Validator should not log directly; callers may choose to log/print
+          assert Enum.any?(result.switch_issues, fn i ->
+                   String.contains?(i.message, "Cannot switch from")
+                 end)
+        end)
 
       # validate_and_warn should not emit logs itself
       assert log == ""
@@ -478,16 +494,25 @@ defmodule Tlc.Program.SwitchValidatorTest do
           name: "program2",
           length: 20,
           groups: ["a", "b"],
-          states: %{0 => "GR", 5 => "YR", 6 => "RR", 10 => "RY", 11 => "RG", 15 => "RY", 16 => "RR"},
+          states: %{
+            0 => "GR",
+            5 => "YR",
+            6 => "RR",
+            10 => "RY",
+            11 => "RG",
+            15 => "RY",
+            16 => "RR"
+          },
           switch: 0
         }
       ]
 
-      log = capture_log(fn ->
-        result = SwitchValidator.validate_and_warn(programs)
-        assert result.switch_issues == []
-        assert result.program_issues == []
-      end)
+      log =
+        capture_log(fn ->
+          result = SwitchValidator.validate_and_warn(programs)
+          assert result.switch_issues == []
+          assert result.program_issues == []
+        end)
 
       refute log =~ "program switch compatibility issue"
     end
@@ -501,7 +526,14 @@ defmodule Tlc.Program.SwitchValidatorTest do
           name: "halt",
           length: 12,
           groups: ["a1", "a2", "b1", "b2", "a1_l"],
-          states: %{ 0 => "DDDDD", 1 => "RRRRR", 3 => "AARRR", 5 => "GGRRR", 8 => "YYRRR", 10 => "RRRRR" },
+          states: %{
+            0 => "DDDDD",
+            1 => "RRRRR",
+            3 => "AARRR",
+            5 => "GGRRR",
+            8 => "YYRRR",
+            10 => "RRRRR"
+          },
           switch: 5,
           halt: 0
         },
@@ -551,17 +583,19 @@ defmodule Tlc.Program.SwitchValidatorTest do
       end
 
       # Filter to see issues between fixed-time programs (all should match)
-      fixed_time_issues = Enum.filter(issues, fn issue ->
-        String.starts_with?(issue.source_program, "halt") or
-        String.starts_with?(issue.source_program, "calm") or
-        String.starts_with?(issue.source_program, "normal")
-      end)
+      fixed_time_issues =
+        Enum.filter(issues, fn issue ->
+          String.starts_with?(issue.source_program, "halt") or
+            String.starts_with?(issue.source_program, "calm") or
+            String.starts_with?(issue.source_program, "normal")
+        end)
 
       # All fixed-time programs should be compatible with each other
       # (they all have GGRRR at switch point)
-      fixed_only_issues = Enum.filter(fixed_time_issues, fn issue ->
-        issue.target_program in ["halt", "calm", "normal"]
-      end)
+      fixed_only_issues =
+        Enum.filter(fixed_time_issues, fn issue ->
+          issue.target_program in ["halt", "calm", "normal"]
+        end)
 
       assert fixed_only_issues == []
     end

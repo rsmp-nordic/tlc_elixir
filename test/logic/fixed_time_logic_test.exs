@@ -28,9 +28,10 @@ defmodule Tlc.Logic.FixedTimeLogicTest do
     p1 = %Program{name: "one", length: 12, offset: 0, switch: 3}
     p2 = %Program{name: "two", length: 12, offset: 0, switch: 8}
 
-    logic = %Logic{program: p1, target_program: p2, unix_time: 10}
-    |> Logic.update_base_time()
-    |> Map.put(:cycle_time, p1.switch)
+    logic =
+      %Logic{program: p1, target_program: p2, unix_time: 10}
+      |> Logic.update_base_time()
+      |> Map.put(:cycle_time, p1.switch)
 
     switched = Logic.switch(logic)
 

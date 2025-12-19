@@ -7,7 +7,8 @@ defmodule Tlc.Server.TickScheduler do
   """
 
   @doc "Calculate the milliseconds to wait until the next tick boundary."
-  def ms_to_wait(real_ms, interval) when is_integer(real_ms) and is_integer(interval) and interval > 0 do
+  def ms_to_wait(real_ms, interval)
+      when is_integer(real_ms) and is_integer(interval) and interval > 0 do
     interval - rem(real_ms, interval)
   end
 

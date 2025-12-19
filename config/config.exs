@@ -59,7 +59,6 @@ config :logger, :console,
   handle_otp_reports: true,
   handle_sasl_reports: true
 
-
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 

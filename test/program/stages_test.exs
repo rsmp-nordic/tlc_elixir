@@ -105,14 +105,14 @@ defmodule Tlc.Program.StagesTest do
       config = %{
         name: "incomplete",
         groups: ["a"],
-        stages: %{ main: %{open: ["a"], duration: %{default: 5}} },
-        transitions: %{ main: %{ side: ["G", 2, "R"] } }
+        stages: %{main: %{open: ["a"], duration: %{default: 5}}},
+        transitions: %{main: %{side: ["G", 2, "R"]}}
       }
 
       stages = Stages.from_config(config)
 
       # sequence should only contain the complete pair ("G", 2) and ignore the trailing "R"
-      t = stages.transitions[{"main","side"}]["default"]
+      t = stages.transitions[{"main", "side"}]["default"]
       assert length(t.sequence) == 1
       assert hd(t.sequence).state == "G"
       assert hd(t.sequence).duration == 2
@@ -122,15 +122,15 @@ defmodule Tlc.Program.StagesTest do
       config = %{
         name: "badflows",
         groups: ["a"],
-        stages: %{ main: %{open: ["a"], duration: %{default: 5}} },
+        stages: %{main: %{open: ["a"], duration: %{default: 5}}},
         transitions: %{},
-        main: %{ side: "notalist" }
+        main: %{side: "notalist"}
       }
 
       stages = Stages.from_config(config)
 
       # flows created from arbitrary keys should ignore the invalid destination
-      assert Map.get(stages.transitions, {"main","side"}) == nil
+      assert Map.get(stages.transitions, {"main", "side"}) == nil
     end
 
     test "parses string keys in configuration" do
@@ -189,7 +189,8 @@ defmodule Tlc.Program.StagesTest do
             to: "side",
             name: "default",
             sequence: [
-              %TransitionStep{state: "110", duration: 3}  # Only 3 chars, should be 4
+              # Only 3 chars, should be 4
+              %TransitionStep{state: "110", duration: 3}
             ]
           }
         }
@@ -270,7 +271,8 @@ defmodule Tlc.Program.StagesTest do
             to: "side",
             name: "default",
             sequence: [
-              %TransitionStep{state: "RRRRR", duration: 3}  # Invalid: G->R for groups 0,1
+              # Invalid: G->R for groups 0,1
+              %TransitionStep{state: "RRRRR", duration: 3}
             ]
           }
         }
@@ -293,8 +295,10 @@ defmodule Tlc.Program.StagesTest do
             to: "side",
             name: "default",
             sequence: [
-              %TransitionStep{state: "YYRRR", duration: 3},  # Valid: G->Y
-              %TransitionStep{state: "GGRRR", duration: 2}   # Invalid: Y->G (should go through R)
+              # Valid: G->Y
+              %TransitionStep{state: "YYRRR", duration: 3},
+              # Invalid: Y->G (should go through R)
+              %TransitionStep{state: "GGRRR", duration: 2}
             ]
           }
         }
@@ -317,8 +321,10 @@ defmodule Tlc.Program.StagesTest do
             to: "side",
             name: "default",
             sequence: [
-              %TransitionStep{state: "YYRRR", duration: 3},  # G->Y valid
-              %TransitionStep{state: "RRAAR", duration: 2}   # Y->R valid, R->A valid
+              # G->Y valid
+              %TransitionStep{state: "YYRRR", duration: 3},
+              # Y->R valid, R->A valid
+              %TransitionStep{state: "RRAAR", duration: 2}
               # Final step to RRGGR: R->R (no change), R->R, A->G valid, A->G valid, R->R
             ]
           }

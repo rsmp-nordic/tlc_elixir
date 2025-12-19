@@ -10,14 +10,12 @@ defprotocol Tlc.Program.Protocol do
   def compatible_with?(program, other)
 end
 
-
 defimpl Tlc.Program.Protocol, for: Any do
   def validate(_), do: {:error, :unsupported}
   def groups(_), do: []
   def switch_points(_), do: []
   def compatible_with?(_, _), do: false
 end
-
 
 defimpl Tlc.Program.Protocol, for: Tlc.Program.FixedTime do
   def validate(program), do: Tlc.Program.FixedTime.validate(program)
@@ -27,9 +25,9 @@ defimpl Tlc.Program.Protocol, for: Tlc.Program.FixedTime do
     Tlc.Program.SwitchValidator.get_switch_points(program, :leave)
   end
 
-  def compatible_with?(program, other), do: Tlc.Program.SwitchValidator.can_switch?(program, other)
+  def compatible_with?(program, other),
+    do: Tlc.Program.SwitchValidator.can_switch?(program, other)
 end
-
 
 defimpl Tlc.Program.Protocol, for: Tlc.Program.StageBased do
   def validate(program) do
@@ -44,5 +42,6 @@ defimpl Tlc.Program.Protocol, for: Tlc.Program.StageBased do
 
   def switch_points(program), do: Tlc.Program.SwitchValidator.get_switch_points(program, :leave)
 
-  def compatible_with?(program, other), do: Tlc.Program.SwitchValidator.can_switch?(program, other)
+  def compatible_with?(program, other),
+    do: Tlc.Program.SwitchValidator.can_switch?(program, other)
 end

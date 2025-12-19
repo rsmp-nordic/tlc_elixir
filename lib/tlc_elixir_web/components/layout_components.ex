@@ -1,14 +1,16 @@
 defmodule TlcElixirWeb.LayoutComponents do
   @moduledoc """
-  Layout components for the TLC application.
-"""
+    Layout components for the TLC application.
+  """
   use Phoenix.Component
   import TlcElixirWeb.CoreComponents
   import TlcElixirWeb.UIHelpers, only: [signal_bg_class: 1]
   import TlcElixirWeb.SignalComponents, only: [signal_head: 1]
   import TlcElixirWeb.HighlightComponents, only: [current_column: 1]
+
   def common_header(assigns) do
     assigns = assign_new(assigns, :selected_interval, fn -> assigns[:interval] end)
+
     ~H"""
     <div class="grid grid-cols-1 md:[grid-template-columns:1fr_16rem] gap-3 items-stretch">
       <%!-- Controller left, Time right on the same row --%>
@@ -21,11 +23,14 @@ defmodule TlcElixirWeb.LayoutComponents do
           <div class="flex flex-wrap items-center gap-4 mb-3">
             <div class="flex items-center gap-2">
               <.mode_indicator mode={@mode} />
-                    <.pill tag="button"
-                      phx-click="toggle_fault"
-                      aria-pressed={@mode == :fault}
-                      title={if @mode == :fault, do: "Clear fault", else: "Trigger fault"}
-                      class="gap-2 bg-gray-700 hover:bg-gray-600" type="button">
+              <.pill
+                tag="button"
+                phx-click="toggle_fault"
+                aria-pressed={@mode == :fault}
+                title={if @mode == :fault, do: "Clear fault", else: "Trigger fault"}
+                class="gap-2 bg-gray-700 hover:bg-gray-600"
+                type="button"
+              >
                 <%= if @mode == :fault do %>
                   <span class="text-sm font-medium">Clear Fault</span>
                 <% else %>
@@ -51,7 +56,11 @@ defmodule TlcElixirWeb.LayoutComponents do
           <div class="flex flex-col gap-2 mb-3">
             <div class="flex items-center gap-2">
               <div class="flex-1 min-w-0">
-                <.interval_buttons interval={@interval} selected_interval={@selected_interval} paused={@paused} />
+                <.interval_buttons
+                  interval={@interval}
+                  selected_interval={@selected_interval}
+                  paused={@paused}
+                />
               </div>
             </div>
             <%!-- Show Unix time info here in the Time section --%>
@@ -92,8 +101,10 @@ defmodule TlcElixirWeb.LayoutComponents do
   Render brief details for a fixed-time program (non-running preview/edit mode).
   """
   attr :program, :any, required: true
+
   def fixed_time_program_preview(assigns) do
     assign(assigns, :program, assigns.program)
+
     ~H"""
     <.subsection title="Details">
       <div class="grid grid-cols-4 gap-1 text-xs">
@@ -141,47 +152,58 @@ defmodule TlcElixirWeb.LayoutComponents do
     in_transition = Tlc.Logic.StageBased.in_transition?(assigns.logic)
 
     # Show target: during transition use transition.to, otherwise use upcoming_stage
-    transition_target = cond do
-      in_transition -> assigns.logic.current_transition.to
-      assigns.logic.upcoming_stage -> assigns.logic.upcoming_stage
-      true -> nil
-    end
+    transition_target =
+      cond do
+        in_transition -> assigns.logic.current_transition.to
+        assigns.logic.upcoming_stage -> assigns.logic.upcoming_stage
+        true -> nil
+      end
 
     # Get enter and leave stages from the program
     enter_stages = assigns.logic.program.enter || []
     leave_stages = assigns.logic.program.leave || []
 
     # Get current stage duration info (handles both struct and map)
-    current_stage = Tlc.Program.StageBased.get_stage(assigns.logic.program, assigns.logic.current_stage)
+    current_stage =
+      Tlc.Program.StageBased.get_stage(assigns.logic.program, assigns.logic.current_stage)
+
     duration = current_stage && current_stage.duration
     duration_min = duration && Map.get(duration, :min)
     duration_default = duration && Map.get(duration, :default)
     duration_max = duration && Map.get(duration, :max)
 
-
     # (no variant UI here; variants handled inside transition grid)
 
-    assigns = assign(assigns,
-      all_stages: all_stages,
-      available_stages: available_stages,
-      in_transition: in_transition,
-      transition_target: transition_target,
-      enter_stages: enter_stages,
-      leave_stages: leave_stages,
-      duration_min: duration_min,
-      duration_default: duration_default,
-      duration_max: duration_max
-    )
+    assigns =
+      assign(assigns,
+        all_stages: all_stages,
+        available_stages: available_stages,
+        in_transition: in_transition,
+        transition_target: transition_target,
+        enter_stages: enter_stages,
+        leave_stages: leave_stages,
+        duration_min: duration_min,
+        duration_default: duration_default,
+        duration_max: duration_max
+      )
 
     ~H"""
     <.subsection title="Details">
-
       <%!-- Elapsed time and duration display using state_card boxes --%>
       <div class="grid grid-cols-4 gap-1 text-xs mb-3">
         <.state_card label="Elapsed" value={@logic.stage_elapsed} />
-        <.state_card label="Min" value={if @duration_min && @duration_min > 0, do: @duration_min, else: nil} />
-        <.state_card label="Default" value={if @duration_default && @duration_default > 0, do: @duration_default, else: nil} />
-        <.state_card label="Max" value={if @duration_max && @duration_max > 0, do: @duration_max, else: nil} />
+        <.state_card
+          label="Min"
+          value={if @duration_min && @duration_min > 0, do: @duration_min, else: nil}
+        />
+        <.state_card
+          label="Default"
+          value={if @duration_default && @duration_default > 0, do: @duration_default, else: nil}
+        />
+        <.state_card
+          label="Max"
+          value={if @duration_max && @duration_max > 0, do: @duration_max, else: nil}
+        />
       </div>
 
       <%!-- All Stages --%>
@@ -189,49 +211,63 @@ defmodule TlcElixirWeb.LayoutComponents do
         <h3>Stages</h3>
         <div class="flex flex-wrap gap-2">
           <%= for stage_id <- @all_stages do %>
-            <%
-              is_current = stage_id == @logic.current_stage
-              is_transition_target = stage_id == @transition_target
-              is_available = stage_id in @available_stages
-              is_requested = stage_id == @logic.requested_stage
-              is_enter = stage_id in @enter_stages
-              is_leave = stage_id in @leave_stages
-              direction_arrow = cond do
+            <% is_current = stage_id == @logic.current_stage
+            is_transition_target = stage_id == @transition_target
+            is_available = stage_id in @available_stages
+            is_requested = stage_id == @logic.requested_stage
+            is_enter = stage_id in @enter_stages
+            is_leave = stage_id in @leave_stages
+
+            direction_arrow =
+              cond do
                 is_enter and is_leave -> "↔"
                 is_enter -> "→"
                 is_leave -> "←"
                 true -> nil
               end
 
-              # If the user selected a variant for the current from->to pair,
-              # include it on the request so the server can use the desired
-              # transition variant when starting the transition.
-              variant_for_btn = case @selected_transition_variant do
-                %{from: from, to: to, variant: variant} when from == @logic.current_stage and to == stage_id -> variant
-                _ -> nil
-              end
-            %>
-            <.pill tag="button"
+            # If the user selected a variant for the current from->to pair,
+            # include it on the request so the server can use the desired
+            # transition variant when starting the transition.
+            variant_for_btn =
+              case @selected_transition_variant do
+                %{from: from, to: to, variant: variant}
+                when from == @logic.current_stage and to == stage_id ->
+                  variant
+
+                _ ->
+                  nil
+              end %>
+            <.pill
+              tag="button"
               phx-click="request_stage"
               phx-value-stage_id={stage_id}
               phx-value-variant={variant_for_btn}
-              class={cond do
-                is_current -> "bg-purple-700 font-bold"
-                is_requested -> "bg-gray-700"
-                is_available -> "bg-gray-700 hover:bg-gray-600"
-                true -> "bg-gray-700 text-gray-400 cursor-not-allowed"
-              end}
+              class={
+                cond do
+                  is_current -> "bg-purple-700 font-bold"
+                  is_requested -> "bg-gray-700"
+                  is_available -> "bg-gray-700 hover:bg-gray-600"
+                  true -> "bg-gray-700 text-gray-400 cursor-not-allowed"
+                end
+              }
               disabled={@logic.mode == :halt or not is_available}
-              title={cond do
-                is_enter and is_leave -> "Enter and leave stage"
-                is_enter -> "Enter stage"
-                is_leave -> "Leave stage"
-                true -> nil
-              end}
+              title={
+                cond do
+                  is_enter and is_leave -> "Enter and leave stage"
+                  is_enter -> "Enter stage"
+                  is_leave -> "Leave stage"
+                  true -> nil
+                end
+              }
             >
-              <span class={"w-4 " <> if(direction_arrow, do: "", else: "invisible")}><%= direction_arrow %></span>
-              <span><%= stage_id %></span>
-              <span class={"w-4 " <> if(is_transition_target, do: "animate-pulse", else: "invisible")}>◎</span>
+              <span class={"w-4 " <> if(direction_arrow, do: "", else: "invisible")}>
+                {direction_arrow}
+              </span>
+              <span>{stage_id}</span>
+              <span class={"w-4 " <> if(is_transition_target, do: "animate-pulse", else: "invisible")}>
+                ◎
+              </span>
             </.pill>
           <% end %>
         </div>
@@ -244,12 +280,18 @@ defmodule TlcElixirWeb.LayoutComponents do
   Render brief details for a stage-based program (non-running preview/edit mode).
   """
   attr :program, :any, required: true
+
   def stage_based_program_preview(assigns) do
     all_stages = Tlc.Program.StageBased.used_stages(assigns.program)
     enter_stages = assigns.program.enter || []
     leave_stages = assigns.program.leave || []
 
-    assigns = assign(assigns, all_stages: all_stages, enter_stages: enter_stages, leave_stages: leave_stages)
+    assigns =
+      assign(assigns,
+        all_stages: all_stages,
+        enter_stages: enter_stages,
+        leave_stages: leave_stages
+      )
 
     ~H"""
     <.subsection title="Details">
@@ -270,7 +312,7 @@ defmodule TlcElixirWeb.LayoutComponents do
     <div class="w-full bg-gray-900" id="tlc-container" phx-hook="DragHandler">
       <div class="container mx-auto">
         <div class="flex flex-col gap-2 p-2">
-          <%= render_slot(@inner_block) %>
+          {render_slot(@inner_block)}
         </div>
       </div>
     </div>
@@ -282,17 +324,18 @@ defmodule TlcElixirWeb.LayoutComponents do
   attr :type, :atom, required: true
 
   defp type_badge(assigns) do
-    {text, color_class} = case assigns.type do
-      :fixed_time -> {"Fixed-Time", "bg-blue-600"}
-      :stage_based -> {"Stage-Based", "bg-green-600"}
-      _ -> {"Unknown", "bg-gray-600"}
-    end
+    {text, color_class} =
+      case assigns.type do
+        :fixed_time -> {"Fixed-Time", "bg-blue-600"}
+        :stage_based -> {"Stage-Based", "bg-green-600"}
+        _ -> {"Unknown", "bg-gray-600"}
+      end
 
     assigns = assign(assigns, text: text, color_class: color_class)
 
     ~H"""
     <span class={"pill-sm #{@color_class} font-medium"}>
-      <%= @text %>
+      {@text}
     </span>
     """
   end
@@ -303,8 +346,8 @@ defmodule TlcElixirWeb.LayoutComponents do
   defp info_pill(assigns) do
     ~H"""
     <.pill class="bg-gray-700">
-      <span class="text-xs text-gray-400"><%= @label %>:</span>
-      <span class="text-sm font-mono text-gray-200"><%= @value %></span>
+      <span class="text-xs text-gray-400">{@label}:</span>
+      <span class="text-sm font-mono text-gray-200">{@value}</span>
     </.pill>
     """
   end
@@ -312,35 +355,35 @@ defmodule TlcElixirWeb.LayoutComponents do
   attr :mode, :atom, required: true
 
   defp mode_indicator(assigns) do
-    {text, color_class} = case assigns.mode do
-      :run -> {"Running", "bg-green-600"}
-      :halt -> {"Halted", "bg-yellow-600"}
-      :fault -> {"Fault", "bg-red-600"}
-      :transitioning -> {"Transitioning", "bg-blue-600"}
-      _ -> {"#{assigns.mode}", "bg-gray-600"}
-    end
+    {text, color_class} =
+      case assigns.mode do
+        :run -> {"Running", "bg-green-600"}
+        :halt -> {"Halted", "bg-yellow-600"}
+        :fault -> {"Fault", "bg-red-600"}
+        :transitioning -> {"Transitioning", "bg-blue-600"}
+        _ -> {"#{assigns.mode}", "bg-gray-600"}
+      end
 
     assigns = assign(assigns, text: text, color_class: color_class)
 
     ~H"""
     <.pill class={"gap-2 " <> @color_class}>
-      <span class="text-sm font-medium"><%= @text %></span>
+      <span class="text-sm font-medium">{@text}</span>
     </.pill>
     """
   end
 
   attr :title, :string, required: true
   slot :inner_block
+
   defp subsection(assigns) do
     ~H"""
     <div class="">
-      <h3><%= @title %></h3>
-      <%= render_slot(@inner_block) %>
+      <h3>{@title}</h3>
+      {render_slot(@inner_block)}
     </div>
     """
   end
-
-
 
   defp variant_button_class(is_selected) do
     base = "justify-center"
@@ -351,8 +394,6 @@ defmodule TlcElixirWeb.LayoutComponents do
       "#{base} bg-gray-700 hover:bg-gray-600"
     end
   end
-
-
 
   # Use CoreComponents.interval_buttons instead of local copy
 
@@ -367,39 +408,42 @@ defmodule TlcElixirWeb.LayoutComponents do
     groups = Tlc.Program.StageBased.groups(assigns.logic.program)
 
     # Get the upcoming transition if we have an upcoming stage but aren't transitioning yet
-    upcoming_transition = if not in_transition and assigns.logic.upcoming_stage do
-      # Find the flow to get the transition name
-      flows = Map.get(assigns.logic.program.flows, assigns.logic.current_stage, [])
-      flow = Enum.find(flows, fn f -> f.to == assigns.logic.upcoming_stage end)
-      transition_name = if flow, do: flow.transition, else: "default"
+    upcoming_transition =
+      if not in_transition and assigns.logic.upcoming_stage do
+        # Find the flow to get the transition name
+        flows = Map.get(assigns.logic.program.flows, assigns.logic.current_stage, [])
+        flow = Enum.find(flows, fn f -> f.to == assigns.logic.upcoming_stage end)
+        transition_name = if flow, do: flow.transition, else: "default"
 
-      Tlc.Program.StageBased.get_transition(
-        assigns.logic.program,
-        assigns.logic.current_stage,
-        assigns.logic.upcoming_stage,
-        transition_name
-      )
-    else
-      nil
-    end
+        Tlc.Program.StageBased.get_transition(
+          assigns.logic.program,
+          assigns.logic.current_stage,
+          assigns.logic.upcoming_stage,
+          transition_name
+        )
+      else
+        nil
+      end
 
     # Use current transition if active, otherwise use upcoming transition for display
     display_transition = current_transition || upcoming_transition
     has_transition_to_show = display_transition != nil
 
     # Get total duration from the transition to display
-    total_duration = if display_transition do
-      Tlc.Program.StageBased.transition_duration(display_transition)
-    else
-      0
-    end
+    total_duration =
+      if display_transition do
+        Tlc.Program.StageBased.transition_duration(display_transition)
+      else
+        0
+      end
 
     # Get transition info for display
-    {from_stage, to_stage, transition_name} = if display_transition do
-      {display_transition.from, display_transition.to, display_transition.name}
-    else
-      {nil, nil, nil}
-    end
+    {from_stage, to_stage, transition_name} =
+      if display_transition do
+        {display_transition.from, display_transition.to, display_transition.name}
+      else
+        {nil, nil, nil}
+      end
 
     # Determine available variants for this transition (if any). We will only show
     # explicit variant buttons when there are multiple variants or when the only
@@ -426,75 +470,109 @@ defmodule TlcElixirWeb.LayoutComponents do
     # Determine effective selected variant. If the user has explicitly selected a
     # variant for this from->to pair prefer that variant for both display and
     # highlighting; otherwise fall back to the transition's declared name.
-    selected_variant = cond do
-      assigns.selected_transition_variant && assigns.selected_transition_variant[:from] == from_stage && assigns.selected_transition_variant[:to] == to_stage -> assigns.selected_transition_variant[:variant]
-      display_transition -> display_transition.name
-      true -> nil
-    end
+    selected_variant =
+      cond do
+        assigns.selected_transition_variant &&
+          assigns.selected_transition_variant[:from] == from_stage &&
+            assigns.selected_transition_variant[:to] == to_stage ->
+          assigns.selected_transition_variant[:variant]
+
+        display_transition ->
+          display_transition.name
+
+        true ->
+          nil
+      end
 
     # If the user selected a variant for this pair and we're not currently in
     # an active transition then prefer that variant when picking the display
     # transition (so the grid shows the selected variant sequence).
-    display_transition = if not in_transition and assigns.selected_transition_variant && assigns.selected_transition_variant[:from] == from_stage && assigns.selected_transition_variant[:to] == to_stage do
-      Tlc.Program.StageBased.get_transition(program, from_stage, to_stage, assigns.selected_transition_variant[:variant])
-    else
-      display_transition
-    end
+    display_transition =
+      if (not in_transition and assigns.selected_transition_variant) &&
+           assigns.selected_transition_variant[:from] == from_stage &&
+           assigns.selected_transition_variant[:to] == to_stage do
+        Tlc.Program.StageBased.get_transition(
+          program,
+          from_stage,
+          to_stage,
+          assigns.selected_transition_variant[:variant]
+        )
+      else
+        display_transition
+      end
 
-    assigns = assign(assigns,
-      current_transition: current_transition,
-      display_transition: display_transition,
-      in_transition: in_transition,
-      has_transition_to_show: has_transition_to_show,
-      elapsed: elapsed,
-      groups: groups,
-      total_duration: total_duration,
-      from_stage: from_stage,
-      to_stage: to_stage,
-      transition_name: transition_name,
-      variants: variants,
-      selected_variant: selected_variant
-    )
+    assigns =
+      assign(assigns,
+        current_transition: current_transition,
+        display_transition: display_transition,
+        in_transition: in_transition,
+        has_transition_to_show: has_transition_to_show,
+        elapsed: elapsed,
+        groups: groups,
+        total_duration: total_duration,
+        from_stage: from_stage,
+        to_stage: to_stage,
+        transition_name: transition_name,
+        variants: variants,
+        selected_variant: selected_variant
+      )
 
     # Compute the static stage states for the from/to stages (used in stage columns)
-    from_state = if assigns.display_transition && assigns.from_stage do
-      Tlc.Program.StageBased.get_stage_state(assigns.logic.program, assigns.from_stage)
-    else
-      nil
-    end
+    from_state =
+      if assigns.display_transition && assigns.from_stage do
+        Tlc.Program.StageBased.get_stage_state(assigns.logic.program, assigns.from_stage)
+      else
+        nil
+      end
 
-    to_state = if assigns.display_transition && assigns.to_stage do
-      Tlc.Program.StageBased.get_stage_state(assigns.logic.program, assigns.to_stage)
-    else
-      nil
-    end
+    to_state =
+      if assigns.display_transition && assigns.to_stage do
+        Tlc.Program.StageBased.get_stage_state(assigns.logic.program, assigns.to_stage)
+      else
+        nil
+      end
 
     # Also compute the current stage and its state when no transition is showing
     current_stage = assigns.logic.current_stage
-    current_stage_state = if current_stage, do: Tlc.Program.StageBased.get_stage_state(assigns.logic.program, current_stage), else: nil
-    # Get default duration for the current stage (used for elapsed/default display)
-    current_stage_duration = if current_stage do
-      stage = Tlc.Program.StageBased.get_stage(assigns.logic.program, current_stage)
-      stage && stage.duration && Map.get(stage.duration, :default)
-    else
-      nil
-    end
 
-    assigns = assign(assigns, from_state: from_state, to_state: to_state, current_stage: current_stage, current_stage_state: current_stage_state, current_stage_duration: current_stage_duration)
+    current_stage_state =
+      if current_stage,
+        do: Tlc.Program.StageBased.get_stage_state(assigns.logic.program, current_stage),
+        else: nil
+
+    # Get default duration for the current stage (used for elapsed/default display)
+    current_stage_duration =
+      if current_stage do
+        stage = Tlc.Program.StageBased.get_stage(assigns.logic.program, current_stage)
+        stage && stage.duration && Map.get(stage.duration, :default)
+      else
+        nil
+      end
+
+    assigns =
+      assign(assigns,
+        from_state: from_state,
+        to_state: to_state,
+        current_stage: current_stage,
+        current_stage_state: current_stage_state,
+        current_stage_duration: current_stage_duration
+      )
 
     ~H"""
     <div>
       <h3>Transitions</h3>
-       <div class="flex flex-wrap gap-2">
-         <%= for variant <- @variants do %>
-          <.pill tag="button"
+      <div class="flex flex-wrap gap-2">
+        <%= for variant <- @variants do %>
+          <.pill
+            tag="button"
             phx-click="select_transition_variant"
             phx-value-from={@from_stage}
             phx-value-to={@to_stage}
             phx-value-variant={variant}
             class={variant_button_class(variant == @selected_variant) <> if @in_transition, do: " cursor-not-allowed opacity-60", else: ""}
-            disabled={@in_transition}>
-            <%= variant %>
+            disabled={@in_transition}
+          >
+            {variant}
           </.pill>
         <% end %>
       </div>
@@ -503,15 +581,17 @@ defmodule TlcElixirWeb.LayoutComponents do
         <div class="flex my-1 border-t border-l border-gray-600">
           <!-- Labels column -->
           <div class="w-24 flex flex-col">
-            <div class="p-1 h-8 flex items-center justify-left font-semibold bg-gray-700 text-gray-200 border-r border-b border-gray-600">Time</div>
+            <div class="p-1 h-8 flex items-center justify-left font-semibold bg-gray-700 text-gray-200 border-r border-b border-gray-600">
+              Time
+            </div>
             <%= for {group, i} <- Enum.with_index(@groups) do %>
               <div class={"p-1 h-8 flex items-center text-left bg-gray-700 text-gray-200 font-medium border-r #{if i == length(@groups) - 1, do: "", else: "border-b"} border-gray-600"}>
-                <%= group %>
+                {group}
               </div>
             <% end %>
           </div>
-
-          <!-- Data columns for each second -->
+          
+    <!-- Data columns for each second -->
           <%= if @has_transition_to_show do %>
             <%!-- Static column showing the "from" stage state --%>
             <%= if @from_stage do %>
@@ -522,7 +602,17 @@ defmodule TlcElixirWeb.LayoutComponents do
                 state={@from_state}
                 current={not @in_transition and @from_stage == @logic.current_stage}
                 time={if @from_stage == @logic.current_stage, do: @logic.stage_elapsed, else: nil}
-                duration={if @from_stage == @logic.current_stage, do: (Tlc.Program.StageBased.get_stage(@logic.program, @from_stage) && Tlc.Program.StageBased.get_stage(@logic.program, @from_stage).duration && Map.get(Tlc.Program.StageBased.get_stage(@logic.program, @from_stage).duration, :default)), else: nil}
+                duration={
+                  if @from_stage == @logic.current_stage,
+                    do:
+                      Tlc.Program.StageBased.get_stage(@logic.program, @from_stage) &&
+                        Tlc.Program.StageBased.get_stage(@logic.program, @from_stage).duration &&
+                        Map.get(
+                          Tlc.Program.StageBased.get_stage(@logic.program, @from_stage).duration,
+                          :default
+                        ),
+                    else: nil
+                }
               />
             <% end %>
             <%= for time <- 0..(@total_duration - 1) do %>
@@ -578,35 +668,37 @@ defmodule TlcElixirWeb.LayoutComponents do
 
   defp transition_column(assigns) do
     # Determine if this column is the current position (only highlight when active)
-    is_current = assigns.active and assigns.time != nil and assigns.time == assigns.elapsed and assigns.elapsed < assigns.total_duration
+    is_current =
+      assigns.active and assigns.time != nil and assigns.time == assigns.elapsed and
+        assigns.elapsed < assigns.total_duration
 
     # Get the state for this time point (show states for both active and upcoming transitions)
-    state = if assigns.transition != nil and assigns.time != nil do
-      get_transition_state_at_time(assigns.transition, assigns.time)
-    else
-      nil
-    end
+    state =
+      if assigns.transition != nil and assigns.time != nil do
+        get_transition_state_at_time(assigns.transition, assigns.time)
+      else
+        nil
+      end
 
-    assigns = assign(assigns,
-      is_current: is_current,
-      state: state
-    )
+    assigns =
+      assign(assigns,
+        is_current: is_current,
+        state: state
+      )
 
     ~H"""
     <.current_column current={@is_current} class="flex-1 flex flex-col relative border-gray-600">
       <!-- Header cell with time / stage name -->
       <div class="p-1 h-8 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200">
-        <%= @time %>
+        {@time}
       </div>
-
-      <!-- Signal cells for each group -->
-          <%= for {_group, i} <- Enum.with_index(@groups) do %>
-        <%
-          signal = if @state, do: String.at(@state, i), else: nil
-          bg_class = if signal, do: signal_bg_class(signal), else: ""
-        %>
+      
+    <!-- Signal cells for each group -->
+      <%= for {_group, i} <- Enum.with_index(@groups) do %>
+        <% signal = if @state, do: String.at(@state, i), else: nil
+        bg_class = if signal, do: signal_bg_class(signal), else: "" %>
         <div class={"p-1 h-8 flex items-center justify-center border-r #{if i == length(@groups) - 1, do: "", else: "border-b"} border-gray-600 #{bg_class}"}>
-          <span class="text-gray-200 select-none"><%= signal %></span>
+          <span class="text-gray-200 select-none">{signal}</span>
         </div>
       <% end %>
     </.current_column>
@@ -626,11 +718,12 @@ defmodule TlcElixirWeb.LayoutComponents do
     state = assigns.state || ""
 
     # Compute display string for header (elapsed/default format)
-    display_time = cond do
-      assigns.time != nil and assigns.duration != nil -> "#{assigns.time}/#{assigns.duration}"
-      assigns.time != nil -> "#{assigns.time}"
-      true -> ""
-    end
+    display_time =
+      cond do
+        assigns.time != nil and assigns.duration != nil -> "#{assigns.time}/#{assigns.duration}"
+        assigns.time != nil -> "#{assigns.time}"
+        true -> ""
+      end
 
     assigns = assign(assigns, state: state, display_time: display_time)
 
@@ -638,17 +731,15 @@ defmodule TlcElixirWeb.LayoutComponents do
     <.current_column current={@current} class="flex-1 flex flex-col relative border-gray-600">
       <!-- Header: show elapsed/default when both present, else show elapsed if present -->
       <div class="p-1 h-8 flex items-center justify-center font-semibold border-r border-b border-gray-600 text-gray-200">
-        <%= @display_time %>
+        {@display_time}
       </div>
-
-      <!-- Signal cells for each group -->
+      
+    <!-- Signal cells for each group -->
       <%= for {_group, i} <- Enum.with_index(@groups) do %>
-        <%
-          signal = if @state != nil, do: String.at(@state, i), else: nil
-          bg_class = if signal, do: signal_bg_class(signal), else: ""
-        %>
+        <% signal = if @state != nil, do: String.at(@state, i), else: nil
+        bg_class = if signal, do: signal_bg_class(signal), else: "" %>
         <div class={"p-1 h-8 flex items-center justify-center border-r #{if i == length(@groups) - 1, do: "", else: "border-b"} border-gray-600 #{bg_class}"}>
-          <span class="text-gray-200 select-none"><%= signal %></span>
+          <span class="text-gray-200 select-none">{signal}</span>
         </div>
       <% end %>
     </.current_column>
@@ -657,14 +748,16 @@ defmodule TlcElixirWeb.LayoutComponents do
 
   # Get the state string for a specific time in the transition
   defp get_transition_state_at_time(transition, time) do
-    {state, _} = Enum.reduce_while(transition.sequence, {nil, 0}, fn step, {_state, acc_time} ->
-      new_acc = acc_time + step.duration
-      if time < new_acc do
-        {:halt, {step.state, new_acc}}
-      else
-        {:cont, {step.state, new_acc}}
-      end
-    end)
+    {state, _} =
+      Enum.reduce_while(transition.sequence, {nil, 0}, fn step, {_state, acc_time} ->
+        new_acc = acc_time + step.duration
+
+        if time < new_acc do
+          {:halt, {step.state, new_acc}}
+        else
+          {:cont, {step.state, new_acc}}
+        end
+      end)
 
     # Return the last state if we somehow exceeded
     state || (List.last(transition.sequence) && List.last(transition.sequence).state) || ""

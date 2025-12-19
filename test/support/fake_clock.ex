@@ -9,7 +9,7 @@ defmodule Tlc.Test.FakeClock do
 
   def tick(%__MODULE__{} = clock, logic, logic_module, step \\ 1) do
     unix_time = clock.unix_time + step
-    { %{clock | unix_time: unix_time}, logic_module.tick(logic, unix_time) }
+    {%{clock | unix_time: unix_time}, logic_module.tick(logic, unix_time)}
   end
 
   def tick_n(%__MODULE__{} = clock, logic, logic_module, count, step \\ 1) do

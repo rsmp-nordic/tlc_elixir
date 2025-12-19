@@ -9,7 +9,7 @@ defmodule TlcElixirWeb.TestLive do
     ~H"""
     <div style="padding: 20px; font-family: sans-serif;">
       <h1 style="color: green;">✅ LiveView is working!</h1>
-      <p>Count: <%= @count %></p>
+      <p>Count: {@count}</p>
       <button phx-click="increment" style="padding: 10px 20px; font-size: 16px;">
         Increment
       </button>

@@ -34,5 +34,4 @@ defmodule TlcElixir.Application do
     TlcElixirWeb.Endpoint.config_change(changed, removed)
     :ok
   end
-
 end

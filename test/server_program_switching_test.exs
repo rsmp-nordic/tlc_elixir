@@ -10,7 +10,8 @@ defmodule Tlc.ServerProgramSwitchingTest do
   - Proper state coordination during switches
   """
 
-  use ExUnit.Case, async: false  # Not async due to GenServer state
+  # Not async due to GenServer state
+  use ExUnit.Case, async: false
 
   # Aliases not required in this test; tests reference full module names
 
@@ -51,6 +52,7 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
       GenServer.stop(pid)
     end
+
     test "sets target program for same-type fixed-time switch" do
       pid = start_test_server()
       # Let the server process initialization synchronously using a single tick
@@ -87,13 +89,14 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
       state = get_state(pid)
       # Wait until we've switched to calm
-      state = if state.logic.program.name != "calm" do
-        # If not yet switched, drive a couple of ticks then re-check
-        tick(pid, 2)
-        get_state(pid)
-      else
-        state
-      end
+      state =
+        if state.logic.program.name != "calm" do
+          # If not yet switched, drive a couple of ticks then re-check
+          tick(pid, 2)
+          get_state(pid)
+        else
+          state
+        end
 
       assert state.logic.__struct__ == Tlc.Logic.FixedTime
 
@@ -188,7 +191,10 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
       state = get_state(pid)
       # Either server or logic should have target program set, or the switch completed immediately
-      has_target = state.target_program != nil || state.logic.target_program != nil || state.logic.program.name == "normal"
+      has_target =
+        state.target_program != nil || state.logic.target_program != nil ||
+          state.logic.program.name == "normal"
+
       assert has_target
 
       Tlc.Server.clear_target_program(pid)
@@ -270,15 +276,17 @@ defmodule Tlc.ServerProgramSwitchingTest do
       Tlc.Server.set_auto(pid, true)
       tick(pid)
 
-      target = Enum.reduce_while(1..50, nil, fn _, _ ->
-        t = Tlc.Server.get_target_program(pid)
-        if t != nil do
-          {:halt, t}
-        else
-          tick(pid)
-          {:cont, nil}
-        end
-      end)
+      target =
+        Enum.reduce_while(1..50, nil, fn _, _ ->
+          t = Tlc.Server.get_target_program(pid)
+
+          if t != nil do
+            {:halt, t}
+          else
+            tick(pid)
+            {:cont, nil}
+          end
+        end)
 
       # If auto didn't pick one in time, skip (test relies on randomness)
       if is_nil(target) do
@@ -450,6 +458,7 @@ defmodule Tlc.ServerProgramSwitchingTest do
       Enum.reduce_while(1..20, nil, fn _, _ ->
         tick(pid)
         s = get_state(pid)
+
         if s.logic.__struct__ == Tlc.Logic.StageBased do
           {:halt, s}
         else
@@ -576,6 +585,7 @@ defmodule Tlc.ServerProgramSwitchingTest do
       Enum.reduce_while(1..50, nil, fn _, _ ->
         tick(pid)
         s = get_state(pid)
+
         if s.logic.program.name != current do
           {:halt, s}
         else
@@ -587,21 +597,23 @@ defmodule Tlc.ServerProgramSwitchingTest do
       tick(pid)
       # Wait for a new target or defer state; allow the defer case which will
       # require waiting for the stage states to change before choosing a new target.
-      new_target = Enum.reduce_while(1..50, nil, fn _, _ ->
-        tick(pid)
-        s = get_state(pid)
-        t = Tlc.Server.get_target_program(pid)
-        if t != nil do
-          {:halt, t}
-        else
-          if s.defer_until_state != nil do
-            # we've deferred; wait until states change then read the target
-            {:halt, :deferred}
+      new_target =
+        Enum.reduce_while(1..50, nil, fn _, _ ->
+          tick(pid)
+          s = get_state(pid)
+          t = Tlc.Server.get_target_program(pid)
+
+          if t != nil do
+            {:halt, t}
           else
-            {:cont, nil}
+            if s.defer_until_state != nil do
+              # we've deferred; wait until states change then read the target
+              {:halt, :deferred}
+            else
+              {:cont, nil}
+            end
           end
-        end
-      end)
+        end)
 
       case new_target do
         :deferred ->
@@ -609,12 +621,14 @@ defmodule Tlc.ServerProgramSwitchingTest do
           Enum.reduce_while(1..100, nil, fn _, _ ->
             tick(pid)
             s = get_state(pid)
+
             if s.defer_until_state != nil and s.defer_until_state != s.logic.current_states do
               {:halt, s}
             else
               {:cont, nil}
             end
           end)
+
           s = get_state(pid)
           nt = Tlc.Server.get_target_program(pid)
           assert nt != nil
@@ -642,21 +656,24 @@ defmodule Tlc.ServerProgramSwitchingTest do
       tick(pid)
 
       # Wait until a target is chosen and it's stage-based
-      target = Enum.reduce_while(1..50, nil, fn _, _ ->
-        t = Tlc.Server.get_target_program(pid)
-        if t != nil do
-          s = get_state(pid)
-          program = Enum.find(s.programs, fn p -> p.name == t end)
-          if program.__struct__ == Tlc.Program.StageBased do
-            {:halt, {t, program.name}}
+      target =
+        Enum.reduce_while(1..50, nil, fn _, _ ->
+          t = Tlc.Server.get_target_program(pid)
+
+          if t != nil do
+            s = get_state(pid)
+            program = Enum.find(s.programs, fn p -> p.name == t end)
+
+            if program.__struct__ == Tlc.Program.StageBased do
+              {:halt, {t, program.name}}
+            else
+              {:cont, nil}
+            end
           else
+            tick(pid)
             {:cont, nil}
           end
-        else
-          tick(pid)
-          {:cont, nil}
-        end
-      end)
+        end)
 
       # If we didn't get a stage-based target, skip the test (random selection)
       if is_nil(target) do
@@ -667,6 +684,7 @@ defmodule Tlc.ServerProgramSwitchingTest do
         Enum.reduce_while(1..50, nil, fn _, _ ->
           tick(pid)
           s = get_state(pid)
+
           if s.logic.program.name == target_name do
             {:halt, s}
           else
@@ -685,15 +703,17 @@ defmodule Tlc.ServerProgramSwitchingTest do
         assert state.target_program == nil
 
         # Now tick until the stage states change — this should enable auto to pick a new target
-        found = Enum.reduce_while(1..50, false, fn _, _ ->
-          tick(pid)
-          s = get_state(pid)
-          if s.defer_until_state != nil and s.defer_until_state != s.logic.current_states do
-            {:halt, true}
-          else
-            {:cont, false}
-          end
-        end)
+        found =
+          Enum.reduce_while(1..50, false, fn _, _ ->
+            tick(pid)
+            s = get_state(pid)
+
+            if s.defer_until_state != nil and s.defer_until_state != s.logic.current_states do
+              {:halt, true}
+            else
+              {:cont, false}
+            end
+          end)
 
         assert found
         state = get_state(pid)
@@ -800,6 +820,7 @@ defmodule Tlc.ServerProgramSwitchingTest do
       Enum.reduce_while(1..100, nil, fn _, _ ->
         tick(pid)
         state = get_state(pid)
+
         if state.logic.__struct__ == Tlc.Logic.StageBased do
           {:halt, state}
         else
@@ -848,12 +869,14 @@ defmodule Tlc.ServerProgramSwitchingTest do
       assert transition_name != nil
 
       # 4. Get the transition
-      transition = Tlc.Program.StageBased.get_transition(
-        logic.program,
-        logic.current_stage,
-        logic.upcoming_stage,
-        transition_name
-      )
+      transition =
+        Tlc.Program.StageBased.get_transition(
+          logic.program,
+          logic.current_stage,
+          logic.upcoming_stage,
+          transition_name
+        )
+
       assert transition != nil, "Expected to find transition from main to side"
       assert transition.from == "main"
       assert transition.to == "side"
@@ -875,10 +898,17 @@ defmodule Tlc.ServerProgramSwitchingTest do
 
       # Check state immediately after the switch, before any tick
       state = get_state(pid)
-      assert state.logic.__struct__ == Tlc.Logic.StageBased, "Should be stage-based after immediate switch"
+
+      assert state.logic.__struct__ == Tlc.Logic.StageBased,
+             "Should be stage-based after immediate switch"
+
       assert state.logic.current_stage == "main", "Should be in main stage"
-      assert state.logic.upcoming_stage != nil, "upcoming_stage should be set immediately after switch"
-      assert state.logic.upcoming_stage == "side", "upcoming_stage should be side (only flow from main)"
+
+      assert state.logic.upcoming_stage != nil,
+             "upcoming_stage should be set immediately after switch"
+
+      assert state.logic.upcoming_stage == "side",
+             "upcoming_stage should be side (only flow from main)"
 
       GenServer.stop(pid)
     end

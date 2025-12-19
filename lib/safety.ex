@@ -38,7 +38,8 @@ defmodule Tlc.Safety do
             {:error, reason} -> {:fault, %{safety | previous_state: current}, reason}
           end
 
-        _ -> {:ok, safety, logic}
+        _ ->
+          {:ok, safety, logic}
       end
     end
   end
@@ -58,11 +59,12 @@ defmodule Tlc.Safety do
       start_signal = String.at(start_state, i)
       end_signal = String.at(end_state, i)
 
-      is_invalid = case {start_signal, end_signal} do
-        {"G", "R"} -> true
-        {"R", "G"} -> true
-        _ -> false
-      end
+      is_invalid =
+        case {start_signal, end_signal} do
+          {"G", "R"} -> true
+          {"R", "G"} -> true
+          _ -> false
+        end
 
       if is_invalid do
         error_msg = "Invalid transition from #{start_signal} to #{end_signal}"

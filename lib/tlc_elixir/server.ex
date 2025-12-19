@@ -134,7 +134,6 @@ defmodule Tlc.Server do
     stages = default_stages()
     programs = default_programs(stages)
 
-
     # Validate program switch compatibility. SwitchValidator returns structures
     # describing issues — it does not log directly, allowing the caller control
     # over whether (and how) issues are presented.
@@ -146,7 +145,10 @@ defmodule Tlc.Server do
     end
 
     if validation.switch_issues != [] do
-      Logger.warning("Found #{length(validation.switch_issues)} program switch compatibility issue(s):")
+      Logger.warning(
+        "Found #{length(validation.switch_issues)} program switch compatibility issue(s):"
+      )
+
       Enum.each(validation.switch_issues, fn issue -> Logger.warning("  #{issue.message}") end)
     end
 
@@ -158,6 +160,7 @@ defmodule Tlc.Server do
     # Create an initial logic instance using program factory so the server
     # doesn't depend on specific logic implementations.
     initial_program = Enum.at(tlc_logic_instance.programs, 0)
+
     logic =
       Tlc.Program.Factory.create(initial_program, virtual_unix_time, :initial)
       |> Tlc.Logic.Protocol.halt()
@@ -172,7 +175,13 @@ defmodule Tlc.Server do
       virtual_unix_time: virtual_unix_time
     }
 
-    timer_ref = Tlc.Server.TickScheduler.schedule_tick(real_ms, virtual_unix_time, tlc_server_state.interval)
+    timer_ref =
+      Tlc.Server.TickScheduler.schedule_tick(
+        real_ms,
+        virtual_unix_time,
+        tlc_server_state.interval
+      )
+
     tlc_server_state = %{tlc_server_state | timer_ref: timer_ref}
     {:ok, tlc_server_state}
   end
@@ -183,12 +192,36 @@ defmodule Tlc.Server do
       name: "example_stages",
       groups: ["a1", "a2", "b1", "b2", "a1_l"],
       stages: %{
-        "main" => %Tlc.Program.Stages.Stage{id: "main", open: ["a1", "a2"], duration: %Tlc.Program.Stages.Duration{default: 6, max: 9}},
-        "side" => %Tlc.Program.Stages.Stage{id: "side", open: ["b1", "b2"], duration: %Tlc.Program.Stages.Duration{min: 4, default: 6, max: 9}},
-        "turn" => %Tlc.Program.Stages.Stage{id: "turn", open: ["a1_l"], duration: %Tlc.Program.Stages.Duration{default: 5}},
-        "oneway" => %Tlc.Program.Stages.Stage{id: "oneway", open: ["a1"], duration: %Tlc.Program.Stages.Duration{default: 7}},
-        "both" => %Tlc.Program.Stages.Stage{id: "both", open: ["a1", "b1"], duration: %Tlc.Program.Stages.Duration{default: 4}},
-        "crossing" => %Tlc.Program.Stages.Stage{id: "crossing", open: ["a2", "b2"], duration: %Tlc.Program.Stages.Duration{default: 5}}
+        "main" => %Tlc.Program.Stages.Stage{
+          id: "main",
+          open: ["a1", "a2"],
+          duration: %Tlc.Program.Stages.Duration{default: 6, max: 9}
+        },
+        "side" => %Tlc.Program.Stages.Stage{
+          id: "side",
+          open: ["b1", "b2"],
+          duration: %Tlc.Program.Stages.Duration{min: 4, default: 6, max: 9}
+        },
+        "turn" => %Tlc.Program.Stages.Stage{
+          id: "turn",
+          open: ["a1_l"],
+          duration: %Tlc.Program.Stages.Duration{default: 5}
+        },
+        "oneway" => %Tlc.Program.Stages.Stage{
+          id: "oneway",
+          open: ["a1"],
+          duration: %Tlc.Program.Stages.Duration{default: 7}
+        },
+        "both" => %Tlc.Program.Stages.Stage{
+          id: "both",
+          open: ["a1", "b1"],
+          duration: %Tlc.Program.Stages.Duration{default: 4}
+        },
+        "crossing" => %Tlc.Program.Stages.Stage{
+          id: "crossing",
+          open: ["a2", "b2"],
+          duration: %Tlc.Program.Stages.Duration{default: 5}
+        }
       },
       transitions: %{
         {"main", "side"} => %{
@@ -211,7 +244,6 @@ defmodule Tlc.Server do
             ]
           }
         },
-
         {"main", "turn"} => %{
           "default" => %Tlc.Program.Stages.Transition{
             from: "main",
@@ -220,7 +252,6 @@ defmodule Tlc.Server do
             sequence: [%Tlc.Program.Stages.TransitionStep{state: "YYRRA", duration: 3}]
           }
         },
-
         {"side", "turn"} => %{
           "default" => %Tlc.Program.Stages.Transition{
             from: "side",
@@ -238,7 +269,6 @@ defmodule Tlc.Server do
             sequence: [%Tlc.Program.Stages.TransitionStep{state: "RRYYR", duration: 3}]
           }
         },
-
         {"side", "both"} => %{
           "default" => %Tlc.Program.Stages.Transition{
             from: "side",
@@ -250,7 +280,6 @@ defmodule Tlc.Server do
             ]
           }
         },
-
         {"turn", "main"} => %{
           "default" => %Tlc.Program.Stages.Transition{
             from: "turn",
@@ -259,7 +288,6 @@ defmodule Tlc.Server do
             sequence: [%Tlc.Program.Stages.TransitionStep{state: "ARRRY", duration: 3}]
           }
         },
-
         {"turn", "side"} => %{
           "default" => %Tlc.Program.Stages.Transition{
             from: "turn",
@@ -271,7 +299,6 @@ defmodule Tlc.Server do
             ]
           }
         },
-
         {"side", "main"} => %{
           "default" => %Tlc.Program.Stages.Transition{
             from: "side",
@@ -283,7 +310,6 @@ defmodule Tlc.Server do
             ]
           }
         },
-
         {"turn", "oneway"} => %{
           "default" => %Tlc.Program.Stages.Transition{
             from: "turn",
@@ -295,7 +321,6 @@ defmodule Tlc.Server do
             ]
           }
         },
-
         {"oneway", "both"} => %{
           "default" => %Tlc.Program.Stages.Transition{
             from: "oneway",
@@ -304,7 +329,6 @@ defmodule Tlc.Server do
             sequence: [%Tlc.Program.Stages.TransitionStep{state: "GRGRR", duration: 2}]
           }
         },
-
         {"both", "crossing"} => %{
           "default" => %Tlc.Program.Stages.Transition{
             from: "both",
@@ -316,7 +340,6 @@ defmodule Tlc.Server do
             ]
           }
         },
-
         {"crossing", "main"} => %{
           "default" => %Tlc.Program.Stages.Transition{
             from: "crossing",
@@ -338,7 +361,14 @@ defmodule Tlc.Server do
         name: "halt",
         length: 12,
         groups: stages.groups,
-        states: %{ 0 => "DDDDD", 1 => "RRRRR", 3 => "AARRR", 5 => "GGRRR", 8 => "YYRRR", 10 => "RRRRR" },
+        states: %{
+          0 => "DDDDD",
+          1 => "RRRRR",
+          3 => "AARRR",
+          5 => "GGRRR",
+          8 => "YYRRR",
+          10 => "RRRRR"
+        },
         switch: 5,
         halt: 0
       },
@@ -511,10 +541,12 @@ defmodule Tlc.Server do
   def handle_call(:get_target_program, _from, tlc) do
     # Check server-level target program first (for cross-type switches)
     # then fall back to logic-level target program
-    target_program = case tlc.target_program do
-      nil -> get_target_program_from_logic(tlc.logic)
-      program -> program.name
-    end
+    target_program =
+      case tlc.target_program do
+        nil -> get_target_program_from_logic(tlc.logic)
+        program -> program.name
+      end
+
     {:reply, target_program, tlc}
   end
 
@@ -530,7 +562,10 @@ defmodule Tlc.Server do
     # TickScheduler won't be invoked until the next tick occurs, so
     # proactively schedule the next tick here.
     real_ms = System.os_time(:millisecond)
-    timer_ref = Tlc.Server.TickScheduler.schedule_tick(real_ms, tlc.virtual_unix_time, tlc.interval)
+
+    timer_ref =
+      Tlc.Server.TickScheduler.schedule_tick(real_ms, tlc.virtual_unix_time, tlc.interval)
+
     tlc = %{tlc | timer_ref: timer_ref}
 
     broadcast_update(tlc)
@@ -539,25 +574,28 @@ defmodule Tlc.Server do
 
   @impl true
   def handle_call({:update_program, program, update_active}, _from, state) do
-    programs = Enum.map(state.programs, fn existing ->
-      if existing.name == program.name do
-        program
+    programs =
+      Enum.map(state.programs, fn existing ->
+        if existing.name == program.name do
+          program
+        else
+          existing
+        end
+      end)
+
+    programs =
+      if Enum.any?(programs, fn p -> p.name == program.name end) do
+        programs
       else
-        existing
+        programs ++ [program]
       end
-    end)
 
-    programs = if Enum.any?(programs, fn p -> p.name == program.name end) do
-      programs
-    else
-      programs ++ [program]
-    end
-
-    updated_state = if update_active && state.logic.program.name == program.name do
-      %{state | programs: programs, logic: %{state.logic | program: program}}
-    else
-      %{state | programs: programs}
-    end
+    updated_state =
+      if update_active && state.logic.program.name == program.name do
+        %{state | programs: programs, logic: %{state.logic | program: program}}
+      else
+        %{state | programs: programs}
+      end
 
     broadcast_update(updated_state)
     {:reply, :ok, updated_state}
@@ -586,10 +624,12 @@ defmodule Tlc.Server do
   def handle_cast({:switch_program, program_name}, tlc) do
     updated_tlc = Tlc.Server.SwitchController.switch_program(tlc, program_name)
     # Record that the origin was manual when the server records a pending target
-    updated_tlc = case updated_tlc.target_program do
-      nil -> updated_tlc
-      _ -> %{updated_tlc | target_origin: :manual}
-    end
+    updated_tlc =
+      case updated_tlc.target_program do
+        nil -> updated_tlc
+        _ -> %{updated_tlc | target_origin: :manual}
+      end
+
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
   end
@@ -598,10 +638,12 @@ defmodule Tlc.Server do
   def handle_cast({:switch_program_immediate, program_name}, tlc) do
     updated_tlc = Tlc.Server.SwitchController.switch_program_immediate(tlc, program_name)
     # If we've switched to a stage-based program make sure we defer auto-target
-    updated_tlc = case updated_tlc.logic do
-      %Tlc.Logic.StageBased{} = st -> %{updated_tlc | defer_until_state: st.current_states}
-      _ -> %{updated_tlc | defer_until_state: nil}
-    end
+    updated_tlc =
+      case updated_tlc.logic do
+        %Tlc.Logic.StageBased{} = st -> %{updated_tlc | defer_until_state: st.current_states}
+        _ -> %{updated_tlc | defer_until_state: nil}
+      end
+
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
   end
@@ -619,10 +661,11 @@ defmodule Tlc.Server do
   def handle_cast({:request_stage, stage_id, variant}, tlc) do
     # For server-level stage requests, store pending request and apply after
     # the next tick. Ignore requests if the current logic is not stage-based.
-    updated_tlc = case tlc.logic do
-      %Tlc.Logic.StageBased{} = _st -> %{tlc | pending_stage_request: {stage_id, variant}}
-      _ -> tlc
-    end
+    updated_tlc =
+      case tlc.logic do
+        %Tlc.Logic.StageBased{} = _st -> %{tlc | pending_stage_request: {stage_id, variant}}
+        _ -> tlc
+      end
 
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
@@ -632,18 +675,21 @@ defmodule Tlc.Server do
   def handle_cast({:set_requested_variant, from, to, variant}, tlc) do
     # Persist a user-selected variant into the stage-based logic so that
     # when an auto-request occurs the preferred variant will be used.
-    updated_tlc = case tlc.logic do
-      %Tlc.Logic.StageBased{} = st ->
-        # Only apply when the selection matches the current from stage and
-        # there exists a flow from current -> to (defensive check)
-        if st.current_stage == from and Map.get(st.program.flows || %{}, from) |> Enum.any?(fn f -> f.to == to end) do
-          %{tlc | logic: %{st | requested_variant: variant}}
-        else
-          tlc
-        end
+    updated_tlc =
+      case tlc.logic do
+        %Tlc.Logic.StageBased{} = st ->
+          # Only apply when the selection matches the current from stage and
+          # there exists a flow from current -> to (defensive check)
+          if st.current_stage == from and
+               Map.get(st.program.flows || %{}, from) |> Enum.any?(fn f -> f.to == to end) do
+            %{tlc | logic: %{st | requested_variant: variant}}
+          else
+            tlc
+          end
 
-      _ -> tlc
-    end
+        _ ->
+          tlc
+      end
 
     broadcast_update(updated_tlc)
     {:noreply, updated_tlc}
@@ -682,12 +728,25 @@ defmodule Tlc.Server do
           updated_safety = Tlc.Safety.clear_history(tlc.safety, halt_logic.program.name)
           # When recovering from fault to halt, clear any pending targets and
           # allow auto-target selection to occur immediately (if enabled).
-          %{tlc | logic: halt_logic, safety: updated_safety, target_program: nil, target_origin: nil, defer_until_state: nil}
+          %{
+            tlc
+            | logic: halt_logic,
+              safety: updated_safety,
+              target_program: nil,
+              target_origin: nil,
+              defer_until_state: nil
+          }
 
         _ ->
           # When entering fault mode, clear any pending targets to avoid
           # immediately switching out of fault due to server-level targets
-          %{tlc | logic: fault_logic, target_program: nil, target_origin: nil, defer_until_state: nil}
+          %{
+            tlc
+            | logic: fault_logic,
+              target_program: nil,
+              target_origin: nil,
+              defer_until_state: nil
+          }
       end
 
     # If auto-mode is enabled, attempt to set an auto target immediately
@@ -701,44 +760,48 @@ defmodule Tlc.Server do
   def handle_cast({:step, steps}, tlc) do
     steps = if is_integer(steps) and steps > 0, do: steps, else: 1
 
-    tlc = Enum.reduce(1..steps, tlc, fn _, acc ->
-      virtual_unix_time = acc.virtual_unix_time + 1
+    tlc =
+      Enum.reduce(1..steps, tlc, fn _, acc ->
+        virtual_unix_time = acc.virtual_unix_time + 1
 
-      logic = acc.logic
-      logic = tick_logic(logic, virtual_unix_time)
+        logic = acc.logic
+        logic = tick_logic(logic, virtual_unix_time)
 
-      fault_program = Enum.find(acc.programs, fn prog -> prog.name == "fault" end)
+        fault_program = Enum.find(acc.programs, fn prog -> prog.name == "fault" end)
 
-      acc =
-        case Tlc.Safety.check_transitions(acc.safety, logic, fault_program) do
-          {:ok, updated_safety, logic} ->
-            %{acc |
-              logic: logic,
-              safety: updated_safety,
-              virtual_unix_time: virtual_unix_time,
-              resync: false
-            }
+        acc =
+          case Tlc.Safety.check_transitions(acc.safety, logic, fault_program) do
+            {:ok, updated_safety, logic} ->
+              %{
+                acc
+                | logic: logic,
+                  safety: updated_safety,
+                  virtual_unix_time: virtual_unix_time,
+                  resync: false
+              }
 
-          {:fault, updated_safety, _reason} ->
-            Logger.warning("Safety violation detected: manual step triggered fault")
-            fault_logic =
-              Tlc.Program.Factory.create(fault_program, virtual_unix_time, :switching)
-              |> Map.put(:mode, :fault)
+            {:fault, updated_safety, _reason} ->
+              Logger.warning("Safety violation detected: manual step triggered fault")
 
-            cleared_safety = Tlc.Safety.clear_history(updated_safety, fault_program.name)
+              fault_logic =
+                Tlc.Program.Factory.create(fault_program, virtual_unix_time, :switching)
+                |> Map.put(:mode, :fault)
 
-            %{acc |
-              logic: fault_logic,
-              safety: cleared_safety,
-              virtual_unix_time: virtual_unix_time,
-              resync: false
-            }
-        end
+              cleared_safety = Tlc.Safety.clear_history(updated_safety, fault_program.name)
 
-      # Apply any potential cross-type switch after the tick, and auto-target if enabled
-      acc = Tlc.Server.SwitchController.maybe_switch_to_target_program(acc)
-      maybe_set_auto_target(acc)
-    end)
+              %{
+                acc
+                | logic: fault_logic,
+                  safety: cleared_safety,
+                  virtual_unix_time: virtual_unix_time,
+                  resync: false
+              }
+          end
+
+        # Apply any potential cross-type switch after the tick, and auto-target if enabled
+        acc = Tlc.Server.SwitchController.maybe_switch_to_target_program(acc)
+        maybe_set_auto_target(acc)
+      end)
 
     # Apply a pending stage request (if any) after the manual step/ticks have been processed
     tlc = apply_pending_stage_request(tlc)
@@ -753,12 +816,14 @@ defmodule Tlc.Server do
     virtual_unix_time = tlc.virtual_unix_time + 1
 
     logic = tlc.logic
-    logic = if tlc.resync and is_integer(tlc.interval) and tlc.interval > 0 do
-      sync_time = floor(real_ms / tlc.interval)
-      Tlc.Logic.Protocol.sync_time(logic, sync_time)
-    else
-      logic
-    end
+
+    logic =
+      if tlc.resync and is_integer(tlc.interval) and tlc.interval > 0 do
+        sync_time = floor(real_ms / tlc.interval)
+        Tlc.Logic.Protocol.sync_time(logic, sync_time)
+      else
+        logic
+      end
 
     logic = tick_logic(logic, virtual_unix_time)
 
@@ -767,37 +832,40 @@ defmodule Tlc.Server do
     tlc =
       case Tlc.Safety.check_transitions(tlc.safety, logic, fault_program) do
         {:ok, updated_safety, logic} ->
-          %{tlc |
-            logic: logic,
-            safety: updated_safety,
-            virtual_unix_time: virtual_unix_time,
-            resync: false
+          %{
+            tlc
+            | logic: logic,
+              safety: updated_safety,
+              virtual_unix_time: virtual_unix_time,
+              resync: false
           }
 
         {:fault, updated_safety, reason} ->
           Logger.warning("Safety violation detected: #{reason}")
+
           fault_logic =
             Tlc.Program.Factory.create(fault_program, virtual_unix_time, :switching)
             |> Map.put(:mode, :fault)
 
           cleared_safety = Tlc.Safety.clear_history(updated_safety, fault_program.name)
 
-          %{tlc |
-            logic: fault_logic,
-            safety: cleared_safety,
-            virtual_unix_time: virtual_unix_time,
-            resync: false
+          %{
+            tlc
+            | logic: fault_logic,
+              safety: cleared_safety,
+              virtual_unix_time: virtual_unix_time,
+              resync: false
           }
       end
 
-      # Check for cross-type program switch (server-level) and then auto-target if enabled
-      tlc = Tlc.Server.SwitchController.maybe_switch_to_target_program(tlc)
-      tlc = maybe_set_auto_target(tlc)
+    # Check for cross-type program switch (server-level) and then auto-target if enabled
+    tlc = Tlc.Server.SwitchController.maybe_switch_to_target_program(tlc)
+    tlc = maybe_set_auto_target(tlc)
 
-      # Apply any pending stage request after the tick has been processed so
-      # that the requested stage is visible in the post-tick state and not
-      # immediately consumed in the same tick.
-      tlc = apply_pending_stage_request(tlc)
+    # Apply any pending stage request after the tick has been processed so
+    # that the requested stage is visible in the post-tick state and not
+    # immediately consumed in the same tick.
+    tlc = apply_pending_stage_request(tlc)
 
     # Cancel any outstanding timer (defensive) and schedule next tick
     if tlc.timer_ref, do: Process.cancel_timer(tlc.timer_ref)
@@ -811,10 +879,11 @@ defmodule Tlc.Server do
   # Scheduling moved to Tlc.Server.TickScheduler
 
   defp broadcast_update(tlc) do
-    session_id = case Registry.keys(Tlc.ServerRegistry, self()) do
-      ["tlc_server:" <> id] -> id
-      _ -> "default"
-    end
+    session_id =
+      case Registry.keys(Tlc.ServerRegistry, self()) do
+        ["tlc_server:" <> id] -> id
+        _ -> "default"
+      end
 
     Phoenix.PubSub.broadcast(
       TlcElixir.PubSub,
@@ -873,17 +942,20 @@ defmodule Tlc.Server do
 
   defp do_maybe_set_auto_target(tlc) do
     # Don't auto-select when in fault mode or when current program is fault
-    current_name = case tlc.logic.program do
-      %{} = p -> p.name
-      _ -> nil
-    end
+    current_name =
+      case tlc.logic.program do
+        %{} = p -> p.name
+        _ -> nil
+      end
 
     # Do not set an auto-target if current program is fault
     if current_name == "fault" do
       tlc
     else
       case choose_random_program(tlc, current_name) do
-        nil -> tlc
+        nil ->
+          tlc
+
         program ->
           updated = Tlc.Server.SwitchController.switch_program(tlc, program.name)
           # Mark target origin as auto when we set the server-level target
@@ -895,11 +967,13 @@ defmodule Tlc.Server do
     end
   end
 
-
-
   defp choose_random_program(%__MODULE__{programs: programs} = _tlc, current_name) do
     # Build a list of eligible programs: exclude 'fault', 'halt' and the current program
-    candidates = Enum.filter(programs, fn prog -> prog.name != "fault" and prog.name != "halt" and prog.name != current_name end)
+    candidates =
+      Enum.filter(programs, fn prog ->
+        prog.name != "fault" and prog.name != "halt" and prog.name != current_name
+      end)
+
     case candidates do
       [] -> nil
       _ -> Enum.random(candidates)

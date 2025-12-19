@@ -50,12 +50,13 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         switch: 5
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(0)
-              |> FixedTimeLogic.tick(1)
-              |> FixedTimeLogic.tick(2)
-              |> FixedTimeLogic.tick(3)
-              |> FixedTimeLogic.tick(4)
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.tick(0)
+        |> FixedTimeLogic.tick(1)
+        |> FixedTimeLogic.tick(2)
+        |> FixedTimeLogic.tick(3)
+        |> FixedTimeLogic.tick(4)
 
       refute FixedTimeLogic.at_switch_point?(logic)
 
@@ -75,8 +76,9 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         switch: 0
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(0)
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.tick(0)
 
       assert FixedTimeLogic.at_switch_point?(logic)
     end
@@ -90,8 +92,9 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         switch: nil
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(0)
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.tick(0)
 
       refute FixedTimeLogic.at_switch_point?(logic)
     end
@@ -115,9 +118,10 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         switch: 0
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(1)
-              |> FixedTimeLogic.set_target_program(target)
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.tick(1)
+        |> FixedTimeLogic.set_target_program(target)
 
       assert logic.target_program == target
       assert logic.mode == :run
@@ -140,9 +144,10 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         switch: 0
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(1)
-              |> FixedTimeLogic.halt()
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.tick(1)
+        |> FixedTimeLogic.halt()
 
       assert logic.mode == :halt
 
@@ -170,9 +175,10 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         switch: 0
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(1)
-              |> FixedTimeLogic.set_target_program(target)
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.tick(1)
+        |> FixedTimeLogic.set_target_program(target)
 
       assert logic.target_program == target
 
@@ -202,11 +208,12 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
       }
 
       # Start at cycle 1, set target, then tick to switch point 0
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(1)
-              |> FixedTimeLogic.tick(2)
-              |> FixedTimeLogic.tick(3)
-              |> FixedTimeLogic.set_target_program(target)
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.tick(1)
+        |> FixedTimeLogic.tick(2)
+        |> FixedTimeLogic.tick(3)
+        |> FixedTimeLogic.set_target_program(target)
 
       assert logic.program.name == "current"
       assert logic.target_program.name == "target"
@@ -235,10 +242,13 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         switch: 0
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(0)  # At switch point, but no target yet
-              |> FixedTimeLogic.set_target_program(target)
-              |> FixedTimeLogic.tick(1)  # Not at switch point
+      logic =
+        FixedTimeLogic.new(program)
+        # At switch point, but no target yet
+        |> FixedTimeLogic.tick(0)
+        |> FixedTimeLogic.set_target_program(target)
+        # Not at switch point
+        |> FixedTimeLogic.tick(1)
 
       assert logic.program.name == "current"
       assert logic.target_program.name == "target"
@@ -253,9 +263,12 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         switch: 0
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(3)  # Tick to cycle before switch point
-              |> FixedTimeLogic.tick(4)  # At switch point (wraps to 0)
+      logic =
+        FixedTimeLogic.new(program)
+        # Tick to cycle before switch point
+        |> FixedTimeLogic.tick(3)
+        # At switch point (wraps to 0)
+        |> FixedTimeLogic.tick(4)
 
       assert logic.program.name == "current"
       assert logic.target_program == nil
@@ -282,17 +295,24 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         switch: 0
       }
 
-      ticker = Ticker.new(FixedTimeLogic.new(program1))
-               |> Ticker.tick()  # tick 0
+      ticker =
+        Ticker.new(FixedTimeLogic.new(program1))
+        # tick 0
+        |> Ticker.tick()
 
       assert ticker.logic.cycle_time == 0
       assert ticker.logic.current_states == "G"
 
-      ticker = %{ticker | logic: FixedTimeLogic.set_target_program(ticker.logic, program2)}
-               |> Ticker.tick()  # tick 1
-               |> Ticker.tick()  # tick 2
-               |> Ticker.tick()  # tick 3
-               |> Ticker.tick()  # tick 4 - wraps to 0, triggers switch
+      ticker =
+        %{ticker | logic: FixedTimeLogic.set_target_program(ticker.logic, program2)}
+        # tick 1
+        |> Ticker.tick()
+        # tick 2
+        |> Ticker.tick()
+        # tick 3
+        |> Ticker.tick()
+        # tick 4 - wraps to 0, triggers switch
+        |> Ticker.tick()
 
       assert ticker.logic.program.name == "program2"
       assert ticker.logic.cycle_time == 0
@@ -315,19 +335,23 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         offset: 0,
         groups: ["a"],
         states: %{0 => "Y", 2 => "R"},
-        switch: 2  # Different switch point
+        # Different switch point
+        switch: 2
       }
 
-      logic = FixedTimeLogic.new(program1)
-              |> FixedTimeLogic.tick(0)
+      logic =
+        FixedTimeLogic.new(program1)
+        |> FixedTimeLogic.tick(0)
 
       assert logic.cycle_time == 0
 
-      logic = FixedTimeLogic.set_target_program(logic, program2)
-              |> FixedTimeLogic.tick(1)
-              |> FixedTimeLogic.tick(2)
-              |> FixedTimeLogic.tick(3)
-              |> FixedTimeLogic.tick(4)  # At switch point 0, triggers switch
+      logic =
+        FixedTimeLogic.set_target_program(logic, program2)
+        |> FixedTimeLogic.tick(1)
+        |> FixedTimeLogic.tick(2)
+        |> FixedTimeLogic.tick(3)
+        # At switch point 0, triggers switch
+        |> FixedTimeLogic.tick(4)
 
       # After switch, cycle_time should jump to target's switch point
       assert logic.program.name == "program2"
@@ -349,16 +373,19 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
       program2 = %FixedTimeProgram{
         name: "program2",
         length: 4,
-        offset: 2,  # Different offset
+        # Different offset
+        offset: 2,
         groups: ["a"],
         states: %{0 => "Y", 2 => "R"},
         waits: %{0 => 4},
         switch: 0
       }
 
-      logic = FixedTimeLogic.new(program1)
-              |> FixedTimeLogic.set_target_program(program2)
-              |> FixedTimeLogic.tick(0)  # Immediate switch at cycle 0
+      logic =
+        FixedTimeLogic.new(program1)
+        |> FixedTimeLogic.set_target_program(program2)
+        # Immediate switch at cycle 0
+        |> FixedTimeLogic.tick(0)
 
       assert logic.program.name == "program2"
       assert logic.target_offset == 2
@@ -385,10 +412,11 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         switch: 0
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(0)
-              |> FixedTimeLogic.set_target_offset(2)
-              |> FixedTimeLogic.halt()
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.tick(0)
+        |> FixedTimeLogic.set_target_offset(2)
+        |> FixedTimeLogic.halt()
 
       assert logic.mode == :halt
       assert logic.target_program == nil
@@ -407,15 +435,17 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         switch: 0
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(1)
-              |> FixedTimeLogic.halt()
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.tick(1)
+        |> FixedTimeLogic.halt()
 
       initial_states = logic.current_states
 
-      logic = FixedTimeLogic.tick(logic, 2)
-              |> FixedTimeLogic.tick(3)
-              |> FixedTimeLogic.tick(4)
+      logic =
+        FixedTimeLogic.tick(logic, 2)
+        |> FixedTimeLogic.tick(3)
+        |> FixedTimeLogic.tick(4)
 
       # State should not change when halted
       assert logic.mode == :halt
@@ -435,9 +465,10 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         halt: 2
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(0)
-              |> FixedTimeLogic.tick(1)
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.tick(0)
+        |> FixedTimeLogic.tick(1)
 
       assert logic.mode == :run
 
@@ -456,12 +487,13 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         halt: nil
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(0)
-              |> FixedTimeLogic.tick(1)
-              |> FixedTimeLogic.tick(2)
-              |> FixedTimeLogic.tick(3)
-              |> FixedTimeLogic.tick(4)
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.tick(0)
+        |> FixedTimeLogic.tick(1)
+        |> FixedTimeLogic.tick(2)
+        |> FixedTimeLogic.tick(3)
+        |> FixedTimeLogic.tick(4)
 
       assert logic.mode == :run
     end
@@ -485,9 +517,10 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         switch: 0
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(1)
-              |> FixedTimeLogic.fault(fault_program)
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.tick(1)
+        |> FixedTimeLogic.fault(fault_program)
 
       assert logic.mode == :fault
       assert logic.program.name == "fault"
@@ -521,9 +554,10 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         switch: 0
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(1)
-              |> FixedTimeLogic.fault(fault_program)
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.tick(1)
+        |> FixedTimeLogic.fault(fault_program)
 
       assert logic.mode == :fault
 
@@ -550,10 +584,13 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
 
     test "returns false when in transition" do
       program = StageBasedProgram.example()
-      logic = StageBasedLogic.new(program)
-              |> StageBasedLogic.tick(1000)
-              |> StageBasedLogic.request_stage("side")
-              |> StageBasedLogic.tick(1001)  # Start transition
+
+      logic =
+        StageBasedLogic.new(program)
+        |> StageBasedLogic.tick(1000)
+        |> StageBasedLogic.request_stage("side")
+        # Start transition
+        |> StageBasedLogic.tick(1001)
 
       assert StageBasedLogic.in_transition?(logic)
       refute StageBasedLogic.at_switch_point?(logic)
@@ -561,11 +598,15 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
 
     test "returns false when not in a leave stage" do
       program = StageBasedProgram.example()
-      logic = StageBasedLogic.new(program)
-              |> StageBasedLogic.tick(1000)
-              |> StageBasedLogic.request_stage("side")
-              |> StageBasedLogic.tick(1001)  # Start transition
-              |> StageBasedLogic.tick(1006)  # Complete transition
+
+      logic =
+        StageBasedLogic.new(program)
+        |> StageBasedLogic.tick(1000)
+        |> StageBasedLogic.request_stage("side")
+        # Start transition
+        |> StageBasedLogic.tick(1001)
+        # Complete transition
+        |> StageBasedLogic.tick(1006)
 
       # Now in "side" stage which is not a leave stage in the example
       assert logic.current_stage == "side"
@@ -573,20 +614,22 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
     end
 
     test "returns true for any stage when no leave stages defined" do
-      stages = Stages.from_config(%{
-        name: "test",
-        groups: ["a"],
-        stages: %{
-          main: %{open: ["a"], duration: %{default: 10}}
-        },
-        transitions: %{}
-      })
+      stages =
+        Stages.from_config(%{
+          name: "test",
+          groups: ["a"],
+          stages: %{
+            main: %{open: ["a"], duration: %{default: 10}}
+          },
+          transitions: %{}
+        })
 
       program = %StageBasedProgram{
         name: "test",
         stages_ref: stages,
         enter: ["main"],
-        leave: [],  # No leave stages defined
+        # No leave stages defined
+        leave: [],
         flows: %{}
       }
 
@@ -610,19 +653,21 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
     end
 
     test "falls back to first available stage when no enter stages" do
-      stages = Stages.from_config(%{
-        name: "test",
-        groups: ["a"],
-        stages: %{
-          only_stage: %{open: ["a"], duration: %{default: 10}}
-        },
-        transitions: %{}
-      })
+      stages =
+        Stages.from_config(%{
+          name: "test",
+          groups: ["a"],
+          stages: %{
+            only_stage: %{open: ["a"], duration: %{default: 10}}
+          },
+          transitions: %{}
+        })
 
       program = %StageBasedProgram{
         name: "test",
         stages_ref: stages,
-        enter: [],  # No enter stages
+        # No enter stages
+        enter: [],
         leave: [],
         flows: %{}
       }
@@ -636,18 +681,19 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
   describe "Stage-based: start_at_matching_enter_stage/2" do
     test "finds enter stage matching given state" do
       # Create a program with multiple enter stages with different states
-      stages = Stages.from_config(%{
-        name: "test",
-        groups: ["a", "b"],
-        stages: %{
-          main: %{open: ["a"], duration: %{default: 10}},
-          side: %{open: ["b"], duration: %{default: 10}}
-        },
-        transitions: %{
-          main: %{side: ["RR", 2]},
-          side: %{main: ["RR", 2]}
-        }
-      })
+      stages =
+        Stages.from_config(%{
+          name: "test",
+          groups: ["a", "b"],
+          stages: %{
+            main: %{open: ["a"], duration: %{default: 10}},
+            side: %{open: ["b"], duration: %{default: 10}}
+          },
+          transitions: %{
+            main: %{side: ["RR", 2]},
+            side: %{main: ["RR", 2]}
+          }
+        })
 
       program = %StageBasedProgram{
         name: "test",
@@ -696,18 +742,19 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
     end
 
     test "starts transition when not at enter stage but transition exists" do
-      stages = Stages.from_config(%{
-        name: "test",
-        groups: ["a", "b"],
-        stages: %{
-          main: %{open: ["a"], duration: %{default: 10}},
-          side: %{open: ["b"], duration: %{default: 10}}
-        },
-        transitions: %{
-          main: %{side: ["RR", 2]},
-          side: %{main: ["RR", 2]}
-        }
-      })
+      stages =
+        Stages.from_config(%{
+          name: "test",
+          groups: ["a", "b"],
+          stages: %{
+            main: %{open: ["a"], duration: %{default: 10}},
+            side: %{open: ["b"], duration: %{default: 10}}
+          },
+          transitions: %{
+            main: %{side: ["RR", 2]},
+            side: %{main: ["RR", 2]}
+          }
+        })
 
       old_program = %StageBasedProgram{
         name: "old",
@@ -723,7 +770,8 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
       new_program = %StageBasedProgram{
         name: "new",
         stages_ref: stages,
-        enter: ["main"],  # Different enter stage
+        # Different enter stage
+        enter: ["main"],
         leave: ["main"],
         flows: %{
           "main" => [%Flow{to: "side"}],
@@ -752,10 +800,11 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
     test "sets mode to halt and clears requested stage" do
       program = StageBasedProgram.example()
 
-      logic = StageBasedLogic.new(program)
-              |> StageBasedLogic.tick(1000)
-              |> StageBasedLogic.request_stage("side")
-              |> StageBasedLogic.halt()
+      logic =
+        StageBasedLogic.new(program)
+        |> StageBasedLogic.tick(1000)
+        |> StageBasedLogic.request_stage("side")
+        |> StageBasedLogic.halt()
 
       assert logic.mode == :halt
       assert logic.requested_stage == nil
@@ -764,16 +813,18 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
     test "halted stage-based logic does not advance" do
       program = StageBasedProgram.example()
 
-      logic = StageBasedLogic.new(program)
-              |> StageBasedLogic.tick(1000)
-              |> StageBasedLogic.halt()
+      logic =
+        StageBasedLogic.new(program)
+        |> StageBasedLogic.tick(1000)
+        |> StageBasedLogic.halt()
 
       initial_elapsed = logic.stage_elapsed
 
-      logic = logic
-              |> StageBasedLogic.tick(1001)
-              |> StageBasedLogic.tick(1002)
-              |> StageBasedLogic.tick(1003)
+      logic =
+        logic
+        |> StageBasedLogic.tick(1001)
+        |> StageBasedLogic.tick(1002)
+        |> StageBasedLogic.tick(1003)
 
       assert logic.mode == :halt
       assert logic.stage_elapsed == initial_elapsed
@@ -782,11 +833,12 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
 
   describe "Stage-based: resume/1" do
     test "resumes from halted state" do
-      logic = StageBasedProgram.example()
-              |> StageBasedLogic.new()
-              |> StageBasedLogic.tick(1000)
-              |> StageBasedLogic.halt()
-              |> StageBasedLogic.resume()
+      logic =
+        StageBasedProgram.example()
+        |> StageBasedLogic.new()
+        |> StageBasedLogic.tick(1000)
+        |> StageBasedLogic.halt()
+        |> StageBasedLogic.resume()
 
       assert logic.mode == :run
     end
@@ -794,11 +846,12 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
     test "resumed logic continues advancing" do
       program = StageBasedProgram.example()
 
-      logic = StageBasedLogic.new(program)
-              |> StageBasedLogic.tick(1000)
-              |> StageBasedLogic.halt()
-              |> StageBasedLogic.resume()
-              |> StageBasedLogic.tick(1001)
+      logic =
+        StageBasedLogic.new(program)
+        |> StageBasedLogic.tick(1000)
+        |> StageBasedLogic.halt()
+        |> StageBasedLogic.resume()
+        |> StageBasedLogic.tick(1001)
 
       assert logic.stage_elapsed == 1
     end
@@ -807,11 +860,18 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
   describe "Stage-based: fault/2" do
     test "puts logic in fault mode" do
       program = StageBasedProgram.example()
-      fault_program = %FixedTimeProgram{name: "fault", length: 1, groups: ["a"], states: %{0 => "R"}}
 
-      logic = StageBasedLogic.new(program)
-              |> StageBasedLogic.tick(1000)
-              |> StageBasedLogic.fault(fault_program)
+      fault_program = %FixedTimeProgram{
+        name: "fault",
+        length: 1,
+        groups: ["a"],
+        states: %{0 => "R"}
+      }
+
+      logic =
+        StageBasedLogic.new(program)
+        |> StageBasedLogic.tick(1000)
+        |> StageBasedLogic.fault(fault_program)
 
       assert logic.mode == :fault
       assert logic.requested_stage == nil
@@ -820,12 +880,20 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
 
     test "fault during transition clears transition state" do
       program = StageBasedProgram.example()
-      fault_program = %FixedTimeProgram{name: "fault", length: 1, groups: ["a"], states: %{0 => "R"}}
 
-      logic = StageBasedLogic.new(program)
-              |> StageBasedLogic.tick(1000)
-              |> StageBasedLogic.request_stage("side")
-              |> StageBasedLogic.tick(1001)  # Start transition
+      fault_program = %FixedTimeProgram{
+        name: "fault",
+        length: 1,
+        groups: ["a"],
+        states: %{0 => "R"}
+      }
+
+      logic =
+        StageBasedLogic.new(program)
+        |> StageBasedLogic.tick(1000)
+        |> StageBasedLogic.request_stage("side")
+        # Start transition
+        |> StageBasedLogic.tick(1001)
 
       assert StageBasedLogic.in_transition?(logic)
 
@@ -854,17 +922,19 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
       stage_program = StageBasedProgram.example()
 
       # Start fixed-time at switch point
-      fixed_logic = FixedTimeLogic.new(fixed_program)
-                    |> FixedTimeLogic.tick(0)
+      fixed_logic =
+        FixedTimeLogic.new(fixed_program)
+        |> FixedTimeLogic.tick(0)
 
       assert FixedTimeLogic.at_switch_point?(fixed_logic)
       assert fixed_logic.current_states == "GGRRR"
 
       # Stage-based "main" stage has state "GGRRR" - they match!
-      stage_logic = StageBasedLogic.start_at_matching_enter_stage(
-        stage_program,
-        fixed_logic.current_states
-      )
+      stage_logic =
+        StageBasedLogic.start_at_matching_enter_stage(
+          stage_program,
+          fixed_logic.current_states
+        )
 
       assert stage_logic.current_stage == "main"
       assert stage_logic.current_states == "GGRRR"
@@ -875,19 +945,22 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         name: "fixed",
         length: 10,
         groups: ["a1", "a2", "b1", "b2", "a1_l"],
-        states: %{0 => "XXXXX"},  # State that doesn't match any enter stage
+        # State that doesn't match any enter stage
+        states: %{0 => "XXXXX"},
         switch: 0
       }
 
       stage_program = StageBasedProgram.example()
 
-      fixed_logic = FixedTimeLogic.new(fixed_program)
-                    |> FixedTimeLogic.tick(0)
+      fixed_logic =
+        FixedTimeLogic.new(fixed_program)
+        |> FixedTimeLogic.tick(0)
 
-      stage_logic = StageBasedLogic.start_at_matching_enter_stage(
-        stage_program,
-        fixed_logic.current_states
-      )
+      stage_logic =
+        StageBasedLogic.start_at_matching_enter_stage(
+          stage_program,
+          fixed_logic.current_states
+        )
 
       # Should fall back to first enter stage
       assert stage_logic.current_stage == "main"
@@ -931,12 +1004,14 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         offset: 0,
         groups: ["a"],
         states: %{0 => "G", 2 => "Y", 3 => "R", 6 => "A", 7 => "G"},
-        skips: %{1 => 3}  # Skip 3 seconds at cycle time 1
+        # Skip 3 seconds at cycle time 1
+        skips: %{1 => 3}
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.set_target_offset(2)
-              |> FixedTimeLogic.tick(0)
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.set_target_offset(2)
+        |> FixedTimeLogic.tick(0)
 
       # Target distance should be positive (skip forward)
       assert logic.target_distance > 0
@@ -961,9 +1036,10 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
       }
 
       # Set target offset so distance is negative
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.set_target_offset(7)
-              |> FixedTimeLogic.tick(0)
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.set_target_offset(7)
+        |> FixedTimeLogic.tick(0)
 
       # Target distance should be negative (need to wait, not skip)
       assert logic.target_distance < 0
@@ -988,21 +1064,24 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         offset: 0,
         groups: ["a"],
         states: %{0 => "G", 2 => "Y", 3 => "R", 6 => "A", 7 => "G"},
-        waits: %{3 => 4}  # Wait up to 4 seconds at cycle time 3
+        # Wait up to 4 seconds at cycle time 3
+        waits: %{3 => 4}
       }
 
       # Set target so we need to wait
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.set_target_offset(6)
-              |> FixedTimeLogic.tick(0)
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.set_target_offset(6)
+        |> FixedTimeLogic.tick(0)
 
       assert logic.target_distance < 0
 
       # Tick to wait point
-      logic = logic
-              |> FixedTimeLogic.tick(1)
-              |> FixedTimeLogic.tick(2)
-              |> FixedTimeLogic.tick(3)
+      logic =
+        logic
+        |> FixedTimeLogic.tick(1)
+        |> FixedTimeLogic.tick(2)
+        |> FixedTimeLogic.tick(3)
 
       # Should be at wait point
       assert logic.cycle_time == 3
@@ -1037,8 +1116,9 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         switch: 0
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(0)
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.tick(0)
 
       safety = Tlc.Safety.new()
 
@@ -1057,7 +1137,8 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         name: "test",
         length: 4,
         groups: ["a"],
-        states: %{0 => "G", 1 => "R"},  # Invalid: G->R should be G->Y->R
+        # Invalid: G->R should be G->Y->R
+        states: %{0 => "G", 1 => "R"},
         switch: 0
       }
 
@@ -1069,8 +1150,9 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         switch: 0
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(0)
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.tick(0)
 
       safety = Tlc.Safety.new()
 
@@ -1078,9 +1160,11 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
       assert logic.mode != :fault
 
       logic = FixedTimeLogic.tick(logic, 1)
+
       case Tlc.Safety.check_transitions(safety, logic, fault_program) do
         {:ok, _safety, _logic} ->
           flunk("expected a fault for invalid transition")
+
         {:fault, updated_safety, _reason} ->
           # simulate server switching into fault program
           logic = FixedTimeLogic.fault(logic, fault_program)
@@ -1106,9 +1190,10 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         switch: 0
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(0)
-              |> FixedTimeLogic.fault(fault_program)
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.tick(0)
+        |> FixedTimeLogic.fault(fault_program)
 
       safety = Tlc.Safety.new()
 
@@ -1117,6 +1202,7 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         {:ok, safety, logic} ->
           assert logic.mode == :fault
           assert safety.previous_state == "R"
+
         {:fault, _safety, _reason} ->
           flunk("unexpected fault return while already in fault mode")
       end
@@ -1139,8 +1225,9 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         switch: 0
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(0)
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.tick(0)
 
       safety = Tlc.Safety.new()
       assert safety.previous_state == nil
@@ -1196,8 +1283,11 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
 
       logic = FixedTimeLogic.set_target_program(logic, target_program)
       ticker = %{ticker | logic: logic} |> Ticker.tick_n(current_program.length)
+
       case Tlc.Safety.check_transitions(safety, ticker.logic, fault_program) do
-        {:ok, _safety, _logic} -> flunk("expected safety to flag fault for invalid switch")
+        {:ok, _safety, _logic} ->
+          flunk("expected safety to flag fault for invalid switch")
+
         {:fault, _updated_safety, _reason} ->
           # server would switch to fault program; simulate switching here
           logic = FixedTimeLogic.fault(ticker.logic, fault_program)
@@ -1280,14 +1370,17 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
       }
 
       # Start with program1
-      ticker = Ticker.new(FixedTimeLogic.new(program1))
-               |> Ticker.tick()
+      ticker =
+        Ticker.new(FixedTimeLogic.new(program1))
+        |> Ticker.tick()
 
       assert ticker.logic.program.name == "program1"
 
       # Set target to program2
-      ticker = %{ticker | logic: FixedTimeLogic.set_target_program(ticker.logic, program2)}
-               |> Ticker.tick_n(3)  # Tick until switch point
+      ticker =
+        %{ticker | logic: FixedTimeLogic.set_target_program(ticker.logic, program2)}
+        # Tick until switch point
+        |> Ticker.tick_n(3)
 
       # Now switch should happen at cycle 0
       ticker = Ticker.tick(ticker)
@@ -1295,8 +1388,10 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
       assert ticker.logic.program.name == "program2"
 
       # Set target to program3
-      ticker = %{ticker | logic: FixedTimeLogic.set_target_program(ticker.logic, program3)}
-               |> Ticker.tick_n(7)  # Tick until switch point
+      ticker =
+        %{ticker | logic: FixedTimeLogic.set_target_program(ticker.logic, program3)}
+        # Tick until switch point
+        |> Ticker.tick_n(7)
 
       ticker = Ticker.tick(ticker)
 
@@ -1320,15 +1415,17 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         switch: 0
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(0)
-              |> FixedTimeLogic.halt()
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.tick(0)
+        |> FixedTimeLogic.halt()
 
       # Halt clears target program, so set it after
       # But when halted, set_target_program should start running
       logic = FixedTimeLogic.set_target_program(logic, target)
 
-      assert logic.mode == :run  # set_target_program starts running
+      # set_target_program starts running
+      assert logic.mode == :run
       assert logic.target_program == target
     end
 
@@ -1357,9 +1454,10 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         switch: 0
       }
 
-      logic = FixedTimeLogic.new(program)
-              |> FixedTimeLogic.tick(0)
-              |> FixedTimeLogic.set_target_program(target)
+      logic =
+        FixedTimeLogic.new(program)
+        |> FixedTimeLogic.tick(0)
+        |> FixedTimeLogic.set_target_program(target)
 
       assert logic.target_program == target
 
@@ -1374,18 +1472,19 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
   describe "Integration: stage-based cycle with auto-transitions" do
     test "program cycles through stages automatically" do
       # Create simple program with short durations
-      stages = Stages.from_config(%{
-        name: "test",
-        groups: ["a", "b"],
-        stages: %{
-          main: %{open: ["a"], duration: %{default: 3}},
-          side: %{open: ["b"], duration: %{default: 3}}
-        },
-        transitions: %{
-          main: %{side: ["RR", 1]},
-          side: %{main: ["RR", 1]}
-        }
-      })
+      stages =
+        Stages.from_config(%{
+          name: "test",
+          groups: ["a", "b"],
+          stages: %{
+            main: %{open: ["a"], duration: %{default: 3}},
+            side: %{open: ["b"], duration: %{default: 3}}
+          },
+          transitions: %{
+            main: %{side: ["RR", 1]},
+            side: %{main: ["RR", 1]}
+          }
+        })
 
       program = %StageBasedProgram{
         name: "auto_cycle",
@@ -1398,31 +1497,37 @@ defmodule Tlc.Logic.ProgramSwitchingTest do
         }
       }
 
-      logic = StageBasedLogic.new(program)
-              |> StageBasedLogic.tick(1000)
+      logic =
+        StageBasedLogic.new(program)
+        |> StageBasedLogic.tick(1000)
 
       assert logic.current_stage == "main"
 
       # Tick until auto-transition triggers
-      logic = logic
-              |> StageBasedLogic.tick(1001)
-              |> StageBasedLogic.tick(1002)
-              |> StageBasedLogic.tick(1003)  # Duration expires, requests side
+      logic =
+        logic
+        |> StageBasedLogic.tick(1001)
+        |> StageBasedLogic.tick(1002)
+        # Duration expires, requests side
+        |> StageBasedLogic.tick(1003)
 
       assert logic.requested_stage == "side"
 
       # Complete transition
-      logic = StageBasedLogic.tick(logic, 1004)  # Start transition
+      # Start transition
+      logic = StageBasedLogic.tick(logic, 1004)
       assert StageBasedLogic.in_transition?(logic)
 
-      logic = StageBasedLogic.tick(logic, 1005)  # Complete transition
+      # Complete transition
+      logic = StageBasedLogic.tick(logic, 1005)
       assert logic.current_stage == "side"
 
       # Wait for side to expire
-      logic = logic
-              |> StageBasedLogic.tick(1006)
-              |> StageBasedLogic.tick(1007)
-              |> StageBasedLogic.tick(1008)
+      logic =
+        logic
+        |> StageBasedLogic.tick(1006)
+        |> StageBasedLogic.tick(1007)
+        |> StageBasedLogic.tick(1008)
 
       assert logic.requested_stage == "main"
     end

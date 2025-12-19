@@ -13,7 +13,8 @@ defmodule Tlc.Program.StageBasedTest do
       assert is_struct(program.stages_ref, Stages)
       assert program.stages_ref.groups == ["a1", "a2", "b1", "b2", "a1_l"]
       assert "main" in program.enter
-      assert "main" in program.leave  # Leave is "main" to match fixed-time switch point state
+      # Leave is "main" to match fixed-time switch point state
+      assert "main" in program.leave
       assert Map.has_key?(program.flows, "main")
       assert Map.has_key?(program.flows, "side")
     end
@@ -26,28 +27,29 @@ defmodule Tlc.Program.StageBasedTest do
 
   describe "from_config/2" do
     test "parses a simple configuration" do
-      stages = Stages.from_config(%{
-        name: "test_stages",
-        groups: ["a1", "a2", "b1"],
-        stages: %{
-          main: %{
-            open: ["a1", "a2"],
-            duration: %{default: 20, max: 30}
+      stages =
+        Stages.from_config(%{
+          name: "test_stages",
+          groups: ["a1", "a2", "b1"],
+          stages: %{
+            main: %{
+              open: ["a1", "a2"],
+              duration: %{default: 20, max: 30}
+            },
+            side: %{
+              open: ["b1"],
+              duration: %{default: 15, min: 10}
+            }
           },
-          side: %{
-            open: ["b1"],
-            duration: %{default: 15, min: 10}
+          transitions: %{
+            main: %{
+              side: ["110", 3, "002", 2]
+            },
+            side: %{
+              main: ["001", 3, "220", 2]
+            }
           }
-        },
-        transitions: %{
-          main: %{
-            side: ["110", 3, "002", 2]
-          },
-          side: %{
-            main: ["001", 3, "220", 2]
-          }
-        }
-      })
+        })
 
       program_config = %{
         name: "normal",
@@ -67,12 +69,16 @@ defmodule Tlc.Program.StageBasedTest do
     end
 
     test "parses flows with multiple transition variants for same destination" do
-      stages = Stages.from_config(%{
-        name: "var_stages",
-        groups: ["a"],
-        stages: %{a: %{open: ["a"], duration: %{default: 3}}, b: %{open: ["a"], duration: %{default: 3}}},
-        transitions: %{a: %{b: %{default: ["G", 1], quick: ["G", 2]}}}
-      })
+      stages =
+        Stages.from_config(%{
+          name: "var_stages",
+          groups: ["a"],
+          stages: %{
+            a: %{open: ["a"], duration: %{default: 3}},
+            b: %{open: ["a"], duration: %{default: 3}}
+          },
+          transitions: %{a: %{b: %{default: ["G", 1], quick: ["G", 2]}}}
+        })
 
       config = %{
         name: "multi_variant_program",
@@ -88,12 +94,17 @@ defmodule Tlc.Program.StageBasedTest do
     end
 
     test "parses flows when destinations are given as a list" do
-      stages = Stages.from_config(%{
-        name: "list_dest_stages",
-        groups: ["a"],
-        stages: %{main: %{open: ["a"], duration: %{default: 3}}, side: %{open: ["a"], duration: %{default: 3}}, turn: %{open: ["a"], duration: %{default: 3}}},
-        transitions: %{main: %{side: ["G", 1], turn: ["G", 1]}}
-      })
+      stages =
+        Stages.from_config(%{
+          name: "list_dest_stages",
+          groups: ["a"],
+          stages: %{
+            main: %{open: ["a"], duration: %{default: 3}},
+            side: %{open: ["a"], duration: %{default: 3}},
+            turn: %{open: ["a"], duration: %{default: 3}}
+          },
+          transitions: %{main: %{side: ["G", 1], turn: ["G", 1]}}
+        })
 
       config = %{
         name: "list_dest_program",
@@ -156,11 +167,14 @@ defmodule Tlc.Program.StageBasedTest do
 
     test "rejects missing stages_ref" do
       program = %StageBased{StageBased.example() | stages_ref: nil}
-      assert {:error, "stages_ref must be a Tlc.Program.Stages struct"} = StageBased.validate(program)
+
+      assert {:error, "stages_ref must be a Tlc.Program.Stages struct"} =
+               StageBased.validate(program)
     end
 
     test "rejects program referencing undefined stage in enter" do
       stages = Stages.example()
+
       program = %StageBased{
         name: "bad_program",
         stages_ref: stages,
@@ -169,11 +183,13 @@ defmodule Tlc.Program.StageBasedTest do
         flows: %{}
       }
 
-      assert {:error, "Program references undefined stages in enter"} = StageBased.validate(program)
+      assert {:error, "Program references undefined stages in enter"} =
+               StageBased.validate(program)
     end
 
     test "rejects program with flow referencing undefined stage" do
       stages = Stages.example()
+
       program = %StageBased{
         name: "bad_program",
         stages_ref: stages,
@@ -189,19 +205,20 @@ defmodule Tlc.Program.StageBasedTest do
 
     test "rejects program when a flow references a missing transition" do
       # stages contain main and side but no transition defined from side->both
-      stages = Stages.from_config(%{
-        name: "test_transitions",
-        groups: ["a1", "a2", "b1"],
-        stages: %{
-          main: %{open: ["a1"], duration: %{default: 5}},
-          side: %{open: ["b1"], duration: %{default: 5}},
-          both: %{open: ["a1"], duration: %{default: 5}}
-        },
-        transitions: %{
-          main: %{side: ["10", 2]}
-          # Note: no transition from side -> both
-        }
-      })
+      stages =
+        Stages.from_config(%{
+          name: "test_transitions",
+          groups: ["a1", "a2", "b1"],
+          stages: %{
+            main: %{open: ["a1"], duration: %{default: 5}},
+            side: %{open: ["b1"], duration: %{default: 5}},
+            both: %{open: ["a1"], duration: %{default: 5}}
+          },
+          transitions: %{
+            main: %{side: ["10", 2]}
+            # Note: no transition from side -> both
+          }
+        })
 
       program = %StageBased{
         name: "missing_transition",
@@ -219,17 +236,19 @@ defmodule Tlc.Program.StageBasedTest do
     end
 
     test "rejects program when a flow mentions a non-existent variant" do
-      stages = Stages.from_config(%{
-        name: "variants",
-        groups: ["a"],
-        stages: %{
-          a: %{open: ["a"], duration: %{default: 3}},
-          b: %{open: ["a"], duration: %{default: 3}}
-        },
-        transitions: %{
-          a: %{b: ["G", 1]}  # default only
-        }
-      })
+      stages =
+        Stages.from_config(%{
+          name: "variants",
+          groups: ["a"],
+          stages: %{
+            a: %{open: ["a"], duration: %{default: 3}},
+            b: %{open: ["a"], duration: %{default: 3}}
+          },
+          transitions: %{
+            # default only
+            a: %{b: ["G", 1]}
+          }
+        })
 
       program = %StageBased{
         name: "variant_missing",
@@ -247,17 +266,19 @@ defmodule Tlc.Program.StageBasedTest do
     end
 
     test "accepts program when flow omits transition and default exists" do
-      stages = Stages.from_config(%{
-        name: "variant_default",
-        groups: ["a"],
-        stages: %{
-          a: %{open: ["a"], duration: %{default: 3}},
-          b: %{open: ["a"], duration: %{default: 3}}
-        },
-        transitions: %{
-          a: %{b: ["G", 1]}  # default defined
-        }
-      })
+      stages =
+        Stages.from_config(%{
+          name: "variant_default",
+          groups: ["a"],
+          stages: %{
+            a: %{open: ["a"], duration: %{default: 3}},
+            b: %{open: ["a"], duration: %{default: 3}}
+          },
+          transitions: %{
+            # default defined
+            a: %{b: ["G", 1]}
+          }
+        })
 
       program = %StageBased{
         name: "variant_default_ok",
@@ -274,18 +295,19 @@ defmodule Tlc.Program.StageBasedTest do
     end
 
     test "accepts program when transitions exist for all flows" do
-      stages = Stages.from_config(%{
-        name: "test_transitions_ok",
-        groups: ["a1", "a2", "b1"],
-        stages: %{
-          main: %{open: ["a1"], duration: %{default: 5}},
-          side: %{open: ["b1"], duration: %{default: 5}}
-        },
-        transitions: %{
-          main: %{side: ["10", 2]},
-          side: %{main: ["01", 2]}
-        }
-      })
+      stages =
+        Stages.from_config(%{
+          name: "test_transitions_ok",
+          groups: ["a1", "a2", "b1"],
+          stages: %{
+            main: %{open: ["a1"], duration: %{default: 5}},
+            side: %{open: ["b1"], duration: %{default: 5}}
+          },
+          transitions: %{
+            main: %{side: ["10", 2]},
+            side: %{main: ["01", 2]}
+          }
+        })
 
       program = %StageBased{
         name: "valid_transitions",

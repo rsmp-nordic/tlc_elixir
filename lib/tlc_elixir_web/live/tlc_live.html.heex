@@ -1,20 +1,18 @@
 <.tlc_page_container>
-  <%
-    display_program = if @editing, do: @edited_program, else: @tlc.logic.program
+  <% display_program = if @editing, do: @edited_program, else: @tlc.logic.program
 
-    # logic_type is the type of the currently running logic (used for header/time display)
-    logic_type = get_logic_type(@tlc.logic)
-    # program_type is the type for the currently displayed program (the editor/preview)
-    program_type = get_program_type(display_program)
-    groups = get_groups(@tlc.logic)
-    logic_is_fixed_time = logic_type == :fixed_time
-    logic_current_cycle = if logic_is_fixed_time, do: @tlc.logic.cycle_time, else: 0
-    logic_offset = if logic_is_fixed_time, do: @tlc.logic.offset, else: 0
-    logic_target_offset = if logic_is_fixed_time, do: @tlc.logic.target_offset, else: nil
-    logic_target_distance = if logic_is_fixed_time, do: @tlc.logic.target_distance, else: nil
-  %>
-
-  <!-- Common Header: Program selector, Mode, Signal lamps -->
+  # logic_type is the type of the currently running logic (used for header/time display)
+  logic_type = get_logic_type(@tlc.logic)
+  # program_type is the type for the currently displayed program (the editor/preview)
+  program_type = get_program_type(display_program)
+  groups = get_groups(@tlc.logic)
+  logic_is_fixed_time = logic_type == :fixed_time
+  logic_current_cycle = if logic_is_fixed_time, do: @tlc.logic.cycle_time, else: 0
+  logic_offset = if logic_is_fixed_time, do: @tlc.logic.offset, else: 0
+  logic_target_offset = if logic_is_fixed_time, do: @tlc.logic.target_offset, else: nil
+  logic_target_distance = if logic_is_fixed_time, do: @tlc.logic.target_distance, else: nil %>
+  
+<!-- Common Header: Program selector, Mode, Signal lamps -->
   <.common_header
     programs={@tlc.programs}
     current_program={@tlc.logic.program}
@@ -29,8 +27,8 @@
     paused={@paused}
     editing={@editing}
   />
-
-  <!-- Program section (common): selectors at the top, type-specific details below) -->
+  
+<!-- Program section (common): selectors at the top, type-specific details below) -->
   <div class="overflow-x-auto" style="margin-bottom: 0.5rem;">
     <.card class="mb-3">
       <h2>Program</h2>
@@ -43,75 +41,81 @@
         edited_program={@edited_program}
         auto={@auto}
       />
-        <div class="mt-3 flex flex-col gap-3">
-          <div class="w-full">
-            <%!-- Show live logic stage controls if the running logic is stage-based (but not while editing) --%>
-            <%= unless @editing do %>
-              <%= if logic_type == :stage_based do %>
-                <.stage_based_details logic={@tlc.logic} selected_transition_variant={@selected_transition_variant} />
-              <% end %>
-              <%= if logic_type == :fixed_time do %>
-                <.fixed_time_details logic={@tlc.logic} />
-              <% end %>
+      <div class="mt-3 flex flex-col gap-3">
+        <div class="w-full">
+          <%!-- Show live logic stage controls if the running logic is stage-based (but not while editing) --%>
+          <%= unless @editing do %>
+            <%= if logic_type == :stage_based do %>
+              <.stage_based_details
+                logic={@tlc.logic}
+                selected_transition_variant={@selected_transition_variant}
+              />
             <% end %>
+            <%= if logic_type == :fixed_time do %>
+              <.fixed_time_details logic={@tlc.logic} />
+            <% end %>
+          <% end %>
 
-            <%!-- Show program preview for the currently displayed program (edited or saved).
+          <%!-- Show program preview for the currently displayed program (edited or saved).
                  Only show the preview when the display program's type differs from the running logic
                  (i.e., avoid duplicating details when the running program type matches the displayed) --%>
-            <%= if should_show_program_preview?(@editing, program_type, logic_type) do %>
-              <%= if program_type == :fixed_time do %>
-                <.fixed_time_program_preview program={display_program} />
-              <% else %>
-                <.stage_based_program_preview program={display_program} />
-              <% end %>
-            <% end %>
-          </div>
-          <div class="w-full overflow-x-auto">
+          <%= if should_show_program_preview?(@editing, program_type, logic_type) do %>
             <%= if program_type == :fixed_time do %>
-              <%= if @editing do %>
-                <.program_editor_container
-                  display_program={display_program}
-                  edited_program={@edited_program}
-                  current_program={@tlc.logic.program}
-                  current_cycle={logic_current_cycle}
-                  offset={logic_offset}
-                  target_offset={logic_target_offset}
-                  target_distance={logic_target_distance}
-                  invalid_transitions={@invalid_transitions}
-                  next_signal_fn={&next_signal/1}
-                  is_between_offsets_fn={&is_between_offsets/3}
-                  logic={@tlc.logic}
-                  interval={@tlc.interval}
-                  selected_interval={@selected_interval}
-                  paused={@paused}
-                  programs={@tlc.programs}
-                  logic_mode={@tlc.logic.mode}
-                  target_program={@target_program}
-                  program_text={@program_text}
-                  json_error={@json_error}
-                  validation_error={@validation_error}
-                />
-              <% else %>
-                <.program_grid_view
-                  display_program={display_program}
-                  current_program={@tlc.logic.program}
-                  current_cycle={logic_current_cycle}
-                  offset={logic_offset}
-                  target_offset={logic_target_offset}
-                  target_distance={logic_target_distance}
-                  invalid_transitions={@invalid_transitions}
-                  next_signal_fn={&next_signal/1}
-                  is_between_offsets_fn={&is_between_offsets/3}
-                  logic={@tlc.logic}
-                />
-              <% end %>
+              <.fixed_time_program_preview program={display_program} />
             <% else %>
-              <.transition_grid logic={@tlc.logic} selected_transition_variant={@selected_transition_variant} />
+              <.stage_based_program_preview program={display_program} />
             <% end %>
-          </div>
+          <% end %>
         </div>
-        </.card>
+        <div class="w-full overflow-x-auto">
+          <%= if program_type == :fixed_time do %>
+            <%= if @editing do %>
+              <.program_editor_container
+                display_program={display_program}
+                edited_program={@edited_program}
+                current_program={@tlc.logic.program}
+                current_cycle={logic_current_cycle}
+                offset={logic_offset}
+                target_offset={logic_target_offset}
+                target_distance={logic_target_distance}
+                invalid_transitions={@invalid_transitions}
+                next_signal_fn={&next_signal/1}
+                is_between_offsets_fn={&is_between_offsets/3}
+                logic={@tlc.logic}
+                interval={@tlc.interval}
+                selected_interval={@selected_interval}
+                paused={@paused}
+                programs={@tlc.programs}
+                logic_mode={@tlc.logic.mode}
+                target_program={@target_program}
+                program_text={@program_text}
+                json_error={@json_error}
+                validation_error={@validation_error}
+              />
+            <% else %>
+              <.program_grid_view
+                display_program={display_program}
+                current_program={@tlc.logic.program}
+                current_cycle={logic_current_cycle}
+                offset={logic_offset}
+                target_offset={logic_target_offset}
+                target_distance={logic_target_distance}
+                invalid_transitions={@invalid_transitions}
+                next_signal_fn={&next_signal/1}
+                is_between_offsets_fn={&is_between_offsets/3}
+                logic={@tlc.logic}
+              />
+            <% end %>
+          <% else %>
+            <.transition_grid
+              logic={@tlc.logic}
+              selected_transition_variant={@selected_transition_variant}
+            />
+          <% end %>
+        </div>
+      </div>
+    </.card>
   </div>
-
-  <!-- content moved inside the Program section above -->
+  
+<!-- content moved inside the Program section above -->
 </.tlc_page_container>

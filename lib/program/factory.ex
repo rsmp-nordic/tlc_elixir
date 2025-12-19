@@ -1,5 +1,3 @@
-
-
 defprotocol Tlc.Program.Factory do
   @moduledoc """
   Small protocol that centralises creation of runtime logic instances from
@@ -21,16 +19,15 @@ defprotocol Tlc.Program.Factory do
   def create_matching(program, current_state, unix_time)
 end
 
-
 defimpl Tlc.Program.Factory, for: Any do
   def create(_program, _unix_time, _mode), do: nil
   def create_matching(_program, _current_state, _unix_time), do: nil
 end
 
-
 defimpl Tlc.Program.Factory, for: Tlc.Program.FixedTime do
   def create(program, unix_time, mode) do
-    logic = Tlc.Logic.FixedTime.new(program)
+    logic =
+      Tlc.Logic.FixedTime.new(program)
       |> Tlc.Logic.FixedTime.update_unix_time(unix_time)
       |> Tlc.Logic.FixedTime.update_base_time()
 
@@ -50,13 +47,13 @@ defimpl Tlc.Program.Factory, for: Tlc.Program.FixedTime do
   end
 end
 
-
 defimpl Tlc.Program.Factory, for: Tlc.Program.StageBased do
   def create(program, unix_time, mode) do
-    logic = case mode do
-      :switching -> Tlc.Logic.StageBased.start_at_enter_stage(program)
-      :initial -> Tlc.Logic.StageBased.new(program)
-    end
+    logic =
+      case mode do
+        :switching -> Tlc.Logic.StageBased.start_at_enter_stage(program)
+        :initial -> Tlc.Logic.StageBased.new(program)
+      end
 
     %{logic | unix_time: unix_time}
   end

@@ -38,7 +38,6 @@ defmodule TlcElixir.MixProject do
       {:phoenix_live_reload, "~> 1.6", only: :dev},
       {:phoenix_live_view, "~> 1.1"},
       {:floki, ">= 0.30.0", only: :test},
-      {:lazy_html, ">= 0.1.0", only: :test},
       {:phoenix_live_dashboard, "~> 0.8"},
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.4", runtime: Mix.env() == :dev},
@@ -57,7 +56,8 @@ defmodule TlcElixir.MixProject do
       {:jason, "~> 1.4"},
       {:dns_cluster, "~> 0.2"},
       {:bandit, "~> 1.8"},
-      {:yamerl, "~> 0.10"}  # Using yamerl for YAML processing
+      # Using yamerl for YAML processing
+      {:yamerl, "~> 0.10"}
     ]
   end
 

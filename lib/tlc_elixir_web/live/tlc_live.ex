@@ -3,7 +3,9 @@ defmodule TlcElixirWeb.TlcLive do
   require Logger
 
   import TlcElixirWeb.TlcComponents
-  import TlcElixirWeb.LayoutComponents, only: [fixed_time_program_preview: 1, stage_based_program_preview: 1]
+
+  import TlcElixirWeb.LayoutComponents,
+    only: [fixed_time_program_preview: 1, stage_based_program_preview: 1]
 
   @impl true
   def mount(_params, _session, socket) do
@@ -14,7 +16,7 @@ defmodule TlcElixirWeb.TlcLive do
       live_instance_id: live_instance_id,
       editing: false,
       edited_program: nil,
-        # No need to track saved_program - not used elsewhere
+      # No need to track saved_program - not used elsewhere
       drag_start: nil,
       drag_signal: nil,
       invalid_transitions: %{},
@@ -60,10 +62,15 @@ defmodule TlcElixirWeb.TlcLive do
         Logger.error(
           "[TlcLive #{inspect(live_pid)}] Failed to ensure server started for ID #{live_instance_id}. Reason: #{inspect(reason)}"
         )
+
         {:ok,
          assign(
            socket,
-           Map.put(base_assigns, :mount_error, "Failed to initialize TLC system: #{inspect(reason)}")
+           Map.put(
+             base_assigns,
+             :mount_error,
+             "Failed to initialize TLC system: #{inspect(reason)}"
+           )
          )}
     end
   end
@@ -73,6 +80,7 @@ defmodule TlcElixirWeb.TlcLive do
     if socket.assigns.tlc.logic.mode != :fault do
       Tlc.Server.switch_program(socket.assigns.server, program_name)
     end
+
     {:noreply, socket}
   end
 
@@ -92,6 +100,7 @@ defmodule TlcElixirWeb.TlcLive do
       %Tlc.Logic.StageBased{} ->
         # forward request to server (variant may be nil)
         Tlc.Server.request_stage(socket.assigns.server, stage_id, variant)
+
       _ ->
         :ok
     end
@@ -104,7 +113,11 @@ defmodule TlcElixirWeb.TlcLive do
   end
 
   @impl true
-  def handle_event("select_transition_variant", %{"from" => from, "to" => to, "variant" => variant}, socket) do
+  def handle_event(
+        "select_transition_variant",
+        %{"from" => from, "to" => to, "variant" => variant},
+        socket
+      ) do
     # Ignore variant selection while a transition is active — you cannot
     # change a running transition.
     if Tlc.Logic.StageBased.in_transition?(socket.assigns.tlc.logic) do
@@ -130,7 +143,7 @@ defmodule TlcElixirWeb.TlcLive do
   end
 
   @impl true
-  def handle_event("set_interval", %{"interval" =>interval_str}, socket) do
+  def handle_event("set_interval", %{"interval" => interval_str}, socket) do
     interval = String.to_integer(interval_str)
     # When a positive interval is selected, remember it as the selected
     # interval for UI highlighting. If we're currently paused (server
@@ -157,7 +170,8 @@ defmodule TlcElixirWeb.TlcLive do
   @impl true
   def handle_event("toggle_pause", _params, socket) do
     # Toggle paused state. We must set the server interval accordingly.
-    paused = socket.assigns.paused || (socket.assigns.tlc.interval == 0)
+    paused = socket.assigns.paused || socket.assigns.tlc.interval == 0
+
     if paused do
       # unpause: set to selected_interval (or default 1000)
       interval = socket.assigns.selected_interval || 1000
@@ -182,10 +196,11 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("step", %{"steps" => steps_str}, socket) do
-    steps = case Integer.parse(steps_str) do
-      {v, _} when v > 0 -> v
-      _ -> 1
-    end
+    steps =
+      case Integer.parse(steps_str) do
+        {v, _} when v > 0 -> v
+        _ -> 1
+      end
 
     # Request the server to advance the virtual time by `steps` ticks
     Tlc.Server.step(socket.assigns.server, steps)
@@ -194,9 +209,10 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("start_editing", %{"program_name" => program_name}, socket) do
-    program_to_edit = Enum.find(socket.assigns.tlc.programs, fn prog ->
-      prog.name == program_name
-    end)
+    program_to_edit =
+      Enum.find(socket.assigns.tlc.programs, fn prog ->
+        prog.name == program_name
+      end)
 
     if program_to_edit do
       # Only start editing for fixed-time programs; stage-based programs have a different editor
@@ -216,7 +232,14 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("cancel_editing", _, socket) do
-    {:noreply, assign(socket, editing: false, edited_program: nil, program_text: nil, json_error: nil, validation_error: nil)}
+    {:noreply,
+     assign(socket,
+       editing: false,
+       edited_program: nil,
+       program_text: nil,
+       json_error: nil,
+       validation_error: nil
+     )}
   end
 
   @impl true
@@ -236,10 +259,11 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("update_program_length", %{"value" => length_str}, socket) do
-    length = case Integer.parse(length_str) do
-      {value, _} when value > 0 -> value
-      _ -> 1
-    end
+    length =
+      case Integer.parse(length_str) do
+        {value, _} when value > 0 -> value
+        _ -> 1
+      end
 
     updated_program = Map.put(socket.assigns.edited_program, :length, length)
     {:noreply, assign(socket, edited_program: updated_program)}
@@ -247,11 +271,14 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("update_program_offset", %{"value" => offset_str}, socket) do
-    offset = case Integer.parse(offset_str) do
-      {value, _} when value >= 0 ->
-        min(value, socket.assigns.edited_program.length - 1)
-      _ -> 0
-    end
+    offset =
+      case Integer.parse(offset_str) do
+        {value, _} when value >= 0 ->
+          min(value, socket.assigns.edited_program.length - 1)
+
+        _ ->
+          0
+      end
 
     updated_program = Map.put(socket.assigns.edited_program, :offset, offset)
     {:noreply, assign(socket, edited_program: updated_program)}
@@ -271,12 +298,22 @@ defmodule TlcElixirWeb.TlcLive do
   end
 
   @impl true
-  def handle_event("update_cell_signal", %{"cycle" => cycle_str, "group" => group_str, "signal" => signal}, socket) do
+  def handle_event(
+        "update_cell_signal",
+        %{"cycle" => cycle_str, "group" => group_str, "signal" => signal},
+        socket
+      ) do
     if socket.assigns.editing do
       cycle = parse_int(cycle_str)
-    group_idx = parse_int(group_str)
+      group_idx = parse_int(group_str)
 
-      updated_program = Tlc.Program.FixedTime.set_group_signal(socket.assigns.edited_program, cycle, group_idx, signal)
+      updated_program =
+        Tlc.Program.FixedTime.set_group_signal(
+          socket.assigns.edited_program,
+          cycle,
+          group_idx,
+          signal
+        )
 
       {:noreply, assign_edit_update(socket, updated_program)}
     else
@@ -289,7 +326,9 @@ defmodule TlcElixirWeb.TlcLive do
     cycle = parse_int(cycle_str)
     duration = parse_int(duration_str)
 
-    updated_program = Tlc.Program.FixedTime.set_skip(socket.assigns.edited_program, cycle, duration)
+    updated_program =
+      Tlc.Program.FixedTime.set_skip(socket.assigns.edited_program, cycle, duration)
+
     {:noreply, assign(socket, edited_program: updated_program)}
   end
 
@@ -298,7 +337,9 @@ defmodule TlcElixirWeb.TlcLive do
     cycle = parse_int(cycle_str)
     duration = parse_int(duration_str)
 
-    updated_program = Tlc.Program.FixedTime.set_wait(socket.assigns.edited_program, cycle, duration)
+    updated_program =
+      Tlc.Program.FixedTime.set_wait(socket.assigns.edited_program, cycle, duration)
+
     {:noreply, assign(socket, edited_program: updated_program)}
   end
 
@@ -328,7 +369,11 @@ defmodule TlcElixirWeb.TlcLive do
   end
 
   @impl true
-  def handle_event("drag_start", %{"cycle" => cycle_str, "group" => group_str, "signal" => signal}, socket) do
+  def handle_event(
+        "drag_start",
+        %{"cycle" => cycle_str, "group" => group_str, "signal" => signal},
+        socket
+      ) do
     cycle = parse_int(cycle_str)
     group_idx = parse_int(group_str)
 
@@ -336,15 +381,31 @@ defmodule TlcElixirWeb.TlcLive do
   end
 
   @impl true
-  def handle_event("drag_end", %{"cycle" => end_cycle_val, "group" => group_val,
-                               "start_cycle" => start_cycle_val, "signal" => signal}, socket) do
+  def handle_event(
+        "drag_end",
+        %{
+          "cycle" => end_cycle_val,
+          "group" => group_val,
+          "start_cycle" => start_cycle_val,
+          "signal" => signal
+        },
+        socket
+      ) do
     end_cycle = parse_int(end_cycle_val)
     start_cycle = parse_int(start_cycle_val)
     group_idx = parse_int(group_val)
 
-    {cycle_start, cycle_end} = if start_cycle <= end_cycle, do: {start_cycle, end_cycle}, else: {end_cycle, start_cycle}
+    {cycle_start, cycle_end} =
+      if start_cycle <= end_cycle, do: {start_cycle, end_cycle}, else: {end_cycle, start_cycle}
 
-    updated_program = Tlc.Program.FixedTime.set_group_signal_range(socket.assigns.edited_program, cycle_start, cycle_end, group_idx, signal)
+    updated_program =
+      Tlc.Program.FixedTime.set_group_signal_range(
+        socket.assigns.edited_program,
+        cycle_start,
+        cycle_end,
+        group_idx,
+        signal
+      )
 
     socket = assign_edit_update(socket, updated_program)
     socket = assign(socket, drag_start: nil, drag_signal: nil)
@@ -354,29 +415,40 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("edit_skip", %{"cycle" => cycle_str, "duration" => duration_str}, socket) do
-    {:noreply, push_event(socket, "open_skip_prompt", %{cycle: cycle_str, current_duration: duration_str})}
+    {:noreply,
+     push_event(socket, "open_skip_prompt", %{cycle: cycle_str, current_duration: duration_str})}
   end
 
   @impl true
   def handle_event("edit_wait", %{"cycle" => cycle_str, "duration" => duration_str}, socket) do
-    {:noreply, push_event(socket, "open_wait_prompt", %{cycle: cycle_str, current_duration: duration_str})}
+    {:noreply,
+     push_event(socket, "open_wait_prompt", %{cycle: cycle_str, current_duration: duration_str})}
   end
 
   @impl true
-  def handle_event("fill_gap", %{"start_cycle" => start_cycle_val, "end_cycle" => end_cycle_val,
-                           "group" => group_val, "signal" => signal}, socket) do
+  def handle_event(
+        "fill_gap",
+        %{
+          "start_cycle" => start_cycle_val,
+          "end_cycle" => end_cycle_val,
+          "group" => group_val,
+          "signal" => signal
+        },
+        socket
+      ) do
     if socket.assigns.editing do
       start_cycle = parse_int(start_cycle_val)
       end_cycle = parse_int(end_cycle_val)
       group_idx = parse_int(group_val)
 
-      updated_program = Tlc.Program.FixedTime.set_group_signal_stretch(
-        socket.assigns.edited_program,
-        start_cycle,
-        end_cycle,
-        group_idx,
-        signal
-      )
+      updated_program =
+        Tlc.Program.FixedTime.set_group_signal_stretch(
+          socket.assigns.edited_program,
+          start_cycle,
+          end_cycle,
+          group_idx,
+          signal
+        )
 
       socket = assign(socket, edited_program: updated_program)
       socket = validate_edited_program(socket)
@@ -409,7 +481,9 @@ defmodule TlcElixirWeb.TlcLive do
       case Integer.parse(offset_str) do
         {value, _} when value >= 0 ->
           min(value, socket.assigns.edited_program.length - 1)
-        _ -> socket.assigns.edited_program.offset || 0
+
+        _ ->
+          socket.assigns.edited_program.offset || 0
       end
 
     updated_program = Map.put(socket.assigns.edited_program, :offset, offset)
@@ -422,14 +496,16 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("update_program_length_immediate", %{"value" => length_str}, socket) do
-    length = case Integer.parse(length_str) do
-      {value, _} when value > 0 -> value
-      _ -> socket.assigns.edited_program.length
-    end
+    length =
+      case Integer.parse(length_str) do
+        {value, _} when value > 0 -> value
+        _ -> socket.assigns.edited_program.length
+      end
 
     updated_program = Map.put(socket.assigns.edited_program, :length, length)
 
     current_offset = updated_program.offset || 0
+
     updated_program =
       if current_offset >= length do
         Map.put(updated_program, :offset, length - 1)
@@ -442,11 +518,14 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("update_program_offset_immediate", %{"value" => offset_str}, socket) do
-    offset = case Integer.parse(offset_str) do
-      {value, _} when value >= 0 ->
-        min(value, socket.assigns.edited_program.length - 1)
-      _ -> socket.assigns.edited_program.offset || 0
-    end
+    offset =
+      case Integer.parse(offset_str) do
+        {value, _} when value >= 0 ->
+          min(value, socket.assigns.edited_program.length - 1)
+
+        _ ->
+          socket.assigns.edited_program.offset || 0
+      end
 
     updated_program = Map.put(socket.assigns.edited_program, :offset, offset)
     {:noreply, assign(socket, edited_program: updated_program)}
@@ -466,30 +545,38 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("update_program_form", params, socket) do
-    %{"program_name" => name, "program_length" => length_str, "program_offset" => offset_str} = params
+    %{"program_name" => name, "program_length" => length_str, "program_offset" => offset_str} =
+      params
 
-    length = case Integer.parse(length_str) do
-      {value, _} when value > 0 -> value
-      _ -> socket.assigns.edited_program.length
-    end
+    length =
+      case Integer.parse(length_str) do
+        {value, _} when value > 0 -> value
+        _ -> socket.assigns.edited_program.length
+      end
 
-    offset = case Integer.parse(offset_str) do
-      {value, _} when value >= 0 ->
-        min(value, length - 1)
-      _ -> socket.assigns.edited_program.offset || 0
-    end
+    offset =
+      case Integer.parse(offset_str) do
+        {value, _} when value >= 0 ->
+          min(value, length - 1)
 
-    updated_program = socket.assigns.edited_program
+        _ ->
+          socket.assigns.edited_program.offset || 0
+      end
+
+    updated_program =
+      socket.assigns.edited_program
       |> Map.put(:name, name)
       |> Map.put(:length, length)
       |> Map.put(:offset, offset)
 
     program_text = Jason.encode!(updated_program, pretty: true)
 
-    socket = assign(socket,
-      edited_program: updated_program,
-      program_text: program_text
-    )
+    socket =
+      assign(socket,
+        edited_program: updated_program,
+        program_text: program_text
+      )
+
     socket = validate_edited_program(socket)
 
     {:noreply, socket}
@@ -502,29 +589,40 @@ defmodule TlcElixirWeb.TlcLive do
 
   @impl true
   def handle_event("update_program_definition", %{"value" => text}, socket) do
-      json_error = case Jason.decode(text) do
-      {:ok, json_data} ->
-        # validate JSON structure
-        case convert_json_to_program(json_data) do
-          {:ok, program} ->
-            # validate program struct
-            case Tlc.Program.Protocol.validate(program) do
-              {:ok, _} -> nil
-              {:error, error} -> error
-            end
-          {:error, error} -> error
-        end
-      {:error, %Jason.DecodeError{} = err} -> "#{err.data}"
-    end
+    json_error =
+      case Jason.decode(text) do
+        {:ok, json_data} ->
+          # validate JSON structure
+          case convert_json_to_program(json_data) do
+            {:ok, program} ->
+              # validate program struct
+              case Tlc.Program.Protocol.validate(program) do
+                {:ok, _} -> nil
+                {:error, error} -> error
+              end
 
-    validation_error = if is_nil(json_error) do
-      # no json error at this point
-      nil
-    else
-      "Please fix the JSON error first"
-    end
+            {:error, error} ->
+              error
+          end
 
-    {:noreply, assign(socket, program_text: text, json_error: json_error, validation_error: validation_error)}
+        {:error, %Jason.DecodeError{} = err} ->
+          "#{err.data}"
+      end
+
+    validation_error =
+      if is_nil(json_error) do
+        # no json error at this point
+        nil
+      else
+        "Please fix the JSON error first"
+      end
+
+    {:noreply,
+     assign(socket,
+       program_text: text,
+       json_error: json_error,
+       validation_error: validation_error
+     )}
   end
 
   @impl true
@@ -537,10 +635,12 @@ defmodule TlcElixirWeb.TlcLive do
             {:ok, program} ->
               # Update the edited program
               {:noreply, assign(socket, edited_program: program)}
+
             {:error, _error} ->
               # This shouldn't happen since we've already validated
               {:noreply, socket}
           end
+
         {:error, _} ->
           # This shouldn't happen since we've already validated
           {:noreply, socket}
@@ -557,7 +657,15 @@ defmodule TlcElixirWeb.TlcLive do
     else
       target_program = Tlc.Server.get_target_program(socket.assigns.server)
       paused = new_tlc_state.interval == 0
-      updated_socket = assign(socket, tlc: new_tlc_state, target_program: target_program, paused: paused, auto: new_tlc_state.auto)
+
+      updated_socket =
+        assign(socket,
+          tlc: new_tlc_state,
+          target_program: target_program,
+          paused: paused,
+          auto: new_tlc_state.auto
+        )
+
       {:noreply, updated_socket}
     end
   end
@@ -577,6 +685,7 @@ defmodule TlcElixirWeb.TlcLive do
         switch: json_data["switch"],
         halt: json_data["halt"]
       }
+
       {:ok, program}
     rescue
       error -> {:error, "Invalid program structure: #{inspect(error)}"}
@@ -590,6 +699,7 @@ defmodule TlcElixirWeb.TlcLive do
       Map.put(acc, new_key, v)
     end)
   end
+
   defp string_keys_to_integers(value), do: value
 
   def is_between_offsets(_cycle, _logic, true), do: false
@@ -631,24 +741,28 @@ defmodule TlcElixirWeb.TlcLive do
         Logger.info(
           "[TlcLive] Server for ID #{server_id} started by supervisor (PID #{inspect(pid)}). Access via #{inspect(server_name_via_tuple)}."
         )
+
         {:ok, server_name_via_tuple}
 
       {:error, {:already_started, pid}} ->
         Logger.warning(
           "[TlcLive] Server for ID #{server_id} was already started (PID #{inspect(pid)}). Access via #{inspect(server_name_via_tuple)}."
         )
+
         {:ok, server_name_via_tuple}
 
       {:error, reason} ->
         Logger.error(
           "[TlcLive] Supervisor failed to start server for ID #{server_id}. Reason: #{inspect(reason)}"
         )
+
         {:error, reason}
 
       other ->
         Logger.error(
           "[TlcLive] Unexpected result from TlcElixir.ServerSupervisor.start_server for ID #{server_id}: #{inspect(other)}."
         )
+
         {:error, {:unexpected_supervisor_start_result, other}}
     end
   end
@@ -660,10 +774,11 @@ defmodule TlcElixirWeb.TlcLive do
   defp validate_edited_program(socket) do
     edited_program = socket.assigns.edited_program
 
-    invalid_transitions = case edited_program do
-      %Tlc.Program.FixedTime{} -> Tlc.Program.FixedTime.get_invalid_transitions(edited_program)
-      _ -> %{}
-    end
+    invalid_transitions =
+      case edited_program do
+        %Tlc.Program.FixedTime{} -> Tlc.Program.FixedTime.get_invalid_transitions(edited_program)
+        _ -> %{}
+      end
 
     assign(socket, invalid_transitions: invalid_transitions)
   end
@@ -672,7 +787,13 @@ defmodule TlcElixirWeb.TlcLive do
     program_text = Jason.encode!(program_to_edit, pretty: true)
 
     socket
-    |> assign(editing: true, edited_program: program_to_edit, program_text: program_text, json_error: nil, validation_error: nil)
+    |> assign(
+      editing: true,
+      edited_program: program_to_edit,
+      program_text: program_text,
+      json_error: nil,
+      validation_error: nil
+    )
     |> validate_edited_program()
   end
 
@@ -690,6 +811,7 @@ defmodule TlcElixirWeb.TlcLive do
       :error -> 0
     end
   end
+
   defp parse_int(value) when is_integer(value), do: value
   defp parse_int(_), do: 0
 
@@ -714,7 +836,10 @@ defmodule TlcElixirWeb.TlcLive do
   Works for both fixed-time and stage-based programs.
   """
   def get_groups(%Tlc.Logic.FixedTime{program: program}), do: program.groups
-  def get_groups(%Tlc.Logic.StageBased{program: program}), do: Tlc.Program.StageBased.groups(program)
+
+  def get_groups(%Tlc.Logic.StageBased{program: program}),
+    do: Tlc.Program.StageBased.groups(program)
+
   def get_groups(_), do: []
 
   @doc """
@@ -723,7 +848,10 @@ defmodule TlcElixirWeb.TlcLive do
   and stage-based program structs.
   """
   def get_program_groups(%Tlc.Program.FixedTime{groups: groups}), do: groups || []
-  def get_program_groups(%Tlc.Program.StageBased{} = program), do: Tlc.Program.StageBased.groups(program)
+
+  def get_program_groups(%Tlc.Program.StageBased{} = program),
+    do: Tlc.Program.StageBased.groups(program)
+
   def get_program_groups(_), do: []
 
   # Time display helpers moved to Layout/components; not used here

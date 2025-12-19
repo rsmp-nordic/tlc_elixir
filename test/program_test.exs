@@ -10,11 +10,16 @@ defmodule Tlc.Program.FixedTimeTest do
         length: 5,
         groups: ["a"],
         states: %{
-          0 => "R",  # Starting with Red
-          1 => "Y",  # Red -> Yellow (valid)
-          2 => "G",  # Yellow -> Green (valid)
-          3 => "Y",  # Green -> Yellow (valid)
-          4 => "R"   # Yellow -> Red (valid)
+          # Starting with Red
+          0 => "R",
+          # Red -> Yellow (valid)
+          1 => "Y",
+          # Yellow -> Green (valid)
+          2 => "G",
+          # Green -> Yellow (valid)
+          3 => "Y",
+          # Yellow -> Red (valid)
+          4 => "R"
         }
       }
 
@@ -28,11 +33,16 @@ defmodule Tlc.Program.FixedTimeTest do
         groups: ["a", "b"],
         states: %{
           0 => "RR",
-          1 => "YR",  # Group 1: R->Y (valid)
-          2 => "GR",  # Group 1: Y->G (valid)
-          3 => "GY",  # Group 2: R->Y (valid)
-          4 => "YG",  # Group 1: G->Y (valid), Group 2: Y->G (valid)
-          5 => "RR"   # Group 1: Y->R (valid), Group 2: G->R (invalid! should be Y first)
+          # Group 1: R->Y (valid)
+          1 => "YR",
+          # Group 1: Y->G (valid)
+          2 => "GR",
+          # Group 2: R->Y (valid)
+          3 => "GY",
+          # Group 1: G->Y (valid), Group 2: Y->G (valid)
+          4 => "YG",
+          # Group 1: Y->R (valid), Group 2: G->R (invalid! should be Y first)
+          5 => "RR"
         }
       }
 
@@ -48,7 +58,8 @@ defmodule Tlc.Program.FixedTimeTest do
         groups: ["a"],
         states: %{
           0 => "G",
-          1 => "R",  # G->R directly without Y (invalid)
+          # G->R directly without Y (invalid)
+          1 => "R",
           2 => "R",
           3 => "Y"
         }
@@ -66,7 +77,8 @@ defmodule Tlc.Program.FixedTimeTest do
         groups: ["a"],
         states: %{
           0 => "G",
-          1 => "R",  # Invalid: G->R directly without Y
+          # Invalid: G->R directly without Y
+          1 => "R",
           2 => "G"
         }
       }
@@ -83,10 +95,14 @@ defmodule Tlc.Program.FixedTimeTest do
         groups: ["a"],
         states: %{
           0 => "D",
-          1 => "R",  # D->R (valid)
-          2 => "Y",  # R->Y (valid)
-          3 => "G",  # Y->G (valid)
-          4 => "D"   # G->D (invalid, G can only go to Y)
+          # D->R (valid)
+          1 => "R",
+          # R->Y (valid)
+          2 => "Y",
+          # Y->G (valid)
+          3 => "G",
+          # G->D (invalid, G can only go to Y)
+          4 => "D"
         }
       }
 
@@ -101,7 +117,8 @@ defmodule Tlc.Program.FixedTimeTest do
         name: "single state",
         length: 5,
         groups: ["a"],
-        states: %{0 => "R"}  # Only one state, no transitions to validate
+        # Only one state, no transitions to validate
+        states: %{0 => "R"}
       }
 
       assert :ok = Program.validate_state_changes(single_state_program)
@@ -114,10 +131,14 @@ defmodule Tlc.Program.FixedTimeTest do
         groups: ["a"],
         states: %{
           0 => "R",
-          1 => "R",  # Same state, no transition
-          2 => "R",  # Same state, no transition
-          3 => "Y",  # R->Y (valid)
-          4 => "Y"   # Same state, no transition
+          # Same state, no transition
+          1 => "R",
+          # Same state, no transition
+          2 => "R",
+          # R->Y (valid)
+          3 => "Y",
+          # Same state, no transition
+          4 => "Y"
         }
       }
 
@@ -131,7 +152,8 @@ defmodule Tlc.Program.FixedTimeTest do
         groups: ["a"],
         states: %{
           0 => "R",
-          1 => "X",  # Unknown state 'X'
+          # Unknown state 'X'
+          1 => "X",
           2 => "R"
         }
       }

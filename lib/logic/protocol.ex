@@ -19,7 +19,6 @@ defprotocol Tlc.Logic.Protocol do
   def get_group_state(logic, group_id)
 end
 
-
 defimpl Tlc.Logic.Protocol, for: Any do
   # Fallback implementations provide safe defaults so callers do not crash if
   # they accidentally pass an unsupported value.
@@ -41,7 +40,6 @@ defimpl Tlc.Logic.Protocol, for: Any do
   def get_group_state(_, _), do: nil
 end
 
-
 defimpl Tlc.Logic.Protocol, for: Tlc.Logic.FixedTime do
   def tick(logic, unix_time), do: Tlc.Logic.FixedTime.tick(logic, unix_time)
   def mode(logic), do: logic.mode
@@ -60,9 +58,12 @@ defimpl Tlc.Logic.Protocol, for: Tlc.Logic.FixedTime do
     end
   end
 
-  def set_target_offset(logic, target_offset), do: Tlc.Logic.FixedTime.set_target_offset(logic, target_offset)
+  def set_target_offset(logic, target_offset),
+    do: Tlc.Logic.FixedTime.set_target_offset(logic, target_offset)
 
-  def set_target_program(logic, %Tlc.Program.FixedTime{} = program), do: Tlc.Logic.FixedTime.set_target_program(logic, program)
+  def set_target_program(logic, %Tlc.Program.FixedTime{} = program),
+    do: Tlc.Logic.FixedTime.set_target_program(logic, program)
+
   def set_target_program(logic, _), do: logic
 
   def clear_target_program(logic), do: Tlc.Logic.FixedTime.clear_target_program(logic)
@@ -85,7 +86,6 @@ defimpl Tlc.Logic.Protocol, for: Tlc.Logic.FixedTime do
   def get_target_program(logic), do: logic.target_program
 end
 
-
 defimpl Tlc.Logic.Protocol, for: Tlc.Logic.StageBased do
   def tick(logic, unix_time), do: Tlc.Logic.StageBased.tick(logic, unix_time)
   def mode(logic), do: logic.mode
@@ -100,9 +100,12 @@ defimpl Tlc.Logic.Protocol, for: Tlc.Logic.StageBased do
 
   def clear_target_program(logic), do: logic
 
-  def request_stage(logic, stage_id, variant \\ nil), do: Tlc.Logic.StageBased.request_stage(logic, stage_id, variant)
+  def request_stage(logic, stage_id, variant \\ nil),
+    do: Tlc.Logic.StageBased.request_stage(logic, stage_id, variant)
 
-  def switch_immediate(logic, %Tlc.Program.StageBased{} = program, _unix_time), do: Tlc.Logic.StageBased.switch_to_program(logic, program)
+  def switch_immediate(logic, %Tlc.Program.StageBased{} = program, _unix_time),
+    do: Tlc.Logic.StageBased.switch_to_program(logic, program)
+
   def switch_immediate(logic, _other, _unix_time), do: logic
 
   def halt(logic), do: Tlc.Logic.StageBased.halt(logic)

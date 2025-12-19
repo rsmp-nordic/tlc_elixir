@@ -31,9 +31,17 @@ defmodule Tlc.Program.SwitchValidator do
 
   defp program_validation_issue(program) do
     case validate_program(program) do
-      {:ok, _} -> []
+      {:ok, _} ->
+        []
+
       {:error, reason} ->
-        [%{type: :program_validation, program: program.name, message: "Program '#{program.name}' is invalid: #{reason}"}]
+        [
+          %{
+            type: :program_validation,
+            program: program.name,
+            message: "Program '#{program.name}' is invalid: #{reason}"
+          }
+        ]
     end
   end
 
@@ -41,14 +49,16 @@ defmodule Tlc.Program.SwitchValidator do
   Validates a single program based on its type.
   """
   def validate_program(%FixedTime{} = program), do: FixedTime.validate(program)
-    def validate_program(%StageBased{} = program) do
-      with {:ok, _} <- StageBased.validate(program),
-           {:ok, _} <- Stages.validate(program.stages_ref) do
-        {:ok, program}
-      else
-        error -> error
-      end
+
+  def validate_program(%StageBased{} = program) do
+    with {:ok, _} <- StageBased.validate(program),
+         {:ok, _} <- Stages.validate(program.stages_ref) do
+      {:ok, program}
+    else
+      error -> error
     end
+  end
+
   def validate_program(_), do: {:error, "Unknown program type"}
 
   @doc """
@@ -78,6 +88,7 @@ defmodule Tlc.Program.SwitchValidator do
   leaving `fault` is validated like any other program.
   """
   def validate_switch(_source, %{name: "fault"}), do: []
+
   def validate_switch(source, target) do
     source_switch_points = get_switch_points(source, :leave)
     target_switch_points = get_switch_points(target, :enter)
@@ -87,9 +98,10 @@ defmodule Tlc.Program.SwitchValidator do
     # combinations as issues.
     all_pairs = for sp <- source_switch_points, tp <- target_switch_points, do: {sp, tp}
 
-    any_valid = Enum.any?(all_pairs, fn {{s_point, s_state}, {t_point, t_state}} ->
-      s_state == t_state || transition_switch_possible?(source, target, s_point, t_point)
-    end)
+    any_valid =
+      Enum.any?(all_pairs, fn {{s_point, s_state}, {t_point, t_state}} ->
+        s_state == t_state || transition_switch_possible?(source, target, s_point, t_point)
+      end)
 
     if any_valid do
       []
@@ -97,15 +109,17 @@ defmodule Tlc.Program.SwitchValidator do
       Enum.flat_map(all_pairs, fn {{s_point, s_state}, {t_point, t_state}} ->
         if source.name != target.name and target.name != "fault" and s_state != t_state and
              not transition_switch_possible?(source, target, s_point, t_point) do
-          [%{
-            source_program: source.name,
-            target_program: target.name,
-            source_switch_point: s_point,
-            target_switch_point: t_point,
-            source_state: s_state,
-            target_state: t_state,
-            message: build_error_message(source, target, s_point, t_point, s_state, t_state)
-          }]
+          [
+            %{
+              source_program: source.name,
+              target_program: target.name,
+              source_switch_point: s_point,
+              target_switch_point: t_point,
+              source_state: s_state,
+              target_state: t_state,
+              message: build_error_message(source, target, s_point, t_point, s_state, t_state)
+            }
+          ]
         else
           []
         end
@@ -119,11 +133,12 @@ defmodule Tlc.Program.SwitchValidator do
   exists from the source leave stage to the target enter stage.
   """
   def transition_switch_possible?(
-    %StageBased{stages_ref: stages_ref} = _source,
-    %StageBased{stages_ref: target_stages_ref} = _target,
-    source_stage,
-    target_stage
-  ) when is_binary(source_stage) and is_binary(target_stage) do
+        %StageBased{stages_ref: stages_ref} = _source,
+        %StageBased{stages_ref: target_stages_ref} = _target,
+        source_stage,
+        target_stage
+      )
+      when is_binary(source_stage) and is_binary(target_stage) do
     # Both must share the same stages_ref (or equivalent transitions)
     # For now, check if they reference the same stages definition
     same_stages = stages_ref.name == target_stages_ref.name
@@ -135,6 +150,7 @@ defmodule Tlc.Program.SwitchValidator do
       false
     end
   end
+
   def transition_switch_possible?(_, _, _, _), do: false
 
   @doc """
@@ -146,7 +162,9 @@ defmodule Tlc.Program.SwitchValidator do
   def get_switch_points(%FixedTime{} = program, _direction) do
     # Fixed-time programs have a single switch point
     case program.switch do
-      nil -> []
+      nil ->
+        []
+
       switch_time ->
         state = FixedTime.resolve_state(program, switch_time)
         [{switch_time, state}]

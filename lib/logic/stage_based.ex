@@ -33,15 +33,15 @@ defmodule Tlc.Logic.StageBased do
     }
   end
 
-    # Pick initial stage: prefer program.enter then stages_ref keys
-    defp first_stage(%{enter: [first | _]}), do: first
+  # Pick initial stage: prefer program.enter then stages_ref keys
+  defp first_stage(%{enter: [first | _]}), do: first
 
-    defp first_stage(%{stages_ref: %{stages: stages}}) when is_map(stages) do
-      case Map.keys(stages) do
-        [first | _] -> first
-        [] -> nil
-      end
+  defp first_stage(%{stages_ref: %{stages: stages}}) when is_map(stages) do
+    case Map.keys(stages) do
+      [first | _] -> first
+      [] -> nil
     end
+  end
 
   @doc """
   Advances the logic by one tick (typically 1 second).
@@ -60,6 +60,7 @@ defmodule Tlc.Logic.StageBased do
   defp update_unix_time(logic, unix_time) when logic.unix_time == nil do
     %{logic | unix_time: unix_time, unix_delta: 0}
   end
+
   defp update_unix_time(logic, unix_time) do
     %{logic | unix_time: unix_time, unix_delta: unix_time - logic.unix_time}
   end
@@ -90,9 +91,10 @@ defmodule Tlc.Logic.StageBased do
       complete_transition(logic)
     else
       # update transition-state
-      %{logic |
-        transition_elapsed: new_elapsed,
-        current_states: get_transition_state(transition, new_elapsed)
+      %{
+        logic
+        | transition_elapsed: new_elapsed,
+          current_states: get_transition_state(transition, new_elapsed)
       }
     end
   end
@@ -102,6 +104,7 @@ defmodule Tlc.Logic.StageBased do
     transition.sequence
     |> Enum.reduce_while({nil, 0}, fn step, {_acc_state, acc_time} ->
       new_acc = acc_time + step.duration
+
       if elapsed < new_acc do
         {:halt, {step.state, new_acc}}
       else
@@ -109,7 +112,9 @@ defmodule Tlc.Logic.StageBased do
       end
     end)
     |> case do
-      {state, _} when is_binary(state) -> state
+      {state, _} when is_binary(state) ->
+        state
+
       # Fallback to last state's state or empty string
       _ ->
         transition.sequence |> List.last() |> then(fn s -> (s && s.state) || "" end)
@@ -123,15 +128,16 @@ defmodule Tlc.Logic.StageBased do
     # select next stage for UI pre-selection
     upcoming_stage = select_next_stage(logic.program, target_stage)
 
-    %{logic |
-      current_stage: target_stage,
-      current_transition: nil,
-      transition_elapsed: 0,
-      stage_elapsed: 0,
-      requested_stage: nil,
-      requested_variant: nil,
-      upcoming_stage: upcoming_stage,
-      current_states: new_states
+    %{
+      logic
+      | current_stage: target_stage,
+        current_transition: nil,
+        transition_elapsed: 0,
+        stage_elapsed: 0,
+        requested_stage: nil,
+        requested_variant: nil,
+        upcoming_stage: upcoming_stage,
+        current_states: new_states
     }
   end
 
@@ -142,24 +148,47 @@ defmodule Tlc.Logic.StageBased do
     flows = Map.get(logic.program.flows, logic.current_stage, [])
 
     # Find all candidate flows targeting the requested stage
-    candidates = flows
-    |> Enum.filter(fn f -> f.to == logic.requested_stage end)
-    |> Enum.filter(fn f -> Program.get_transition(logic.program, logic.current_stage, logic.requested_stage, f.transition) != nil end)
+    candidates =
+      flows
+      |> Enum.filter(fn f -> f.to == logic.requested_stage end)
+      |> Enum.filter(fn f ->
+        Program.get_transition(
+          logic.program,
+          logic.current_stage,
+          logic.requested_stage,
+          f.transition
+        ) != nil
+      end)
 
     # If a specific variant was requested prefer flows that match it. Fall back
     # to all candidates when no match exists.
-    candidates = case logic.requested_variant do
-      nil -> candidates
-      variant ->
-        filtered = Enum.filter(candidates, fn f -> to_string(f.transition) == to_string(variant) end)
-        if filtered == [], do: candidates, else: filtered
-    end
+    candidates =
+      case logic.requested_variant do
+        nil ->
+          candidates
+
+        variant ->
+          filtered =
+            Enum.filter(candidates, fn f -> to_string(f.transition) == to_string(variant) end)
+
+          if filtered == [], do: candidates, else: filtered
+      end
 
     case candidates do
-      [] -> %{logic | requested_stage: nil, requested_variant: nil}
+      [] ->
+        %{logic | requested_stage: nil, requested_variant: nil}
+
       _ ->
         flow = Enum.random(candidates)
-        transition = Program.get_transition(logic.program, logic.current_stage, logic.requested_stage, flow.transition)
+
+        transition =
+          Program.get_transition(
+            logic.program,
+            logic.current_stage,
+            logic.requested_stage,
+            flow.transition
+          )
+
         if transition do
           # consume the request when starting the transition
           start_transition(logic, transition)
@@ -172,19 +201,12 @@ defmodule Tlc.Logic.StageBased do
 
   # Start running a transition; if sequence present set initial state
   defp start_transition(logic, %{sequence: [first | _]} = transition) do
-    %{logic |
-      current_transition: transition,
-      transition_elapsed: 0,
-      current_states: first.state
-    }
+    %{logic | current_transition: transition, transition_elapsed: 0, current_states: first.state}
   end
 
   defp start_transition(logic, %{sequence: []} = transition) do
     # empty sequence -> keep current states
-    %{logic |
-      current_transition: transition,
-      transition_elapsed: 0
-    }
+    %{logic | current_transition: transition, transition_elapsed: 0}
   end
 
   defp advance_stage(logic) do
@@ -235,8 +257,11 @@ defmodule Tlc.Logic.StageBased do
     groups = Program.groups(logic.program)
 
     case Enum.find_index(groups, fn g -> g == group_id end) do
-      index when is_integer(index) and index < byte_size(logic.current_states) -> String.at(logic.current_states, index)
-      _ -> nil
+      index when is_integer(index) and index < byte_size(logic.current_states) ->
+        String.at(logic.current_states, index)
+
+      _ ->
+        nil
     end
   end
 
@@ -258,10 +283,7 @@ defmodule Tlc.Logic.StageBased do
 
   @doc "Halt logic (mode :halt)."
   def halt(logic) do
-    %{logic |
-      mode: :halt,
-      requested_stage: nil
-    }
+    %{logic | mode: :halt, requested_stage: nil}
   end
 
   @doc "Enter :fault mode and set all groups to red."
@@ -272,11 +294,12 @@ defmodule Tlc.Logic.StageBased do
       |> length()
       |> then(&String.duplicate("R", &1))
 
-    %{logic |
-      mode: :fault,
-      requested_stage: nil,
-      current_transition: nil,
-      current_states: red_state
+    %{
+      logic
+      | mode: :fault,
+        requested_stage: nil,
+        current_transition: nil,
+        current_states: red_state
     }
   end
 
@@ -290,9 +313,13 @@ defmodule Tlc.Logic.StageBased do
     case logic.current_transition do
       nil ->
         case Program.get_stage(logic.program, logic.current_stage) do
-          %{duration: %{default: d}} when is_integer(d) and d > 0 -> max(0, d - logic.stage_elapsed)
-          _ -> nil
+          %{duration: %{default: d}} when is_integer(d) and d > 0 ->
+            max(0, d - logic.stage_elapsed)
+
+          _ ->
+            nil
         end
+
       _ ->
         nil
     end
@@ -318,6 +345,7 @@ defmodule Tlc.Logic.StageBased do
       [] ->
         # No leave stages defined, any stage is valid
         true
+
       leave_stages ->
         logic.current_stage in leave_stages
     end
@@ -344,9 +372,10 @@ defmodule Tlc.Logic.StageBased do
   @doc "Start at an enter stage matching a given state, fallback to default."
   def start_at_matching_enter_stage(program, current_state) do
     # Find an enter stage whose state matches the current state
-    matching_stage = Enum.find(program.enter, fn stage_id ->
-      Program.get_stage_state(program, stage_id) == current_state
-    end)
+    matching_stage =
+      Enum.find(program.enter, fn stage_id ->
+        Program.get_stage_state(program, stage_id) == current_state
+      end)
 
     case matching_stage do
       nil ->
@@ -391,6 +420,7 @@ defmodule Tlc.Logic.StageBased do
           %{} = transition ->
             # Start transition to the enter stage
             first_step = List.first(transition.sequence)
+
             %__MODULE__{
               program: new_program,
               current_stage: logic.current_stage,
@@ -398,7 +428,8 @@ defmodule Tlc.Logic.StageBased do
               transition_elapsed: 0,
               stage_elapsed: 0,
               requested_stage: nil,
-              upcoming_stage: enter_stage_id,  # The upcoming stage is the transition target
+              # The upcoming stage is the transition target
+              upcoming_stage: enter_stage_id,
               current_states: first_step.state,
               unix_time: logic.unix_time,
               unix_delta: logic.unix_delta,

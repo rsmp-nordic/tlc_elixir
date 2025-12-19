@@ -37,7 +37,10 @@ defmodule Tlc.Program.StageBased do
       enter: ["main"],
       leave: ["main"],
       flows: %{
-        "main" => [%Flow{to: "side", transition: "default"}, %Flow{to: "turn", transition: "default"}],
+        "main" => [
+          %Flow{to: "side", transition: "default"},
+          %Flow{to: "turn", transition: "default"}
+        ],
         "side" => [%Flow{to: "turn", transition: "default"}],
         "turn" => [%Flow{to: "main", transition: "default"}]
       }
@@ -87,8 +90,14 @@ defmodule Tlc.Program.StageBased do
       leave: ["main"],
       flows: %{
         # Create a ring that visits all stages so they're all reachable
-        "main" => [%Flow{to: "side", transition: "default"}, %Flow{to: "turn", transition: "default"}],
-        "side" => [%Flow{to: "turn", transition: "default"}, %Flow{to: "both", transition: "default"}],
+        "main" => [
+          %Flow{to: "side", transition: "default"},
+          %Flow{to: "turn", transition: "default"}
+        ],
+        "side" => [
+          %Flow{to: "turn", transition: "default"},
+          %Flow{to: "both", transition: "default"}
+        ],
         "turn" => [%Flow{to: "oneway", transition: "default"}],
         "oneway" => [%Flow{to: "both", transition: "default"}],
         "both" => [%Flow{to: "left_right", transition: "default"}],
@@ -102,39 +111,48 @@ defmodule Tlc.Program.StageBased do
   Requires a Stages struct to reference.
   """
   def from_config(config, %Stages{} = stages_ref) when is_map(config) do
-    name = Map.get(config, :name, Map.get(config, "name", Map.get(config, :id, Map.get(config, "id", ""))))
+    name =
+      Map.get(
+        config,
+        :name,
+        Map.get(config, "name", Map.get(config, :id, Map.get(config, "id", "")))
+      )
 
     # parse enter stages
-    enter = case Map.get(config, :enter, Map.get(config, "enter", %{})) do
-      stages when is_map(stages) -> Map.keys(stages) |> Enum.map(&to_string/1)
-      stages when is_list(stages) -> Enum.map(stages, &to_string/1)
-      _ -> []
-    end
+    enter =
+      case Map.get(config, :enter, Map.get(config, "enter", %{})) do
+        stages when is_map(stages) -> Map.keys(stages) |> Enum.map(&to_string/1)
+        stages when is_list(stages) -> Enum.map(stages, &to_string/1)
+        _ -> []
+      end
 
     # parse flows
-    flows = config
-    |> Enum.reject(fn {key, _} -> key in [:enter, "enter", :id, "id", :name, "name"] end)
-    |> Enum.map(fn {from, destinations} ->
-      from_str = to_string(from)
-      parsed_flows = parse_flows(destinations)
-      {from_str, parsed_flows}
-    end)
-    |> Map.new()
+    flows =
+      config
+      |> Enum.reject(fn {key, _} -> key in [:enter, "enter", :id, "id", :name, "name"] end)
+      |> Enum.map(fn {from, destinations} ->
+        from_str = to_string(from)
+        parsed_flows = parse_flows(destinations)
+        {from_str, parsed_flows}
+      end)
+      |> Map.new()
 
     # extract leave stages
-    leave = flows
-    |> Enum.filter(fn {_from, flow_list} ->
-      Enum.any?(flow_list, fn flow -> flow.to == "leave" end)
-    end)
-    |> Enum.map(fn {from, _} -> from end)
+    leave =
+      flows
+      |> Enum.filter(fn {_from, flow_list} ->
+        Enum.any?(flow_list, fn flow -> flow.to == "leave" end)
+      end)
+      |> Enum.map(fn {from, _} -> from end)
 
     # remove leave flows from map
-    flows = flows
-    |> Enum.map(fn {from, flow_list} ->
-      filtered_flows = Enum.reject(flow_list, fn flow -> flow.to == "leave" end)
-      {from, filtered_flows}
-    end)
-    |> Map.new()
+    flows =
+      flows
+      |> Enum.map(fn {from, flow_list} ->
+        filtered_flows = Enum.reject(flow_list, fn flow -> flow.to == "leave" end)
+        {from, filtered_flows}
+      end)
+      |> Map.new()
 
     %__MODULE__{
       name: name,
@@ -179,6 +197,7 @@ defmodule Tlc.Program.StageBased do
     # support list-of-targets shorthand, e.g. main: ["side", "turn"] -> both default flows
     Enum.map(destinations, fn to -> %Flow{to: to_string(to), transition: "default"} end)
   end
+
   defp parse_flows(_), do: []
 
   @doc """
@@ -213,10 +232,11 @@ defmodule Tlc.Program.StageBased do
       {:error, "Program references undefined stages in enter"}
     else
       # Check flow destinations exist
-      invalid_flows = Enum.any?(flows, fn {from, flow_list} ->
-        from not in stage_ids or
-          Enum.any?(flow_list, fn flow -> flow.to not in stage_ids end)
-      end)
+      invalid_flows =
+        Enum.any?(flows, fn {from, flow_list} ->
+          from not in stage_ids or
+            Enum.any?(flow_list, fn flow -> flow.to not in stage_ids end)
+        end)
 
       if invalid_flows do
         {:error, "Program flows reference undefined stages"}
@@ -227,21 +247,29 @@ defmodule Tlc.Program.StageBased do
           |> Enum.flat_map(fn {from, flow_list} ->
             Enum.map(flow_list, fn %Flow{to: to, transition: transition_name} ->
               # Treat nil/empty transition names as explicit default per spec
-              variant = case transition_name do
-                t when t in [nil, ""] -> "default"
-                t -> to_string(t)
-              end
+              variant =
+                case transition_name do
+                  t when t in [nil, ""] -> "default"
+                  t -> to_string(t)
+                end
 
               case Map.get(stages_ref.transitions, {from, to}) do
-                nil -> {from, to, variant}
-                variants_map -> if Map.has_key?(variants_map, variant), do: nil, else: {from, to, variant}
+                nil ->
+                  {from, to, variant}
+
+                variants_map ->
+                  if Map.has_key?(variants_map, variant), do: nil, else: {from, to, variant}
               end
             end)
           end)
           |> Enum.reject(&is_nil/1)
 
         if missing_transitions != [] do
-          details = missing_transitions |> Enum.map(fn {f, t, name} -> "#{f}->#{t} (#{name})" end) |> Enum.join(", ")
+          details =
+            missing_transitions
+            |> Enum.map(fn {f, t, name} -> "#{f}->#{t} (#{name})" end)
+            |> Enum.join(", ")
+
           {:error, "Program flows reference missing transitions: #{details}"}
         else
           :ok
@@ -249,6 +277,7 @@ defmodule Tlc.Program.StageBased do
       end
     end
   end
+
   defp validate_flows(_), do: :ok
 
   # Delegate stage/transition operations to the stages_ref
@@ -265,7 +294,12 @@ defmodule Tlc.Program.StageBased do
   Gets a transition between two stages.
   Delegates to the stages_ref.
   """
-  def get_transition(%__MODULE__{stages_ref: stages_ref}, from_stage, to_stage, transition_name \\ "default") do
+  def get_transition(
+        %__MODULE__{stages_ref: stages_ref},
+        from_stage,
+        to_stage,
+        transition_name \\ "default"
+      ) do
     Stages.get_transition(stages_ref, from_stage, to_stage, transition_name)
   end
 
